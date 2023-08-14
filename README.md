@@ -1,5 +1,5 @@
 # TenANN
-Library for fast and flexible approximate nearest neighbor search.
+Fast and flexible approximate nearest neighbor search.
 
 
 
