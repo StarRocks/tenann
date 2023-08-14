@@ -1,0 +1,2 @@
+add_executable(helloworld_exmaple helloworld_exmaple.cc)
+target_link_libraries(helloworld_exmaple tenann)
