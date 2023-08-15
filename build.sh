@@ -9,7 +9,7 @@ TENANN_OUTPUT=${TENANN_HOME}/output/
 mkdir -p ${TENANN_OUTPUT}
 
 # just for test
-cd tenann
+cd ${TENANN_HOME}/tenann
 g++ -g -c version.cc -o libtenann.o -I..
 ar rcs libtenann.a libtenann.o
 cd -
