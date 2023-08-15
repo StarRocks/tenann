@@ -13,5 +13,5 @@ cd ${TENANN_HOME}/tenann
 g++ -g -c version.cc -o libtenann.o -I..
 ar rcs libtenann.a libtenann.o
 cd -
-cp tenann/*.h ${TENANN_OUTPUT}
-cp tenann/libtenann.a ${TENANN_OUTPUT}
+cp ${TENANN_HOME}/tenann/*.h ${TENANN_OUTPUT}
+cp ${TENANN_HOME}/tenann/libtenann.a ${TENANN_OUTPUT}
