@@ -22,5 +22,6 @@ namespace tenann {
 constexpr const char* TENANN_VERSION = "0.0.1";
 
 void HelloWorld();
+int FaissTest();
 
 }  // namespace tenann

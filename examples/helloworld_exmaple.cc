@@ -19,4 +19,10 @@
 
 #include "tenann/version.h"
 
-int main() { tenann::HelloWorld(); }
+#include <iostream>
+
+int main() {
+  std::cout << "main: Hello World\n";
+  tenann::HelloWorld();
+  tenann::FaissTest();
+}
