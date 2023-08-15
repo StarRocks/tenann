@@ -11,20 +11,25 @@ include_directories(
 )
 
 set(TENANN_SOURCE tenann/version.cc)
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/build64_release/lib)
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/build64_release/include)
+file(GLOB HEADER_FILES ${CMAKE_SOURCE_DIR}/tenann/*.h)
+file(COPY ${HEADER_FILES} DESTINATION ${CMAKE_SOURCE_DIR}/build64_release/include)
 
-ADD_LIBRARY(tenann ${TENANN_SOURCE})
+ADD_LIBRARY(tenann SHARED ${TENANN_SOURCE})
+set_target_properties(tenann PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build64_release/lib)
 
 # 设置包含路径和链接库
 include_directories(${CMAKE_SOURCE_DIR}/third_party/faiss/include)
 link_directories(${CMAKE_SOURCE_DIR}/third_party/faiss/lib)
 # 添加 faiss 库
-add_library(faiss STATIC IMPORTED)
+add_library(faiss SHARED IMPORTED)
 set_target_properties(faiss PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/third_party/faiss/lib/libfaiss.a)
 # 链接 faiss 库
 target_link_libraries(tenann faiss)
 
 # 链接 blas 库
-find_package(BLAS REQUIRED)
+find_package(BLAS REQUIRED COMPONENTS BLAS)
 target_link_libraries(tenann ${BLAS_LIBRARIES})
 
 # 链接 OpenMP 库
