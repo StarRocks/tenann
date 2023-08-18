@@ -1,4 +1,5 @@
 build*
+!builder
 output
 cmake-build-*
 .idea
