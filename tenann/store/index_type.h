@@ -17,29 +17,22 @@
  * under the License.
  */
 
-#include <iostream>
+#pragma once
 
-#include "tenann/store/index_meta.h"
+#include <cstdint>
 
-int main() {
-  using namespace tenann;
-  IndexMeta meta;
+#include "nlohmann/json.hpp"
 
-  // set meta values
-  meta.SetMetaVersion(0);
-  meta.SetIndexFamily(IndexFamily::kVectorIndex);
-  meta.SetIndexType(IndexType::kFaissHnsw);
-  meta.common_params()["dim"] = 128;
-  meta.index_params()["efConstruction"] = 40;
-  meta.search_params()["efSearch"] = 40;
-  meta.extra_params()["comments"] = "my comments";
+namespace tenann {
 
-  std::cout << meta.meta_json() << "\n";
 
-  // serialize and deserialize
-  auto buffer = meta.Serialize();
-  auto new_meta = IndexMeta::Deserialize(buffer);
+enum IndexFamily { kUnknownFamily = 0, kVectorIndex, kTextIndex };
 
-  std::cout << buffer.size() << "\n";
-  std::cout << new_meta.meta_json() << "\n";
-}
+enum IndexType {
+  kUnknownIndex = 0,
+  kFaissHnsw,    // faiss hnsw
+  kFaissIvfPq,   // faiss ivf-pq
+  kFaissIvfFlat  // faiss ivf-flat
+};
+
+}  // namespace tenann

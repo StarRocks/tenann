@@ -22,37 +22,43 @@
 #include <cstdint>
 
 #include "nlohmann/json.hpp"
+#include "tenann/store/index_type.h"
 
 namespace tenann {
 
 using json = nlohmann::json;
-
-enum IndexFamily { kUnknownFamily = 0, kVectorIndex, kTextIndex };
-
-enum IndexType {
-  kUnknownIndex = 0,
-  kFaissHnsw,    // faiss hnsw
-  kFaissIvfPq,   // faiss ivf-pq
-  kFaissIvfFlat  // faiss ivf-flat
-};
 
 class IndexMeta {
  public:
   IndexMeta();
   explicit IndexMeta(const json& meta_json);
 
+  IndexMeta(const IndexMeta&) = default;
+  IndexMeta& operator=(const IndexMeta&) = default;
+  IndexMeta(IndexMeta&&) noexcept = default;
+  IndexMeta& operator=(IndexMeta&&) noexcept = default;
+
   json& meta_json();
+  const json& meta_json() const;
 
   /* setters and getters */
-  void SetMetaFormatVersion(int version);
+  void SetMetaVersion(int version);
   void SetIndexFamily(IndexFamily family);
+  void SetIndexType(IndexType type);
 
-  int meta_format_version();
-  int index_family();
+  int meta_version() const;
+  int index_family() const;
+  int index_type() const;
+
   json& common_params();
   json& index_params();
   json& search_params();
-  json& extra_properties();
+  json& extra_params();
+
+  const json& common_params() const;
+  const json& index_params() const;
+  const json& search_params() const;
+  const json& extra_params() const;
 
   /// Read from a json file
   static IndexMeta Read(const std::string& path);

@@ -17,29 +17,23 @@
  * under the License.
  */
 
-#include <iostream>
+#pragma once
 
+#include "tenann/builder/index_builder.h"
+#include "tenann/index/index_reader.h"
+#include "tenann/index/index_writer.h"
+#include "tenann/scanner/index_scanner.h"
 #include "tenann/store/index_meta.h"
+#include "tenann/streamer/index_streamer.h"
 
-int main() {
-  using namespace tenann;
-  IndexMeta meta;
+namespace tenann {
 
-  // set meta values
-  meta.SetMetaVersion(0);
-  meta.SetIndexFamily(IndexFamily::kVectorIndex);
-  meta.SetIndexType(IndexType::kFaissHnsw);
-  meta.common_params()["dim"] = 128;
-  meta.index_params()["efConstruction"] = 40;
-  meta.search_params()["efSearch"] = 40;
-  meta.extra_params()["comments"] = "my comments";
+class IndexFactory {
+  virtual IndexReader* CreateReaderFromMeta(const IndexMeta& meta);
+  virtual IndexWriter* CreateWriterFromMeta(const IndexMeta& meta);
+  virtual IndexBuilder* CreateBuilderFromMeta(const IndexMeta& meta);
+  virtual IndexStreamer* CreateStreamerFromMeta(const IndexMeta& meta);
+  virtual IndexScanner* CreateScannerFromMeta(const IndexMeta& meta);
+};
 
-  std::cout << meta.meta_json() << "\n";
-
-  // serialize and deserialize
-  auto buffer = meta.Serialize();
-  auto new_meta = IndexMeta::Deserialize(buffer);
-
-  std::cout << buffer.size() << "\n";
-  std::cout << new_meta.meta_json() << "\n";
-}
+}  // namespace tenann

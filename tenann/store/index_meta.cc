@@ -25,21 +25,27 @@ IndexMeta::IndexMeta() = default;
 
 IndexMeta::IndexMeta(const json& meta_json) : meta_json_(meta_json) {}
 
-void IndexMeta::SetMetaFormatVersion(int version) { meta_json_["meta_format_version"] = version; }
-
-void IndexMeta::SetIndexFamily(tenann::IndexFamily family) { meta_json_["index_family"] = family; }
-
-int IndexMeta::meta_format_version() {
-  return meta_json_["meta_format_version"].template get<int>();
-}
-
-int IndexMeta::index_family() { return meta_json_["index_family"].template get<int>(); }
-
 json& IndexMeta::meta_json() { return meta_json_; }
-json& IndexMeta::common_params() { return meta_json_["common_params"]; }
-json& IndexMeta::index_params() { return meta_json_["index_params"]; }
-json& IndexMeta::search_params() { return meta_json_["search_params"]; }
-json& IndexMeta::extra_properties() { return meta_json_["extra_properties"]; }
+
+const json& IndexMeta::meta_json() const { return meta_json_; }
+
+void IndexMeta::SetMetaVersion(int version) { meta_json_["meta_version"] = version; }
+void IndexMeta::SetIndexFamily(tenann::IndexFamily family) { meta_json_["family"] = family; }
+void IndexMeta::SetIndexType(tenann::IndexType type) { meta_json_["type"] = type; }
+
+int IndexMeta::meta_version() const { return meta_json_["meta_version"].template get<int>(); }
+int IndexMeta::index_family() const { return meta_json_["family"].template get<int>(); }
+int IndexMeta::index_type() const { return meta_json_["type"].template get<int>(); }
+
+json& IndexMeta::common_params() { return meta_json_["common"]; }
+json& IndexMeta::index_params() { return meta_json_["index"]; }
+json& IndexMeta::search_params() { return meta_json_["search"]; }
+json& IndexMeta::extra_params() { return meta_json_["extra"]; }
+
+const json& IndexMeta::common_params() const { return meta_json_["common"]; }
+const json& IndexMeta::index_params() const { return meta_json_["index"]; }
+const json& IndexMeta::search_params() const { return meta_json_["search"]; }
+const json& IndexMeta::extra_params() const { return meta_json_["extra"]; }
 
 // @TODO
 IndexMeta IndexMeta::Read(const std::string& path) {}

@@ -38,9 +38,9 @@ class Index {
   // disable copy, enable moving
   TENANN_FORBID_COPY_AND_ASSIGN(Index);
 
-  Index(Index&& rhs) { std::swap(*this, rhs); }
+  Index(Index&& rhs) noexcept { std::swap(*this, rhs); }
 
-  Index& operator=(Index&& rhs) {
+  Index& operator=(Index&& rhs) noexcept {
     std::swap(*this, rhs);
     return *this;
   }
