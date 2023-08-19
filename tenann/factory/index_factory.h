@@ -19,21 +19,19 @@
 
 #pragma once
 
+#include <memory>
+
 #include "tenann/builder/index_builder.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
-#include "tenann/scanner/index_scanner.h"
 #include "tenann/store/index_meta.h"
-#include "tenann/streamer/index_streamer.h"
 
 namespace tenann {
 
-class IndexFactory {
-  virtual IndexReader* CreateReaderFromMeta(const IndexMeta& meta);
-  virtual IndexWriter* CreateWriterFromMeta(const IndexMeta& meta);
-  virtual IndexBuilder* CreateBuilderFromMeta(const IndexMeta& meta);
-  virtual IndexStreamer* CreateStreamerFromMeta(const IndexMeta& meta);
-  virtual IndexScanner* CreateScannerFromMeta(const IndexMeta& meta);
+struct IndexFactory {
+  static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta);
+  static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta);
+  static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta);
 };
 
 }  // namespace tenann

@@ -19,13 +19,13 @@
 
 #include "tenann/factory/index_factory.h"
 
-#include "tenann/factory/factory_register.h"
+#include "tenann/factory/index_factory_trait.h"
 
 namespace tenann {
 
 // @TODO(petrizhang): use exceptions instead
-IndexReader* IndexFactory::CreateReaderFromMeta(const IndexMeta& meta) {
-#define CASE_FN(TYPE) reader = std::make_unique<FactoryDispatch<TYPE>::IndexReaderClass>()
+std::unique_ptr<IndexReader> IndexFactory::CreateReaderFromMeta(const IndexMeta& meta) {
+#define CASE_FN(TYPE) return IndexFactoryTrait<TYPE>::CreateReaderFromMeta(meta)
 
   std::unique_ptr<IndexReader> reader = nullptr;
   auto index_type = meta.index_type();
@@ -34,16 +34,24 @@ IndexReader* IndexFactory::CreateReaderFromMeta(const IndexMeta& meta) {
 #undef CASE_FN
 }
 
-IndexWriter* IndexFactory::CreateWriterFromMeta(const IndexMeta& meta) {}
+std::unique_ptr<IndexWriter> IndexFactory::CreateWriterFromMeta(const IndexMeta& meta) {
+#define CASE_FN(TYPE) return IndexFactoryTrait<TYPE>::CreateWriterFromMeta(meta)
 
-IndexBuilder* IndexFactory::CreateBuilderFromMeta(const IndexMeta& meta) {
-  throw "not implemented";
+  std::unique_ptr<IndexReader> reader = nullptr;
+  auto index_type = meta.index_type();
+  switch (index_type) { CASE_ALL_INDEX_TYPE; }
+
+#undef CASE_FN
 }
-IndexStreamer* IndexFactory::CreateStreamerFromMeta(const IndexMeta& meta) {
-  throw "not implemented";
-}
-IndexScanner* IndexFactory::CreateScannerFromMeta(const IndexMeta& meta) {
-  throw "not implemented";
+
+std::unique_ptr<IndexBuilder> IndexFactory::CreateBuilderFromMeta(const IndexMeta& meta) {
+#define CASE_FN(TYPE) return IndexFactoryTrait<TYPE>::CreateBuilderFromMeta(meta)
+
+  std::unique_ptr<IndexReader> reader = nullptr;
+  auto index_type = meta.index_type();
+  switch (index_type) { CASE_ALL_INDEX_TYPE; }
+
+#undef CASE_FN
 }
 
 }  // namespace tenann

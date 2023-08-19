@@ -6,16 +6,15 @@ set(CMAKE_CXX_STANDARD 17)
 option(BUILD_TESTS "ON for build unit test or OFF for not" ON)
 option(BUILD_EXAMPLES "ON for build examples or OFF for not" ON)
 
-
 include_directories(
         ${CMAKE_CURRENT_LIST_DIR}/
         ${CMAKE_CURRENT_LIST_DIR}/third_party/
 )
 
-
 set(TENANN_SOURCE
         tenann/builder/index_builder.cc
         tenann/factory/index_factory.cc
+        tenann/factory/index_factory_trait.cc
         tenann/index/index_reader.cc
         tenann/index/index_writer.cc
         tenann/searcher/searcher.cc

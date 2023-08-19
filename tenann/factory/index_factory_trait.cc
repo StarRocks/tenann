@@ -17,10 +17,10 @@
  * under the License.
  */
 
-#pragma once
+#include "tenann/factory/index_factory_trait.h"
 
 namespace tenann {
 
-class IndexStreamer {};
+
 
 }  // namespace tenann

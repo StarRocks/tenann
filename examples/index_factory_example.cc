@@ -17,10 +17,27 @@
  * under the License.
  */
 
-#pragma once
+#include <iostream>
 
-namespace tenann {
+#include "tenann/factory/index_factory.h"
+#include "tenann/store/index_meta.h"
 
-class IndexScanner {};
+int main() {
+  using namespace tenann;
+  IndexMeta meta;
 
-}  // namespace tenann
+  // set meta values
+  meta.SetMetaVersion(0);
+  meta.SetIndexFamily(IndexFamily::kVectorIndex);
+  meta.SetIndexType(IndexType::kFaissHnsw);
+  meta.common_params()["dim"] = 128;
+  meta.index_params()["efConstruction"] = 40;
+  meta.search_params()["efSearch"] = 40;
+  meta.extra_params()["comments"] = "my comments";
+
+  try {
+    auto index_builder = IndexFactory::CreateReaderFromMeta(meta);
+  } catch (const char* e) {
+    std::cerr << "Exception caught: " << e << "\n";
+  }
+}

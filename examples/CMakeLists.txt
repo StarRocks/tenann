@@ -22,3 +22,7 @@ target_link_libraries(helloworld_example tenann)
 # meta example
 add_executable(meta_example meta_example.cc)
 target_link_libraries(meta_example tenann)
+
+# index factory example
+add_executable(index_factory_example index_factory_example.cc)
+target_link_libraries(index_factory_example tenann)
