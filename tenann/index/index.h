@@ -30,27 +30,24 @@ namespace tenann {
 
 class Index {
  public:
-  Index(void* index, IndexType index_type, const std::function<void(void* index)>& deleter) noexcept
-      : index_(index), index_type_(index_type), deleter_(deleter) {}
+  Index(void* index, IndexType index_type,
+        const std::function<void(void* index)>& deleter) noexcept;
 
-  ~Index() noexcept { deleter_(index_); }
+  ~Index() noexcept;
 
   // disable copy, enable moving
-  TENANN_FORBID_COPY_AND_ASSIGN(Index);
+  T_FORBID_COPY_AND_ASSIGN(Index);
 
-  Index(Index&& rhs) noexcept { std::swap(*this, rhs); }
+  Index(Index&& rhs) noexcept;
 
-  Index& operator=(Index&& rhs) noexcept {
-    std::swap(*this, rhs);
-    return *this;
-  }
+  Index& operator=(Index&& rhs) noexcept;
 
-  // setters and getters
-  void SetIndex(void* index) { index_ = index; }
-  void SetIndexType(IndexType index_type) { index_type_ = index_type; }
+  /* setters and getters */
+  void SetIndex(void* index);
+  void SetIndexType(IndexType index_type);
 
-  void* index() const { return index_; }
-  IndexType index_type() const { return index_type_; }
+  void* index() const;
+  IndexType index_type() const;
 
  private:
   void* index_;

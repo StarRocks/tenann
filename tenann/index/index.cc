@@ -21,5 +21,24 @@
 
 namespace tenann {
 
+Index::~Index() noexcept { deleter_(index_); }
+
+Index::Index(Index&& rhs) noexcept { std::swap(*this, rhs); }
+
+Index::Index(void* index, IndexType index_type, const std::function<void(void*)>& deleter) noexcept
+    : index_(index), index_type_(index_type), deleter_(deleter) {}
+
+Index& Index::operator=(Index&& rhs) noexcept {
+  std::swap(*this, rhs);
+  return *this;
+}
+
+void Index::SetIndex(void* index) { index_ = index; }
+
+void Index::SetIndexType(IndexType index_type) { index_type_ = index_type; }
+
+void* Index::index() const { return index_; }
+
+IndexType Index::index_type() const { return index_type_; }
 
 }

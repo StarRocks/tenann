@@ -19,6 +19,6 @@
 
 #pragma once
 
-#define TENANN_FORBID_COPY_AND_ASSIGN(TypeName) \
+#define T_FORBID_COPY_AND_ASSIGN(TypeName) \
   TypeName(const TypeName&) = delete;           \
   TypeName& operator=(const TypeName&) = delete;
