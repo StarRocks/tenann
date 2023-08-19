@@ -26,6 +26,8 @@ namespace tenann {
 
 class IndexReader {
  public:
+  virtual ~IndexReader();
+
   // Read index file
   virtual IndexRef ReadIndex(const std::string& path) = 0;
 
@@ -35,8 +37,8 @@ class IndexReader {
   const nlohmann::json& conf();
 
  protected:
-  // reader配置
+  // Reader configurations
   nlohmann::json conf_;
-}
+};
 
 }  // namespace tenann

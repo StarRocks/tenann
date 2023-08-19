@@ -17,28 +17,9 @@
  * under the License.
  */
 
-#pragma once
-
-#include "nlohmann/json.hpp"
 #include "tenann/index/index.h"
 
 namespace tenann {
 
-class IndexWriter {
- public:
-  virtual ~IndexWriter() ;
 
-  // Write index file
-  virtual void WriteIndex(IndexRef index, const std::string& path) = 0;
-
-  /* setters and getters */
-  void SetConf(const nlohmann::json& conf);
-
-  const nlohmann::json& conf();
-
- protected:
-  // Writer configurations
-  nlohmann::json conf_;
-};
-
-}  // namespace tenann
+}
