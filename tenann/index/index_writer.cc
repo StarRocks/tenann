@@ -19,4 +19,9 @@
 
 #include "tenann/index/index_writer.h"
 
-namespace tenann {}
+namespace tenann {
+
+void IndexWriter::SetConf(const nlohmann::json& conf) { conf_ = conf; }
+
+const nlohmann::json& IndexWriter::conf() { return conf_; }
+}

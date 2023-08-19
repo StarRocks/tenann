@@ -19,8 +19,23 @@
 
 #pragma once
 
+#include "nlohmann/json.hpp"
+
 namespace tenann {
 
-class IndexWriter {};
+class IndexWriter {
+ public:
+  // Write index file
+  virtual void WriteIndex(IndexRef index, const std::string& path) = 0;
+
+  /* setters and getters */
+  void SetConf(const nlohmann::json& conf);
+
+  const nlohmann::json& conf();
+
+ protected:
+  // writer配置
+  nlohmann::json conf_;
+}
 
 }  // namespace tenann

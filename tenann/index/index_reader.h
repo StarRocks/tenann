@@ -19,8 +19,24 @@
 
 #pragma once
 
+#include "nlohmann/json.hpp"
+#include "tenann/index/index.h"
+
 namespace tenann {
 
-class IndexReader {};
+class IndexReader {
+ public:
+  // Read index file
+  virtual IndexRef ReadIndex(const std::string& path) = 0;
+
+  /* setters and getters */
+  void SetConf(const nlohmann::json& conf);
+
+  const nlohmann::json& conf();
+
+ protected:
+  // reader配置
+  nlohmann::json conf_;
+}
 
 }  // namespace tenann
