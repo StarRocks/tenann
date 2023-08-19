@@ -19,4 +19,38 @@
 
 #include "tenann/builder/index_builder.h"
 
-namespace tenann {}
+namespace tenann {
+
+void IndexBuilder::Build(const std::vector<SeqView>& input_columns, int primary_key_column_index) {
+  BuildImpl(input_columns, primary_key_column_index);
+}
+
+void IndexBuilder::WriteIndex(const std::string& path, bool write_index_cache) {
+  index_writer_->WriteIndex(index_, path);
+}
+
+IndexBuilder& IndexBuilder::SetIndexWriter(IndexWriter* writer) {
+  index_writer_ = writer;
+  return *this;
+}
+
+IndexBuilder& IndexBuilder::SetIndexCache(IndexCache* cache) {
+  index_cache_ = cache;
+  return *this;
+}
+
+const IndexMeta& IndexBuilder::index_meta() const { return index_meta_; }
+
+IndexRef IndexBuilder::index() const { return index_; }
+
+IndexWriter* IndexBuilder::index_writer() { return index_writer_; }
+
+const IndexWriter* IndexBuilder::index_writer() const { return index_writer_; }
+
+IndexCache* IndexBuilder::index_cache() { return index_cache_; }
+
+const IndexCache* IndexBuilder::index_cache() const { return index_cache_; }
+
+bool IndexBuilder::is_built() { return is_built_; }
+
+}  // namespace tenann
