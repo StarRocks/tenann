@@ -43,13 +43,15 @@ namespace tenann {
 /// and create corresponding factories, which will help improve maintainability
 template <IndexType type>
 struct IndexFactoryTrait {
-  std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
+  static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
     throw "not implemented";
   };
-  std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
+
+  static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
     throw "not implemented";
   };
-  std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
+
+  static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
     throw "not implemented";
   };
 };

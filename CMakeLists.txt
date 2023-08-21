@@ -14,7 +14,6 @@ include_directories(
 set(TENANN_SOURCE
         tenann/builder/index_builder.cc
         tenann/factory/index_factory.cc
-        tenann/factory/index_factory_trait.cc
         tenann/index/index.cc
         tenann/index/index_reader.cc
         tenann/index/index_writer.cc
