@@ -17,25 +17,6 @@
  * under the License.
  */
 
-#pragma once
+#include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 
-#include "tenann/common/seq_view.h"
-#include "tenann/searcher/searcher.h"
-
-namespace tenann {
-
-class AnnSearcher : public Searcher<AnnSearcher> {
- public:
-  virtual ~AnnSearcher() override = default;
-  T_FORBID_MOVE(AnnSearcher);
-  T_FORBID_COPY_AND_ASSIGN(AnnSearcher);
-
-  /// ANN搜索接口，只返回k近邻的id
-  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) = 0;
-
-  /// ANN搜索接口，同时返回k近邻的id和距离
-  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                         uint8_t* result_distances) = 0;
-};
-
-}  // namespace tenann
+namespace tenann {}

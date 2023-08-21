@@ -18,6 +18,7 @@ set(TENANN_SOURCE
         tenann/index/index_reader.cc
         tenann/index/index_writer.cc
         tenann/searcher/searcher.cc
+        tenann/searcher/faiss_hnsw_ann_searcher.cc
         tenann/store/index_cache.cc
         tenann/store/index_meta.cc
         tenann/store/lru_cache.cc)
