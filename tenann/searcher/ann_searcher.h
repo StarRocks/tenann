@@ -19,8 +19,19 @@
 
 #pragma once
 
+#include "tenann/common/seq_view.h"
+#include "tenann/searcher/searcher.h"
+
 namespace tenann {
 
-class AnnSearcher {};
+class AnnSearcher : public Searcher<AnnSearcher> {
+ public:
+  /// ANN搜索接口，只返回k近邻的id
+  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) = 0;
+
+  /// ANN搜索接口，同时返回k近邻的id和距离
+  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
+                         uint8_t* result_distances) = 0;
+};
 
 }  // namespace tenann
