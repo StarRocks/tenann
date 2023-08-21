@@ -23,11 +23,9 @@
 
 namespace tenann {
 
-// @TODO(petrizhang): use exceptions instead
 std::unique_ptr<IndexReader> IndexFactory::CreateReaderFromMeta(const IndexMeta& meta) {
 #define CASE_FN(TYPE) return IndexFactoryTrait<TYPE>::CreateReaderFromMeta(meta)
 
-  std::unique_ptr<IndexReader> reader = nullptr;
   auto index_type = meta.index_type();
   switch (index_type) { CASE_ALL_INDEX_TYPE; }
 
@@ -37,7 +35,6 @@ std::unique_ptr<IndexReader> IndexFactory::CreateReaderFromMeta(const IndexMeta&
 std::unique_ptr<IndexWriter> IndexFactory::CreateWriterFromMeta(const IndexMeta& meta) {
 #define CASE_FN(TYPE) return IndexFactoryTrait<TYPE>::CreateWriterFromMeta(meta)
 
-  std::unique_ptr<IndexReader> reader = nullptr;
   auto index_type = meta.index_type();
   switch (index_type) { CASE_ALL_INDEX_TYPE; }
 
@@ -47,7 +44,6 @@ std::unique_ptr<IndexWriter> IndexFactory::CreateWriterFromMeta(const IndexMeta&
 std::unique_ptr<IndexBuilder> IndexFactory::CreateBuilderFromMeta(const IndexMeta& meta) {
 #define CASE_FN(TYPE) return IndexFactoryTrait<TYPE>::CreateBuilderFromMeta(meta)
 
-  std::unique_ptr<IndexReader> reader = nullptr;
   auto index_type = meta.index_type();
   switch (index_type) { CASE_ALL_INDEX_TYPE; }
 
