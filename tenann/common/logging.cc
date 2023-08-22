@@ -17,22 +17,26 @@
  * under the License.
  */
 
-#pragma once
-
-#include <memory>
-
-#include "tenann/builder/index_builder.h"
 #include "tenann/common/logging.h"
-#include "tenann/index/index_reader.h"
-#include "tenann/index/index_writer.h"
-#include "tenann/store/index_meta.h"
 
 namespace tenann {
 
-struct IndexFactory {
-  static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta);
-  static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta);
-  static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta);
+std::string Backtrace() { return ""; }
+
+namespace detail {
+
+const char* ::tenann::detail::LogMessage::level_strings_[] = {
+    ": Debug: ",    // TVM_LOG_LEVEL_DEBUG
+    ": ",           // TVM_LOG_LEVEL_INFO
+    ": Warning: ",  // TVM_LOG_LEVEL_WARNING
+    ": Error: ",    // TVM_LOG_LEVEL_ERROR
 };
+
+LogFatal::Entry& LogFatal::GetEntry() {
+  static thread_local LogFatal::Entry result;
+  return result;
+}
+
+}  // namespace detail
 
 }  // namespace tenann

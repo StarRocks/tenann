@@ -26,3 +26,8 @@
 #define T_FORBID_MOVE(TypeName)  \
   TypeName(TypeName&&) = delete; \
   TypeName& operator=(TypeName&&) = delete;
+
+
+#define T_THROW_EXCEPTION noexcept(false)
+
+#define T_NO_INLINE __attribute__((noinline))

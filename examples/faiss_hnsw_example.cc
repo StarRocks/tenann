@@ -63,10 +63,12 @@ int main() {
   constexpr const char* index_path = "tmp/tnn_hnsw_index";
 
   // generate data and query
+  LOG(WARNING) << "Generating base vectors...";
   auto base = RandomVectors(nb, d);
   auto base_view = ArraySeqView{
       .data = reinterpret_cast<uint8_t*>(base.data()), .dim = d, .size = static_cast<uint32_t>(nb)};
 
+  LOG(WARNING) << "Generating query vectors...";
   auto query = RandomVectors(nq, d, /*seed=*/1);
 
   // build and write index
@@ -77,8 +79,8 @@ int main() {
     index_builder->SetIndexWriter(index_writer.get())
         .Build({base_view})
         .WriteIndex(index_path, false);
-  } catch (const char* e) {
-    std::cerr << "Exception caught: " << e << "\n";
+  } catch (InternalError& e) {
+    std::cerr << "Exception caught: " << e.what() << "\n";
   }
 
   // read and search index
@@ -100,7 +102,7 @@ int main() {
                                          .elem_type = PrimitiveType::kFloatType};
       ann_searcher->AnnSearch(query_view, k, result_ids.data() + i * k);
     }
-  } catch (const char* e) {
-    std::cerr << "Exception caught: " << e << "\n";
+  } catch (InternalError& e) {
+    std::cerr << "Exception caught: " << e.what() << "\n";
   }
 }

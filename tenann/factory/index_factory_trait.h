@@ -44,30 +44,30 @@ namespace tenann {
 template <IndexType type>
 struct IndexFactoryTrait {
   static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    throw "not implemented";
+    LOG(FATAL) << "method not implemented: CreateReaderFromMeta";
   };
 
   static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    throw "not implemented";
+    LOG(FATAL) << "method not implemented: CreateWriterFromMeta";
   };
 
   static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    throw "not implemented";
+    LOG(FATAL) << "method not implemented: CreateBuilderFromMeta";
   };
 };
 
 template <>
 struct IndexFactoryTrait<kFaissHnsw> {
   static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    throw "not implemented";
+    LOG(FATAL) << "method not implemented: CreateReaderFromMeta";
   };
 
   static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    throw "not implemented";
+    LOG(FATAL) << "method not implemented: CreateWriterFromMeta";
   };
 
   static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    throw "not implemented";
+    LOG(FATAL) << "method not implemented: CreateBuilderFromMeta";
   };
 };
 
