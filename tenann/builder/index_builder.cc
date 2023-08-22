@@ -21,12 +21,22 @@
 
 namespace tenann {
 
-void IndexBuilder::Build(const std::vector<SeqView>& input_columns, int primary_key_column_index) {
-  BuildImpl(input_columns, primary_key_column_index);
+IndexBuilder& IndexBuilder::Build(const std::vector<SeqView>& input_columns) {
+  // @TODO: collect some statistics for the building procedure
+  BuildImpl(input_columns);
+  return *this;
 }
 
-void IndexBuilder::WriteIndex(const std::string& path, bool write_index_cache) {
+IndexBuilder& IndexBuilder::BuildWithPrimaryKey(const std::vector<SeqView>& input_columns,
+                                       int primary_key_column_index) {
+  // @TODO: collect some statistics for the building procedure
+  BuildWithPrimaryKeyImpl(input_columns, primary_key_column_index);
+  return *this;
+}
+
+IndexBuilder& IndexBuilder::WriteIndex(const std::string& path, bool write_index_cache) {
   index_writer_->WriteIndex(index_, path);
+  return *this;
 }
 
 IndexBuilder& IndexBuilder::SetIndexWriter(IndexWriter* writer) {

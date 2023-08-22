@@ -17,27 +17,12 @@
  * under the License.
  */
 
-#pragma once
-
-#include <cstdint>
-
-#include "nlohmann/json.hpp"
+#include "tenann/factory/ann_searcher_factory.h"
 
 namespace tenann {
 
-enum IndexFamily { kVectorIndex = 0, kTextIndex };
+std::unique_ptr<AnnSearcher> AnnSearcherFactory::CreateSearcherFromMeta(const IndexMeta& meta) {
+  // @TODO(jackj): check meta and create hnsw searcher
+}
 
-enum IndexType {
-  kFaissHnsw = 0,  // 0: faiss hnsw
-  kFaissIvfFlat,   // 1: faiss ivf-flat
-  kFaissIvfPq      // 2: faiss ivf-pq
-};
-
-enum MetricType {
-  kL2Distance = 0,    // 0: euclidean l2 distance
-  kCosineSimilarity,  // 1: cosine similarity
-  kInnerProduct,      // 2: inner product or dot product
-  kCosineDistance,    // 3: cosine distance = 1 - cosine similarity
-};
-
-}  // namespace tenann
+}

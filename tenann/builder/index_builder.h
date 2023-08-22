@@ -31,10 +31,14 @@ class IndexBuilder {
  public:
   virtual ~IndexBuilder() = default;
 
-  void Build(const std::vector<SeqView>& input_columns, int primary_key_column_index);
+  /// Build index and use the row number as primary key.
+  IndexBuilder& Build(const std::vector<SeqView>& input_columns);
+
+  /// Build index and use the given column marked by [[primary_key_column_index]] as primary key.
+  IndexBuilder& BuildWithPrimaryKey(const std::vector<SeqView>& input_columns, int primary_key_column_index);
 
   /// Write index file.
-  void WriteIndex(const std::string& path, bool write_index_cache = true);
+  IndexBuilder& WriteIndex(const std::string& path, bool write_index_cache = true);
 
   /** Setters */
   IndexBuilder& SetIndexWriter(IndexWriter* writer);
@@ -57,8 +61,12 @@ class IndexBuilder {
   bool is_built();
 
  protected:
-  virtual void BuildImpl(const std::vector<SeqView>& input_columns,
-                         int primary_key_column_index) = 0;
+  /// Use the given primary key column as vector id.
+  virtual void BuildWithPrimaryKeyImpl(const std::vector<SeqView>& input_columns,
+                                       int primary_key_column_index) = 0;
+
+  /// Use the row number as vector id.
+  virtual void BuildImpl(const std::vector<SeqView>& input_columns) = 0;
 
   /* meta */
   IndexMeta index_meta_;

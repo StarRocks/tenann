@@ -26,3 +26,7 @@ target_link_libraries(meta_example tenann)
 # index factory example
 add_executable(index_factory_example index_factory_example.cc)
 target_link_libraries(index_factory_example tenann)
+
+# faiss hnsw example
+add_executable(faiss_hnsw_example faiss_hnsw_example.cc)
+target_link_libraries(faiss_hnsw_example tenann)

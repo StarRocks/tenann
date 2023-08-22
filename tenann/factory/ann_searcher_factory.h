@@ -19,25 +19,13 @@
 
 #pragma once
 
-#include <cstdint>
-
-#include "nlohmann/json.hpp"
+#include "tenann/searcher/ann_searcher.h"
+#include "tenann/store/index_meta.h"
 
 namespace tenann {
 
-enum IndexFamily { kVectorIndex = 0, kTextIndex };
-
-enum IndexType {
-  kFaissHnsw = 0,  // 0: faiss hnsw
-  kFaissIvfFlat,   // 1: faiss ivf-flat
-  kFaissIvfPq      // 2: faiss ivf-pq
-};
-
-enum MetricType {
-  kL2Distance = 0,    // 0: euclidean l2 distance
-  kCosineSimilarity,  // 1: cosine similarity
-  kInnerProduct,      // 2: inner product or dot product
-  kCosineDistance,    // 3: cosine distance = 1 - cosine similarity
+struct AnnSearcherFactory {
+  static std::unique_ptr<AnnSearcher> CreateSearcherFromMeta(const IndexMeta& meta);
 };
 
 }  // namespace tenann
