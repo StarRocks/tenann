@@ -23,6 +23,7 @@ namespace tenann {
 
 std::unique_ptr<AnnSearcher> AnnSearcherFactory::CreateSearcherFromMeta(const IndexMeta& meta) {
   // @TODO(jackj): check meta and create hnsw searcher
+  return nullptr;
 }
 
 }
