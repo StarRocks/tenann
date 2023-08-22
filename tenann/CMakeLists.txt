@@ -23,6 +23,7 @@ set(TENANN_SRC
 set(TENANN_HEADERS
     version.h
     builder/index_builder.h
+    common/json.hpp
     common/logging.h
     common/macros.h
     common/seq_view.h

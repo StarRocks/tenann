@@ -89,11 +89,5 @@ FAISS_NAME=faiss-v1.7.3.tar.gz
 FAISS_SOURCE=faiss-1.7.3
 FAISS_MD5SUM="632c5f465e80ebf10a7e2a54e5c853f7"
 
-# nlohmann
-NLOHMANN_JSON_DOWNLOAD="https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.tar.gz"
-NLOHMANN_JSON_NAME=json-3.11.2.tar.gz
-NLOHMANN_JSON_SOURCE=json-3.11.2
-NLOHMANN_JSON_MD5SUM="e8d56bc54621037842ee9f0aeae27746"
-
 # all thirdparties which need to be downloaded is set in array TP_ARCHIVES
-TP_ARCHIVES="FAISS NLOHMANN_JSON"
+TP_ARCHIVES="FAISS"

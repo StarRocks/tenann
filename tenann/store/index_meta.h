@@ -21,7 +21,7 @@
 
 #include <cstdint>
 
-#include "nlohmann/json.hpp"
+#include "tenann/common/json.hpp"
 #include "tenann/store/index_type.h"
 
 namespace tenann {

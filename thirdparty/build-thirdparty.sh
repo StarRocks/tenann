@@ -182,23 +182,6 @@ build_faiss() {
     ${BUILD_SYSTEM} install
 }
 
-#nlohmann
-build_nlohmann() {
-    check_if_source_exist $NLOHMANN_JSON_SOURCE
-    cd $TP_SOURCE_DIR/$NLOHMANN_JSON_SOURCE
-    mkdir -p $BUILD_DIR
-    cd $BUILD_DIR
-    rm -rf CMakeCache.txt CMakeFiles/
-    $CMAKE_CMD -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
-    -DCMAKE_INSTALL_LIBDIR=lib \
-    -DJSON_BuildTests=OFF \
-    ..
-
-    ${BUILD_SYSTEM} -j$PARALLEL
-    ${BUILD_SYSTEM} install
-}
-
 # restore cxxflags/cppflags/cflags to default one
 restore_compile_flags() {
     # c preprocessor flags
@@ -228,7 +211,6 @@ export CXXFLAGS=$GLOBAL_CXXFLAGS
 export CFLAGS=$GLOBAL_CFLAGS
 
 build_faiss
-build_nlohmann
 
 # strip unnecessary debug symbol for binaries in thirdparty
 strip_binary

@@ -244,11 +244,3 @@ fi
 cd -
 echo "Finished patching $FAISS_SOURCE"
 
-# patch nlohmann
-cd $TP_SOURCE_DIR/$NLOHMANN_JSON_SOURCE
-if [ ! -f $PATCHED_MARK ] && [ $NLOHMANN_JSON_SOURCE = "json-3.11.2" ]; then
-    patch -p0 < $TP_PATCH_DIR/json-3.11.2.patch
-    touch $PATCHED_MARK
-fi
-cd -
-echo "Finished patching $NLOHMANN_JSON_SOURCE"
