@@ -7,6 +7,7 @@
 set(TENANN_SRC
     version.cc
     builder/index_builder.cc
+    common/logging.cc
     factory/index_factory.cc
     factory/ann_searcher_factory.cc
     index/index.cc
@@ -22,6 +23,7 @@ set(TENANN_SRC
 set(TENANN_HEADERS
     version.h
     builder/index_builder.h
+    common/logging.h
     common/macros.h
     common/seq_view.h
     factory/ann_searcher_factory.h
