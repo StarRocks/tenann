@@ -30,7 +30,7 @@ namespace tenann {
 
 class Index {
  public:
-  Index(void* index, IndexType index_type,
+  Index(void* index_raw, IndexType index_type,
         const std::function<void(void* index)>& deleter) noexcept;
 
   ~Index() noexcept;
@@ -43,16 +43,28 @@ class Index {
   Index& operator=(Index&& rhs) noexcept;
 
   /* setters and getters */
-  void SetIndex(void* index);
+  void SetIndexRaw(void* index);
   void SetIndexType(IndexType index_type);
 
-  void* index() const;
+  void* index_raw() const;
   IndexType index_type() const;
 
+
+  /**
+   * @brief  Get the amount of memory occupied by the index in bytes.
+   * 
+   * @return size_t 
+   * 
+   * @note Currently this function always return 1.
+   * 
+   * @TODO(petri): implement it
+   */
+  size_t EstimateMemorySizeInBytes();
+
  private:
-  void* index_;
+  void* index_raw_;
   IndexType index_type_;
-  std::function<void(void* index)> deleter_;
+  std::function<void(void* index_raw)> deleter_;
 };
 
 using IndexRef = std::shared_ptr<Index>;

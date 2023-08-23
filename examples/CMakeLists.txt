@@ -34,3 +34,7 @@ target_link_libraries(faiss_hnsw_example tenann)
 # error handling example
 add_executable(error_handling_example error_handling_example.cc)
 target_link_libraries(error_handling_example tenann)
+
+# index cache example
+add_executable(index_cache_example index_cache_example.cc)
+target_link_libraries(index_cache_example tenann)
