@@ -1,4 +1,9 @@
 build*
+!builder
+!build-thirdparty.sh
+thirdparty/src
+thirdparty/installed
+log
 output
 cmake-build-*
 .idea

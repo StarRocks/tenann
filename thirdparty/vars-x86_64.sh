@@ -1,3 +1,4 @@
+#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,22 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# hello world example
-add_executable(helloworld_example helloworld_example.cc)
-target_link_libraries(helloworld_example tenann)
-
-# meta example
-add_executable(meta_example meta_example.cc)
-target_link_libraries(meta_example tenann)
-
-# index factory example
-add_executable(index_factory_example index_factory_example.cc)
-target_link_libraries(index_factory_example tenann)
-
-# faiss hnsw example
-add_executable(faiss_hnsw_example faiss_hnsw_example.cc)
-target_link_libraries(faiss_hnsw_example tenann)
-
-# error handling example
-add_executable(error_handling_example error_handling_example.cc)
-target_link_libraries(error_handling_example tenann)
+############################################################
+# You may have to set variables bellow,
+# which are used for compiling thirdparties and tenann itself.
+############################################################
