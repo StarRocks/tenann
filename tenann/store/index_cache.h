@@ -54,7 +54,7 @@ class IndexCache {
   /// concurrently, this function can assure that only one function is cached.
   void Insert(const CacheKey& key, IndexRef index, IndexCacheEntry* handle);
 
-  size_t MemoryUsage() const;
+  size_t memory_usage() const;
 
   void SetCapacity(size_t capacity);
 

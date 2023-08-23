@@ -59,7 +59,7 @@ void IndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheEntry* ha
   *handle = IndexCacheEntry(cache_.get(), lru_handle);
 }
 
-size_t IndexCache::MemoryUsage() const { return cache_->get_memory_usage(); }
+size_t IndexCache::memory_usage() const { return cache_->get_memory_usage(); }
 
 void IndexCache::SetCapacity(size_t capacity) { cache_->set_capacity(capacity); }
 
