@@ -31,3 +31,5 @@
 #define TNN_THROW_EXCEPTION noexcept(false)
 
 #define TNN_NO_INLINE __attribute__((noinline))
+
+#define TNN_ALWAYS_INLINE inline __attribute__((always_inline))

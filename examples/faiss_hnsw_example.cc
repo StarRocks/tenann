@@ -63,12 +63,12 @@ int main() {
   constexpr const char* index_path = "tmp/tnn_hnsw_index";
 
   // generate data and query
-  LOG(WARNING) << "Generating base vectors...";
+  TNN_LOG(WARNING) << "Generating base vectors...";
   auto base = RandomVectors(nb, d);
   auto base_view = ArraySeqView{
       .data = reinterpret_cast<uint8_t*>(base.data()), .dim = d, .size = static_cast<uint32_t>(nb)};
 
-  LOG(WARNING) << "Generating query vectors...";
+  TNN_LOG(WARNING) << "Generating query vectors...";
   auto query = RandomVectors(nq, d, /*seed=*/1);
 
   // build and write index

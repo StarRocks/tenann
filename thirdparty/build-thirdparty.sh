@@ -86,11 +86,11 @@ check_prerequest "${CMAKE_CMD} --version" "cmake"
 
 # sudo apt-get install byacc
 # sudo yum install byacc
-check_prerequest "byacc -V" "byacc"
+# check_prerequest "byacc -V" "byacc"
 
 # sudo apt-get install flex
 # sudo yum install flex
-check_prerequest "flex -V" "flex"
+# check_prerequest "flex -V" "flex"
 
 # sudo apt-get install automake
 # sudo yum install automake
@@ -98,10 +98,20 @@ check_prerequest "automake --version" "automake"
 
 # sudo apt-get install libtool
 # sudo yum install libtool
-check_prerequest "libtoolize --version" "libtool"
+# check_prerequest "libtoolize --version" "libtool"
 
-# faiss 源码编译强依赖本地lapack-devel,此处支持
-yum install -y lapack-devel
+# sudo apt-get install ldconfig
+# sudo yum install ldconfig
+check_prerequest "ldconfig --version" "ldconfig"
+
+# sudo apt-get install lapack-devel
+# sudo yum install lapack-devel
+lapack_check() {
+    echo
+    echo "Checking lapack-devel installation..."
+    ldconfig -p | grep liblapack
+}
+check_prerequest "lapack_check" "lapack-devel"
 
 BUILD_SYSTEM=${BUILD_SYSTEM:-make}
 
