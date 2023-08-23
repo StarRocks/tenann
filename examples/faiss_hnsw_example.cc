@@ -79,7 +79,7 @@ int main() {
     index_builder->SetIndexWriter(index_writer.get())
         .Build({base_view})
         .WriteIndex(index_path, false);
-  } catch (InternalError& e) {
+  } catch (Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";
   }
 
@@ -102,7 +102,7 @@ int main() {
                                          .elem_type = PrimitiveType::kFloatType};
       ann_searcher->AnnSearch(query_view, k, result_ids.data() + i * k);
     }
-  } catch (InternalError& e) {
+  } catch (Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";
   }
 }

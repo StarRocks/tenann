@@ -38,7 +38,7 @@ std::string Backtrace();
  * \brief Error type for errors from CHECK, TNN_ICHECK, and LOG(FATAL). This error
  * contains a backtrace of where it occurred.
  */
-class InternalError : std::exception {
+class Error : std::exception {
  public:
   /*! \brief Construct an error. Not recommended to use directly. Instead use LOG(FATAL).
    *
@@ -48,7 +48,7 @@ class InternalError : std::exception {
    * \param time The time at which the error occurred. This should be in local time.
    * \param backtrace Backtrace from when the error occurred.
    */
-  InternalError(std::string file, int lineno, std::string message,
+  Error(std::string file, int lineno, std::string message,
                 std::time_t time = std::time(nullptr), std::string backtrace = Backtrace())
       : file_(file), lineno_(lineno), message_(message), time_(time), backtrace_(backtrace) {
     std::ostringstream s;
@@ -113,8 +113,8 @@ class LogFatal {
       this->file_ = file;
       this->lineno_ = lineno;
     }
-    [[noreturn]] TNN_NO_INLINE InternalError Finalize() {
-      InternalError error(file_, lineno_, stream_.str());
+    [[noreturn]] TNN_NO_INLINE Error Finalize() {
+      Error error(file_, lineno_, stream_.str());
       throw error;
     }
     std::ostringstream stream_;
