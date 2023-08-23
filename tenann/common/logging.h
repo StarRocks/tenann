@@ -18,7 +18,7 @@
  */
 
 // This file is based on code available under the Apache License 2.0 here:
-//     https://github.com/apache/tvm/blob/main/include/tvm/runtime/logging.h#L196
+//     https://github.com/apache/tvm/blob/main/include/tvm/runtime/logging.h
 
 #pragma once
 
@@ -35,7 +35,7 @@ namespace tenann {
 std::string Backtrace();
 
 /*!
- * \brief Error type for errors from CHECK, TNN_ICHECK, and LOG(FATAL). This error
+ * \brief Error type for errors from TNN_CHECK and LOG(ERROR). This error
  * contains a backtrace of where it occurred.
  */
 class Error : std::exception {
@@ -48,16 +48,70 @@ class Error : std::exception {
    * \param time The time at which the error occurred. This should be in local time.
    * \param backtrace Backtrace from when the error occurred.
    */
-  Error(std::string file, int lineno, std::string message,
-                std::time_t time = std::time(nullptr), std::string backtrace = Backtrace())
+  Error(std::string file, int lineno, std::string message, std::time_t time = std::time(nullptr),
+        std::string backtrace = Backtrace())
       : file_(file), lineno_(lineno), message_(message), time_(time), backtrace_(backtrace) {
     std::ostringstream s;
     // XXX: Do not change this format, otherwise all error handling in python will break (because it
     // parses the message to reconstruct the error type).
     // TODO(tkonolige): Convert errors to Objects, so we can avoid the mess of formatting/parsing
     // error messages correctly.
+
     s << "[" << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << file << ":"
-      << lineno << ": " << message << std::endl;
+      << lineno << ": Error: " << message << std::endl;
+    if (backtrace.size() > 0) {
+      s << backtrace << std::endl;
+    }
+    full_message_ = s.str();
+  }
+  /*! \return The file in which the error occurred. */
+  const std::string& file() const { return file_; }
+  /*! \return The message associated with this error. */
+  const std::string& message() const { return message_; }
+  /*! \return Formatted error message including file, linenumber, backtrace, and message. */
+  const std::string& full_message() const { return full_message_; }
+  /*! \return The backtrace from where this error occurred. */
+  const std::string& backtrace() const { return backtrace_; }
+  /*! \return The time at which this error occurred. */
+  const std::time_t& time() const { return time_; }
+  /*! \return The line number at which this error occurred. */
+  int lineno() const { return lineno_; }
+  virtual const char* what() const noexcept { return full_message_.c_str(); }
+
+ private:
+  std::string file_;
+  int lineno_;
+  std::string message_;
+  std::time_t time_;
+  std::string backtrace_;
+  std::string full_message_;  // holds the full error string
+};
+
+/*!
+ * \brief Error type for errors from TNN_ICHECK and LOG(FATAL). This error
+ * contains a backtrace of where it occurred.
+ */
+class FatalError : std::exception {
+ public:
+  /*! \brief Construct an error. Not recommended to use directly. Instead use LOG(FATAL).
+   *
+   * \param file The file where the error occurred.
+   * \param lineno The line number where the error occurred.
+   * \param message The error message to display.
+   * \param time The time at which the error occurred. This should be in local time.
+   * \param backtrace Backtrace from when the error occurred.
+   */
+  FatalError(std::string file, int lineno, std::string message,
+             std::time_t time = std::time(nullptr), std::string backtrace = Backtrace())
+      : file_(file), lineno_(lineno), message_(message), time_(time), backtrace_(backtrace) {
+    std::ostringstream s;
+    // XXX: Do not change this format, otherwise all error handling in python will break (because it
+    // parses the message to reconstruct the error type).
+    // TODO(tkonolige): Convert errors to Objects, so we can avoid the mess of formatting/parsing
+    // error messages correctly.
+
+    s << "[" << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << file << ":"
+      << lineno << ": Fatal: " << message << std::endl;
     if (backtrace.size() > 0) {
       s << backtrace << std::endl;
     }
@@ -114,7 +168,47 @@ class LogFatal {
       this->lineno_ = lineno;
     }
     [[noreturn]] TNN_NO_INLINE Error Finalize() {
+      FatalError error(file_, lineno_, stream_.str());
+      std::cerr << error.what();
+      throw error;
+    }
+    std::ostringstream stream_;
+    std::string file_;
+    int lineno_;
+  };
+
+  TNN_NO_INLINE static Entry& GetEntry();
+};
+
+/*!
+ * \brief Class to accumulate an error message and throw it. Do not use
+ * directly, instead use LOG(ERROR).
+ * \note The `LogError` class is designed to be an empty class to reduce stack size usage.
+ * To play this trick, we use the thread-local storage to store its internal data.
+ */
+class LogError {
+ public:
+  LogError(const char* file, int lineno) { GetEntry().Init(file, lineno); }
+#ifdef _MSC_VER
+#pragma disagnostic push
+#pragma warning(disable : 4722)
+#endif
+  [[noreturn]] ~LogError() TNN_THROW_EXCEPTION { GetEntry().Finalize(); }
+#ifdef _MSC_VER
+#pragma disagnostic pop
+#endif
+  std::ostringstream& stream() { return GetEntry().stream_; }
+
+ private:
+  struct Entry {
+    void Init(const char* file, int lineno) {
+      this->stream_.str("");
+      this->file_ = file;
+      this->lineno_ = lineno;
+    }
+    [[noreturn]] TNN_NO_INLINE Error Finalize() {
       Error error(file_, lineno_, stream_.str());
+      std::cerr << error.what();
       throw error;
     }
     std::ostringstream stream_;
@@ -147,8 +241,8 @@ class LogMessage {
 template <typename X, typename Y>
 std::unique_ptr<std::string> LogCheckFormat(const X& x, const Y& y) {
   std::ostringstream os;
-  os << " (" << x << " vs. " << y << ") ";  // CHECK_XX(x, y) requires x and y can be serialized to
-                                            // string. Use CHECK(x OP y) otherwise.
+  os << " (" << x << " vs. " << y << ") ";  // CHECK_XX(x, y) requires x and y can be serialized
+                                            // to string. Use CHECK(x OP y) otherwise.
   return std::make_unique<std::string>(os.str());
 }
 
@@ -186,13 +280,13 @@ TNN_CHECK_FUNC(_NE, !=)
 #define TNN_LOG_DEBUG ::tenann::detail::LogMessage(__FILE__, __LINE__, TNN_LOG_LEVEL_DEBUG).stream()
 #define TNN_LOG_FATAL ::tenann::detail::LogFatal(__FILE__, __LINE__).stream()
 #define TNN_LOG_INFO ::tenann::detail::LogMessage(__FILE__, __LINE__, TNN_LOG_LEVEL_INFO).stream()
-#define TNN_LOG_ERROR ::tenann::detail::LogMessage(__FILE__, __LINE__, TNN_LOG_LEVEL_ERROR).stream()
+#define TNN_LOG_ERROR ::tenann::detail::LogError(__FILE__, __LINE__).stream()
 #define TNN_LOG_WARNING \
   ::tenann::detail::LogMessage(__FILE__, __LINE__, TNN_LOG_LEVEL_WARNING).stream()
 
 #define TNN_CHECK_BINARY_OP(name, op, x, y)                          \
   if (auto __tvm__log__err = ::tenann::detail::LogCheck##name(x, y)) \
-  ::tenann::detail::LogFatal(__FILE__, __LINE__).stream()            \
+  ::tenann::detail::LogError(__FILE__, __LINE__).stream()            \
       << "Check failed: " << #x " " #op " " #y << *__tvm__log__err << ": "
 
 #define TNN_CHECK_LT(x, y) TNN_CHECK_BINARY_OP(_LT, <, x, y)
@@ -203,12 +297,12 @@ TNN_CHECK_FUNC(_NE, !=)
 #define TNN_CHECK_NE(x, y) TNN_CHECK_BINARY_OP(_NE, !=, x, y)
 #define TNN_CHECK_NOTNULL(x)                                                                  \
   ((x) == nullptr                                                                             \
-   ? ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() << "Check not null: " #x << ' ', \
+   ? ::tenann::detail::LogError(__FILE__, __LINE__).stream() << "Check not null: " #x << ' ', \
    (x) : (x))  // NOLINT(*)
 
 #define TNN_CHECK(x) \
   if (!(x))          \
-  ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() << "Check failed: (" #x << ") is false: "
+  ::tenann::detail::LogError(__FILE__, __LINE__).stream() << "Check failed: (" #x << ") is false: "
 
 #ifndef NDEBUG
 #define TNN_DCHECK(x) TNN_CHECK(x)
@@ -240,7 +334,7 @@ TNN_CHECK_FUNC(_NE, !=)
 #define TNN_ICHECK(x)                                     \
   if (!(x))                                               \
   ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() \
-      << "InternalError: Check failed: (" #x << ") is false: "
+      << "FatalError: Check failed: (" #x << ") is false: "
 
 #define TNN_ICHECK_LT(x, y) TNN_ICHECK_BINARY_OP(_LT, <, x, y)
 #define TNN_ICHECK_GT(x, y) TNN_ICHECK_BINARY_OP(_GT, >, x, y)
@@ -250,6 +344,6 @@ TNN_CHECK_FUNC(_NE, !=)
 #define TNN_ICHECK_NE(x, y) TNN_ICHECK_BINARY_OP(_NE, !=, x, y)
 #define TNN_ICHECK_NOTNULL(x)                                               \
   ((x) == nullptr ? ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() \
-                        << "InternalError: Check not null: " #x << ' ',     \
+                        << "FatalError: Check not null: " #x << ' ',        \
    (x) : (x))  // NOLINT(*)
 }  // namespace tenann

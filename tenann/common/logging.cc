@@ -26,14 +26,19 @@ std::string Backtrace() { return ""; }
 namespace detail {
 
 const char* ::tenann::detail::LogMessage::level_strings_[] = {
-    ": Debug: ",    // TVM_LOG_LEVEL_DEBUG
-    ": ",           // TVM_LOG_LEVEL_INFO
-    ": Warning: ",  // TVM_LOG_LEVEL_WARNING
-    ": Error: ",    // TVM_LOG_LEVEL_ERROR
+    ": Debug: ",    // TNN_LOG_LEVEL_DEBUG
+    ": INFO: ",     // TNN_LOG_LEVEL_INFO
+    ": Warning: ",  // TNN_LOG_LEVEL_WARNING
+    ": Error: ",    // TNN_LOG_LEVEL_ERROR
 };
 
 LogFatal::Entry& LogFatal::GetEntry() {
   static thread_local LogFatal::Entry result;
+  return result;
+}
+
+LogError::Entry& LogError::GetEntry() {
+  static thread_local LogError::Entry result;
   return result;
 }
 
