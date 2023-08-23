@@ -18,7 +18,7 @@
  */
 
 // This file is based on code available under the Apache License 2.0 here:
-//     https://github.com/apache/T/blob/main/include/T/runtime/logging.h#L196
+//     https://github.com/apache/tvm/blob/main/include/tvm/runtime/logging.h#L196
 
 #pragma once
 
@@ -31,8 +31,7 @@
 
 namespace tenann {
 
-/// This function is not implemented yet.
-/// We will add support for stack trace using libbacktrace.
+/// @TODO(petri): implement this function with libbacktrace
 std::string Backtrace();
 
 /*!
