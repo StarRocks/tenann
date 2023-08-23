@@ -27,6 +27,8 @@ namespace tenann {
 class IndexReader {
  public:
   virtual ~IndexReader();
+  TNN_FORBID_COPY_AND_ASSIGN(IndexReader);
+  TNN_FORBID_MOVE(IndexReader);
 
   // Read index file
   virtual IndexRef ReadIndex(const std::string& path) = 0;

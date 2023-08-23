@@ -30,8 +30,8 @@ template <typename SearcherImpl>
 class Searcher {
  public:
   virtual ~Searcher() = default;
-  T_FORBID_COPY_AND_ASSIGN(Searcher);
-  T_FORBID_MOVE(Searcher);
+  TNN_FORBID_COPY_AND_ASSIGN(Searcher);
+  TNN_FORBID_MOVE(Searcher);
 
   SearcherImpl& ReadIndex(const std::string& path, bool force_read_and_flush_cache = false) {
     assert(index_reader_ != nullptr);

@@ -35,7 +35,7 @@ namespace tenann {
 std::string Backtrace();
 
 /*!
- * \brief Error type for errors from CHECK, ICHECK, and LOG(FATAL). This error
+ * \brief Error type for errors from CHECK, TNN_ICHECK, and LOG(FATAL). This error
  * contains a backtrace of where it occurred.
  */
 class InternalError : std::exception {
@@ -56,8 +56,8 @@ class InternalError : std::exception {
     // parses the message to reconstruct the error type).
     // TODO(tkonolige): Convert errors to Objects, so we can avoid the mess of formatting/parsing
     // error messages correctly.
-    s << "[" << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << file << ":" << lineno
-      << ": " << message << std::endl;
+    s << "[" << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << file << ":"
+      << lineno << ": " << message << std::endl;
     if (backtrace.size() > 0) {
       s << backtrace << std::endl;
     }
@@ -100,7 +100,7 @@ class LogFatal {
 #pragma disagnostic push
 #pragma warning(disable : 4722)
 #endif
-  [[noreturn]] ~LogFatal() T_THROW_EXCEPTION { GetEntry().Finalize(); }
+  [[noreturn]] ~LogFatal() TNN_THROW_EXCEPTION { GetEntry().Finalize(); }
 #ifdef _MSC_VER
 #pragma disagnostic pop
 #endif
@@ -113,7 +113,7 @@ class LogFatal {
       this->file_ = file;
       this->lineno_ = lineno;
     }
-    [[noreturn]] T_NO_INLINE InternalError Finalize() {
+    [[noreturn]] TNN_NO_INLINE InternalError Finalize() {
       InternalError error(file_, lineno_, stream_.str());
       throw error;
     }
@@ -122,7 +122,7 @@ class LogFatal {
     int lineno_;
   };
 
-  T_NO_INLINE static Entry& GetEntry();
+  TNN_NO_INLINE static Entry& GetEntry();
 };
 
 /*!
@@ -133,10 +133,10 @@ class LogMessage {
  public:
   LogMessage(const std::string& file, int lineno, int level) {
     std::time_t t = std::time(nullptr);
-    stream_ << "[" << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << "] " << file << ":" << lineno
-            << level_strings_[level];
+    stream_ << "[" << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << "] " << file << ":"
+            << lineno << level_strings_[level];
   }
-  T_NO_INLINE ~LogMessage() { std::cerr << stream_.str() << std::endl; }
+  TNN_NO_INLINE ~LogMessage() { std::cerr << stream_.str() << std::endl; }
   std::ostringstream& stream() { return stream_; }
 
  private:
@@ -145,16 +145,69 @@ class LogMessage {
 };
 }  // namespace detail
 
-#define T_LOG_LEVEL_DEBUG 0
-#define T_LOG_LEVEL_INFO 1
-#define T_LOG_LEVEL_WARNING 2
-#define T_LOG_LEVEL_ERROR 3
-#define T_LOG_LEVEL_FATAL 4
-#define LOG(level) LOG_##level
-#define LOG_DEBUG ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_DEBUG).stream()
-#define LOG_FATAL ::tenann::detail::LogFatal(__FILE__, __LINE__).stream()
-#define LOG_INFO ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_INFO).stream()
-#define LOG_ERROR ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_ERROR).stream()
-#define LOG_WARNING ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_WARNING).stream()
+#define TNN_LOG_LEVEL_DEBUG 0
+#define TNN_LOG_LEVEL_INFO 1
+#define TNN_LOG_LEVEL_WARNING 2
+#define TNN_LOG_LEVEL_ERROR 3
+#define TNN_LOG_LEVEL_FATAL 4
+#define TNN_LOG(level) TNN_LOG_##level
+#define TNN_LOG_DEBUG ::tenann::detail::LogMessage(__FILE__, __LINE__, TNN_LOG_LEVEL_DEBUG).stream()
+#define TNN_LOG_FATAL ::tenann::detail::LogFatal(__FILE__, __LINE__).stream()
+#define TNN_LOG_INFO ::tenann::detail::LogMessage(__FILE__, __LINE__, TNN_LOG_LEVEL_INFO).stream()
+#define TNN_LOG_ERROR ::tenann::detail::LogMessage(__FILE__, __LINE__, TNN_LOG_LEVEL_ERROR).stream()
+#define TNN_LOG_WARNING \
+  ::tenann::detail::LogMessage(__FILE__, __LINE__, TNN_LOG_LEVEL_WARNING).stream()
 
+#define TNN_CHECK_BINARY_OP(name, op, x, y)                                \
+  if (auto __tvm__log__err = ::tvm::runtime::detail::LogCheck##name(x, y)) \
+  ::tvm::runtime::detail::LogFatal(__FILE__, __LINE__).stream()            \
+      << "Check failed: " << #x " " #op " " #y << *__tvm__log__err << ": "
+
+#define CHECK(x)                                                \
+  if (!(x))                                                     \
+  ::tvm::runtime::detail::LogFatal(__FILE__, __LINE__).stream() \
+      << "Check failed: (" #x << ") is false: "
+
+#ifndef NDEBUG
+#define TNN_DCHECK(x) CHECK(x)
+#define TNN_DCHECK_LT(x, y) CHECK((x) < (y))
+#define TNN_DCHECK_GT(x, y) CHECK((x) > (y))
+#define TNN_DCHECK_LE(x, y) CHECK((x) <= (y))
+#define TNN_DCHECK_GE(x, y) CHECK((x) >= (y))
+#define TNN_DCHECK_EQ(x, y) CHECK((x) == (y))
+#define TNN_DCHECK_NE(x, y) CHECK((x) != (y))
+#else
+#define TNN_DCHECK(x) \
+  while (false) CHECK(x)
+#define TNN_DCHECK_LT(x, y) \
+  while (false) CHECK((x) < (y))
+#define TNN_DCHECK_GT(x, y) \
+  while (false) CHECK((x) > (y))
+#define TNN_DCHECK_LE(x, y) \
+  while (false) CHECK((x) <= (y))
+#define TNN_DCHECK_GE(x, y) \
+  while (false) CHECK((x) >= (y))
+#define TNN_DCHECK_EQ(x, y) \
+  while (false) CHECK((x) == (y))
+#define TNN_DCHECK_NE(x, y) \
+  while (false) CHECK((x) != (y))
+#endif
+
+#define TNN_ICHECK_INDENT "  "
+
+#define TNN_ICHECK(x)                                           \
+  if (!(x))                                                     \
+  ::tvm::runtime::detail::LogFatal(__FILE__, __LINE__).stream() \
+      << "InternalError: Check failed: (" #x << ") is false: "
+
+#define TNN_ICHECK_LT(x, y) TNN_ICHECK_BINARY_OP(_LT, <, x, y)
+#define TNN_ICHECK_GT(x, y) TNN_ICHECK_BINARY_OP(_GT, >, x, y)
+#define TNN_ICHECK_LE(x, y) TNN_ICHECK_BINARY_OP(_LE, <=, x, y)
+#define TNN_ICHECK_GE(x, y) TNN_ICHECK_BINARY_OP(_GE, >=, x, y)
+#define TNN_ICHECK_EQ(x, y) TNN_ICHECK_BINARY_OP(_EQ, ==, x, y)
+#define TNN_ICHECK_NE(x, y) TNN_ICHECK_BINARY_OP(_NE, !=, x, y)
+#define TNN_ICHECK_NOTNULL(x)                                                     \
+  ((x) == nullptr ? ::tvm::runtime::detail::LogFatal(__FILE__, __LINE__).stream() \
+                        << "InternalError: Check not null: " #x << ' ',           \
+   (x) : (x))  // NOLINT(*)
 }  // namespace tenann

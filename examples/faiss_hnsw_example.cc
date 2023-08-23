@@ -90,7 +90,7 @@ int main() {
 
     // load index from disk file
     ann_searcher->SetIndexReader(index_reader.get()).ReadIndex(index_path);
-    assert(ann_searcher->is_index_loaded());
+    TNN_DCHECK(ann_searcher->is_index_loaded());
 
     int k = 10;
     std::vector<int64_t> result_ids(nq * k);

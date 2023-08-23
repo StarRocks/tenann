@@ -27,8 +27,8 @@ namespace tenann {
 class AnnSearcher : public Searcher<AnnSearcher> {
  public:
   virtual ~AnnSearcher() override = default;
-  T_FORBID_MOVE(AnnSearcher);
-  T_FORBID_COPY_AND_ASSIGN(AnnSearcher);
+  TNN_FORBID_MOVE(AnnSearcher);
+  TNN_FORBID_COPY_AND_ASSIGN(AnnSearcher);
 
   /// ANN搜索接口，只返回k近邻的id
   virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) = 0;
