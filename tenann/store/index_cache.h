@@ -29,10 +29,12 @@ namespace tenann {
 
 class IndexCacheEntry;
 
-/// Wrapper around Cache, and used for cache JIT compiled function bitcode.
-/// The actual memory of bitcode is saved and managed by HydrogenJIT.
-/// This class only caches pointers to the bitcode and trigger memory release
-/// by calling HydrogenJIT's interface when a cache entry is evicted.
+/**
+ * @brief  Wrapper around Cache, and used for cache indexes.
+ *
+ * The actual memory of indexes are hold by the underlying index raw pointers.
+ * This class caches these pointers and trigger the deletion action when a cache entry is evicted.
+ */
 class IndexCache {
  public:
   IndexCache(size_t capacity);
@@ -40,18 +42,30 @@ class IndexCache {
 
   static IndexCache* GetGlobalInstance();
 
-  /// Lookup a compiled function in the cache by CacheKey.
-  ///
-  /// If the compiled function is found, the cache entry will be written into [[handle]].
-  /// IndexCacheEntry will release cache entry to cache when it destructs.
-  ///
-  /// Return true if entry is found, otherwise return false.
+  /**
+   * @brief Lookup an index in the cache by CacheKey.
+   *
+   * If the index is found, the cache entry will be written into [[handle]].
+   *
+   * @param key cache key
+   * @param handle handle to write
+   * @return true if index found
+   * @return false if index not found
+   */
   bool Lookup(const CacheKey& key, IndexCacheEntry* handle);
 
-  /// Insert a compiled function with key into this cache.
-  /// Given handle will be set to valid reference.
-  /// This function is thread-safe, and when two clients insert two same key
-  /// concurrently, this function can assure that only one function is cached.
+  /**
+   * @brief Insert an index with key into this cache.
+   *
+   *
+   * Given handle will be set to valid reference.
+   * This function is thread-safe, and when two clients insert two same key
+   * concurrently, this function can assure that only one function is cached.
+   *
+   * @param key cache key
+   * @param index index to cache
+   * @param handle will be set to valid reference after writing the given index to cache
+   */
   void Insert(const CacheKey& key, IndexRef index, IndexCacheEntry* handle);
 
   size_t memory_usage() const;
@@ -70,9 +84,13 @@ class IndexCache {
   std::unique_ptr<Cache> cache_ = nullptr;
 };
 
-// A handle for IndexCache entry. This class make it easy to handle
-// Cache entry. Users don't need to release the obtained cache entry. This
-// class will release the cache entry when it is destroyed.
+/**
+ * @brief A handle for index cache entry.
+ *
+ * This class make it easy to handle cache entry.
+ * Users don't need to release the obtained cache entry.
+ * This class will release the cache entry when it is destroyed.
+ */
 class IndexCacheEntry {
  public:
   IndexCacheEntry();
