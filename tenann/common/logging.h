@@ -143,6 +143,38 @@ class LogMessage {
   std::ostringstream stream_;
   static const char* level_strings_[];
 };
+
+template <typename X, typename Y>
+std::unique_ptr<std::string> LogCheckFormat(const X& x, const Y& y) {
+  std::ostringstream os;
+  os << " (" << x << " vs. " << y << ") ";  // CHECK_XX(x, y) requires x and y can be serialized to
+                                            // string. Use CHECK(x OP y) otherwise.
+  return std::make_unique<std::string>(os.str());
+}
+
+// Inline _Pragma in macros does not work reliably on old version of MSVC and
+// GCC. We wrap all comparisons in a function so that we can use #pragma to
+// silence bad comparison warnings.
+#define TNN_CHECK_FUNC(name, op)                                                          \
+  template <typename X, typename Y>                                                       \
+  TNN_ALWAYS_INLINE std::unique_ptr<std::string> LogCheck##name(const X& x, const Y& y) { \
+    if (x op y) return nullptr;                                                           \
+    return LogCheckFormat(x, y);                                                          \
+  }                                                                                       \
+  TNN_ALWAYS_INLINE std::unique_ptr<std::string> LogCheck##name(int x, int y) {           \
+    return LogCheck##name<int, int>(x, y);                                                \
+  }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+TNN_CHECK_FUNC(_LT, <)
+TNN_CHECK_FUNC(_GT, >)
+TNN_CHECK_FUNC(_LE, <=)
+TNN_CHECK_FUNC(_GE, >=)
+TNN_CHECK_FUNC(_EQ, ==)
+TNN_CHECK_FUNC(_NE, !=)
+#pragma GCC diagnostic pop
+
 }  // namespace detail
 
 #define TNN_LOG_LEVEL_DEBUG 0
@@ -158,46 +190,56 @@ class LogMessage {
 #define TNN_LOG_WARNING \
   ::tenann::detail::LogMessage(__FILE__, __LINE__, TNN_LOG_LEVEL_WARNING).stream()
 
-#define TNN_CHECK_BINARY_OP(name, op, x, y)                                \
-  if (auto __tvm__log__err = ::tvm::runtime::detail::LogCheck##name(x, y)) \
-  ::tvm::runtime::detail::LogFatal(__FILE__, __LINE__).stream()            \
+#define TNN_CHECK_BINARY_OP(name, op, x, y)                          \
+  if (auto __tvm__log__err = ::tenann::detail::LogCheck##name(x, y)) \
+  ::tenann::detail::LogFatal(__FILE__, __LINE__).stream()            \
       << "Check failed: " << #x " " #op " " #y << *__tvm__log__err << ": "
 
-#define CHECK(x)                                                \
-  if (!(x))                                                     \
-  ::tvm::runtime::detail::LogFatal(__FILE__, __LINE__).stream() \
-      << "Check failed: (" #x << ") is false: "
+#define TNN_CHECK_LT(x, y) TNN_CHECK_BINARY_OP(_LT, <, x, y)
+#define TNN_CHECK_GT(x, y) TNN_CHECK_BINARY_OP(_GT, >, x, y)
+#define TNN_CHECK_LE(x, y) TNN_CHECK_BINARY_OP(_LE, <=, x, y)
+#define TNN_CHECK_GE(x, y) TNN_CHECK_BINARY_OP(_GE, >=, x, y)
+#define TNN_CHECK_EQ(x, y) TNN_CHECK_BINARY_OP(_EQ, ==, x, y)
+#define TNN_CHECK_NE(x, y) TNN_CHECK_BINARY_OP(_NE, !=, x, y)
+#define TNN_CHECK_NOTNULL(x)                                                                  \
+  ((x) == nullptr                                                                             \
+   ? ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() << "Check not null: " #x << ' ', \
+   (x) : (x))  // NOLINT(*)
+
+#define TNN_CHECK(x) \
+  if (!(x))          \
+  ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() << "Check failed: (" #x << ") is false: "
 
 #ifndef NDEBUG
-#define TNN_DCHECK(x) CHECK(x)
-#define TNN_DCHECK_LT(x, y) CHECK((x) < (y))
-#define TNN_DCHECK_GT(x, y) CHECK((x) > (y))
-#define TNN_DCHECK_LE(x, y) CHECK((x) <= (y))
-#define TNN_DCHECK_GE(x, y) CHECK((x) >= (y))
-#define TNN_DCHECK_EQ(x, y) CHECK((x) == (y))
-#define TNN_DCHECK_NE(x, y) CHECK((x) != (y))
+#define TNN_DCHECK(x) TNN_CHECK(x)
+#define TNN_DCHECK_LT(x, y) TNN_CHECK((x) < (y))
+#define TNN_DCHECK_GT(x, y) TNN_CHECK((x) > (y))
+#define TNN_DCHECK_LE(x, y) TNN_CHECK((x) <= (y))
+#define TNN_DCHECK_GE(x, y) TNN_CHECK((x) >= (y))
+#define TNN_DCHECK_EQ(x, y) TNN_CHECK((x) == (y))
+#define TNN_DCHECK_NE(x, y) TNN_CHECK((x) != (y))
 #else
 #define TNN_DCHECK(x) \
-  while (false) CHECK(x)
+  while (false) TNN_CHECK(x)
 #define TNN_DCHECK_LT(x, y) \
-  while (false) CHECK((x) < (y))
+  while (false) TNN_CHECK((x) < (y))
 #define TNN_DCHECK_GT(x, y) \
-  while (false) CHECK((x) > (y))
+  while (false) TNN_CHECK((x) > (y))
 #define TNN_DCHECK_LE(x, y) \
-  while (false) CHECK((x) <= (y))
+  while (false) TNN_CHECK((x) <= (y))
 #define TNN_DCHECK_GE(x, y) \
-  while (false) CHECK((x) >= (y))
+  while (false) TNN_CHECK((x) >= (y))
 #define TNN_DCHECK_EQ(x, y) \
-  while (false) CHECK((x) == (y))
+  while (false) TNN_CHECK((x) == (y))
 #define TNN_DCHECK_NE(x, y) \
-  while (false) CHECK((x) != (y))
+  while (false) TNN_CHECK((x) != (y))
 #endif
 
 #define TNN_ICHECK_INDENT "  "
 
-#define TNN_ICHECK(x)                                           \
-  if (!(x))                                                     \
-  ::tvm::runtime::detail::LogFatal(__FILE__, __LINE__).stream() \
+#define TNN_ICHECK(x)                                     \
+  if (!(x))                                               \
+  ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() \
       << "InternalError: Check failed: (" #x << ") is false: "
 
 #define TNN_ICHECK_LT(x, y) TNN_ICHECK_BINARY_OP(_LT, <, x, y)
@@ -206,8 +248,8 @@ class LogMessage {
 #define TNN_ICHECK_GE(x, y) TNN_ICHECK_BINARY_OP(_GE, >=, x, y)
 #define TNN_ICHECK_EQ(x, y) TNN_ICHECK_BINARY_OP(_EQ, ==, x, y)
 #define TNN_ICHECK_NE(x, y) TNN_ICHECK_BINARY_OP(_NE, !=, x, y)
-#define TNN_ICHECK_NOTNULL(x)                                                     \
-  ((x) == nullptr ? ::tvm::runtime::detail::LogFatal(__FILE__, __LINE__).stream() \
-                        << "InternalError: Check not null: " #x << ' ',           \
+#define TNN_ICHECK_NOTNULL(x)                                               \
+  ((x) == nullptr ? ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() \
+                        << "InternalError: Check not null: " #x << ' ',     \
    (x) : (x))  // NOLINT(*)
 }  // namespace tenann
