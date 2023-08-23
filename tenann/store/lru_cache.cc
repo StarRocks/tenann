@@ -15,7 +15,7 @@
 using std::string;
 using std::stringstream;
 
-namespace starrocks {
+namespace tenann {
 
 uint32_t CacheKey::hash(const char* data, size_t n, uint32_t seed) const {
   // Similar to murmur hash
@@ -511,4 +511,4 @@ void ShardedLRUCache::get_cache_status(nlohmann::json* document) {
 
 Cache* new_lru_cache(size_t capacity) { return new ShardedLRUCache(capacity); }
 
-}  // namespace starrocks
+}  // namespace tenann

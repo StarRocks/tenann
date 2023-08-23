@@ -14,7 +14,7 @@
 
 #include "tenann/common/json.hpp"
 
-namespace starrocks {
+namespace tenann {
 
 class Cache;
 class CacheKey;
