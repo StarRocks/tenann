@@ -50,9 +50,18 @@ int main() {
   auto found = cache->Lookup("index1", &read_entry);
   T_CHECK(found);
 
-  // There should be two references to the index: one is index_ref, and another is held by the cache.
+  // There should be two references to the index: one is original index_ref, and another is held by
+  // the cache.
   T_LOG(INFO) << "index ref count: " << index_ref.use_count();
+
+  auto shared_ref_from_cache = read_entry.index_ref();
+  // There should be three references to the index:
+  // 1. `index_ref`
+  // 2. the reference held by the cache
+  // 3. `shared_ref_from_cache`
+  T_LOG(INFO) << "index ref count: " << index_ref.use_count();
+
   T_LOG(INFO) << "index read from cache: "
-                << reinterpret_cast<const IndexMock*>(read_entry.index()->index_raw())->name;
+              << reinterpret_cast<const IndexMock*>(shared_ref_from_cache->index_raw())->name;
   return 0;
 }

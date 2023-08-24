@@ -102,7 +102,7 @@ class IndexCacheEntry {
   IndexCacheEntry& operator=(IndexCacheEntry&& other) noexcept;
 
   Cache* cache() const;
-  const Index* index() const;
+  IndexRef index_ref() const;
 
  private:
   Cache* cache_ = nullptr;

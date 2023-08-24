@@ -98,12 +98,15 @@ IndexCacheEntry& IndexCacheEntry::operator=(IndexCacheEntry&& other) noexcept {
 
 Cache* IndexCacheEntry::cache() const { return cache_; }
 
-const Index* IndexCacheEntry::index() const {
+IndexRef IndexCacheEntry::index_ref() const {
   T_DCHECK(handle_ != nullptr);
   auto* handle = reinterpret_cast<LRUHandle*>(handle_);
-  // The value saved in cache is a pointer to CompiledFunction
-  auto* index = reinterpret_cast<IndexRef*>(handle->value)->get();
-  return index;
+  // Ownership of the cache entry can be safely shared.
+  // The index will be released if both the following conditions are satisfied:
+  // 1. The cache entry is evicted from the cache.
+  // 2. The reference count of the IndexRef instance becomes 0.
+  auto shared_ref = *reinterpret_cast<IndexRef*>(handle->value);
+  return shared_ref;
 }
 
 }  // namespace tenann
