@@ -26,7 +26,7 @@ class IndexMock {
  public:
   IndexMock() : name() {}
   IndexMock(const std::string& name) : name(name){};
-  ~IndexMock() { TNN_LOG(INFO) << "Index destroyed: " << name; }
+  ~IndexMock() { T_LOG(INFO) << "Index destroyed: " << name; }
 
   std::string name;
 };
@@ -38,7 +38,7 @@ int main() {
                               IndexType::kFaissHnsw,    //
                               [](void* index) { delete reinterpret_cast<IndexMock*>(index); });
 
-  TNN_LOG(INFO) << "index built: " << reinterpret_cast<IndexMock*>(index_ref->index_raw())->name;
+  T_LOG(INFO) << "index built: " << reinterpret_cast<IndexMock*>(index_ref->index_raw())->name;
 
   // write index to cache
   auto* cache = IndexCache::GetGlobalInstance();
@@ -48,11 +48,11 @@ int main() {
   // read index from cache
   IndexCacheEntry read_entry;
   auto found = cache->Lookup("index1", &read_entry);
-  TNN_CHECK(found);
+  T_CHECK(found);
 
   // There should be two references to the index: one is index_ref, and another is held by the cache.
-  TNN_LOG(INFO) << "index ref count: " << index_ref.use_count();
-  TNN_LOG(INFO) << "index read from cache: "
+  T_LOG(INFO) << "index ref count: " << index_ref.use_count();
+  T_LOG(INFO) << "index read from cache: "
                 << reinterpret_cast<const IndexMock*>(read_entry.index()->index_raw())->name;
   return 0;
 }

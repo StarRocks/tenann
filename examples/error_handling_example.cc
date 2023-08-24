@@ -27,9 +27,9 @@
  * 我们在前期开发中，先尽量少地使用日志，避免日志输出膨胀。
  */
 void LogExample() {
-  TNN_LOG(DEBUG) << "my debug log";
-  TNN_LOG(WARNING) << "my warning log";
-  TNN_LOG(INFO) << "my info log";
+  T_LOG(DEBUG) << "my debug log";
+  T_LOG(WARNING) << "my warning log";
+  T_LOG(INFO) << "my info log";
 }
 
 /**
@@ -43,14 +43,14 @@ void RecoverableErrorExample() {
   int a = 1;
   // 使用LOG(ERROR)会自动抛出Error类型的异常
   try {
-    TNN_LOG(ERROR) << "LOG(ERROR) example";
+    T_LOG(ERROR) << "LOG(ERROR) example";
   } catch (tenann::Error& e) {
     std::cerr << "Recover from error 1\n";
   }
 
   // 使用CHECK宏检查参数，条件不满足会自动抛出Error：
   try {
-    TNN_CHECK_GT(a, 100) << "CHECK example";
+    T_CHECK_GT(a, 100) << "CHECK example";
   } catch (tenann::Error& e) {
     std::cerr << "Recover from error 2\n";
   }
@@ -59,7 +59,7 @@ void RecoverableErrorExample() {
   // 和assert类似，DCHECK系列宏仅在DEBUG模式有效，RELEASE模式中会被优化掉。
   // 所以对于可能性比较低的错误，建议用DCHECK来检查，避免正式发布版本中进行检查的额外开销
   try {
-    TNN_DCHECK(a > 100) << "DCHECK example";
+    T_DCHECK(a > 100) << "DCHECK example";
   } catch (tenann::Error& e) {
     std::cerr << "Recover from error 3\n";
   }
@@ -73,13 +73,13 @@ void FatalErrorExample() {
   int a = 1;
 
   try {
-    TNN_LOG(FATAL) << "fatal error";
+    T_LOG(FATAL) << "fatal error";
   } catch (tenann::FatalError& e) {
     std::cout << "we should let it crash instead of catching a fatal error\n";
   }
 
   try {
-    TNN_ICHECK(a == 100);
+    T_ICHECK(a == 100);
   } catch (tenann::FatalError& e) {
     std::cout << "we should let it crash instead of catching a fatal error\n";
   }

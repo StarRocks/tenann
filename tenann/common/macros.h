@@ -19,17 +19,17 @@
 
 #pragma once
 
-#define TNN_FORBID_COPY_AND_ASSIGN(TypeName) \
+#define T_FORBID_COPY_AND_ASSIGN(TypeName) \
   TypeName(const TypeName&) = delete;      \
   TypeName& operator=(const TypeName&) = delete;
 
-#define TNN_FORBID_MOVE(TypeName)  \
+#define T_FORBID_MOVE(TypeName)  \
   TypeName(TypeName&&) = delete; \
   TypeName& operator=(TypeName&&) = delete;
 
 
-#define TNN_THROW_EXCEPTION noexcept(false)
+#define T_THROW_EXCEPTION noexcept(false)
 
-#define TNN_NO_INLINE __attribute__((noinline))
+#define T_NO_INLINE __attribute__((noinline))
 
-#define TNN_ALWAYS_INLINE inline __attribute__((always_inline))
+#define T_ALWAYS_INLINE inline __attribute__((always_inline))

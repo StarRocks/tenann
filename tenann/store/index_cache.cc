@@ -99,7 +99,7 @@ IndexCacheEntry& IndexCacheEntry::operator=(IndexCacheEntry&& other) noexcept {
 Cache* IndexCacheEntry::cache() const { return cache_; }
 
 const Index* IndexCacheEntry::index() const {
-  TNN_DCHECK(handle_ != nullptr);
+  T_DCHECK(handle_ != nullptr);
   auto* handle = reinterpret_cast<LRUHandle*>(handle_);
   // The value saved in cache is a pointer to CompiledFunction
   auto* index = reinterpret_cast<IndexRef*>(handle->value)->get();

@@ -60,15 +60,15 @@ int main() {
   // size of the query vectors we plan to test
   size_t nq = 1000;
   // index save path
-  constexpr const char* index_path = "tmp/tnn_hnsw_index";
+  constexpr const char* index_path = "tmp/T_hnsw_index";
 
   // generate data and query
-  TNN_LOG(WARNING) << "Generating base vectors...";
+  T_LOG(WARNING) << "Generating base vectors...";
   auto base = RandomVectors(nb, d);
   auto base_view = ArraySeqView{
       .data = reinterpret_cast<uint8_t*>(base.data()), .dim = d, .size = static_cast<uint32_t>(nb)};
 
-  TNN_LOG(WARNING) << "Generating query vectors...";
+  T_LOG(WARNING) << "Generating query vectors...";
   auto query = RandomVectors(nq, d, /*seed=*/1);
 
   // build and write index
@@ -90,7 +90,7 @@ int main() {
 
     // load index from disk file
     ann_searcher->SetIndexReader(index_reader.get()).ReadIndex(index_path);
-    TNN_DCHECK(ann_searcher->is_index_loaded());
+    T_DCHECK(ann_searcher->is_index_loaded());
 
     int k = 10;
     std::vector<int64_t> result_ids(nq * k);

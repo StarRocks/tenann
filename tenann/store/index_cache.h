@@ -96,7 +96,7 @@ class IndexCacheEntry {
   IndexCacheEntry();
   IndexCacheEntry(Cache* cache, Cache::Handle* handle);
   ~IndexCacheEntry();
-  TNN_FORBID_COPY_AND_ASSIGN(IndexCacheEntry);
+  T_FORBID_COPY_AND_ASSIGN(IndexCacheEntry);
 
   IndexCacheEntry(IndexCacheEntry&& other) noexcept;
   IndexCacheEntry& operator=(IndexCacheEntry&& other) noexcept;

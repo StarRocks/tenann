@@ -116,7 +116,7 @@ bool HandleTable::_resize() {
   auto** new_list = new (std::nothrow) LRUHandle*[new_length];
 
   if (nullptr == new_list) {
-    TNN_LOG(FATAL) << "failed to malloc new hash list. new_length=" << new_length;
+    T_LOG(FATAL) << "failed to malloc new hash list. new_length=" << new_length;
     return false;
   }
 
@@ -139,7 +139,7 @@ bool HandleTable::_resize() {
 
   if (_elems != count) {
     delete[] new_list;
-    TNN_LOG(FATAL) << "_elems not match new count. elems=" << _elems << ", count=" << count;
+    T_LOG(FATAL) << "_elems not match new count. elems=" << _elems << ", count=" << count;
     return false;
   }
 
@@ -158,7 +158,7 @@ LRUCache::LRUCache() {
 LRUCache::~LRUCache() noexcept { prune(); }
 
 bool LRUCache::_unref(LRUHandle* e) {
-  TNN_DCHECK(e->refs > 0);
+  T_DCHECK(e->refs > 0);
   e->refs--;
   return e->refs == 0;
 }
@@ -216,7 +216,7 @@ Cache::Handle* LRUCache::lookup(const CacheKey& key, uint32_t hash) {
   LRUHandle* e = _table.lookup(key, hash);
   if (e != nullptr) {
     // we get it from _table, so in_cache must be true
-    TNN_DCHECK(e->in_cache);
+    T_DCHECK(e->in_cache);
     if (e->refs == 1) {
       // only in LRU free list, remove it from list
       _lru_remove(e);
@@ -275,15 +275,15 @@ void LRUCache::_evict_from_lru(size_t charge, std::vector<LRUHandle*>* deleted) 
   // 2. evict durable cache entries if need
   while (_usage + charge > _capacity && _lru.next != &_lru) {
     LRUHandle* old = _lru.next;
-    TNN_DCHECK(old->priority == CachePriority::DURABLE);
+    T_DCHECK(old->priority == CachePriority::DURABLE);
     _evict_one_entry(old);
     deleted->push_back(old);
   }
 }
 
 void LRUCache::_evict_one_entry(LRUHandle* e) {
-  TNN_DCHECK(e->in_cache);
-  TNN_DCHECK(e->refs == 1);  // LRU list contains elements which may be evicted
+  T_DCHECK(e->in_cache);
+  T_DCHECK(e->refs == 1);  // LRU list contains elements which may be evicted
   _lru_remove(e);
   _table.remove(e->key(), e->hash);
   e->in_cache = false;
@@ -369,8 +369,8 @@ int LRUCache::prune() {
     std::lock_guard l(_mutex);
     while (_lru.next != &_lru) {
       LRUHandle* old = _lru.next;
-      TNN_DCHECK(old->in_cache);
-      TNN_DCHECK(old->refs == 1);  // LRU list contains elements which may be evicted
+      T_DCHECK(old->in_cache);
+      T_DCHECK(old->refs == 1);  // LRU list contains elements which may be evicted
       _lru_remove(old);
       _table.remove(old->key(), old->hash);
       old->in_cache = false;
@@ -465,7 +465,7 @@ void ShardedLRUCache::prune() {
   for (auto& _shard : _shards) {
     num_prune += _shard.prune();
   }
-  TNN_LOG(INFO) << "Successfully prune cache, clean " << num_prune << " entries.";
+  T_LOG(INFO) << "Successfully prune cache, clean " << num_prune << " entries.";
 }
 
 size_t ShardedLRUCache::get_memory_usage() { return _get_stat(&LRUCache::get_usage); }

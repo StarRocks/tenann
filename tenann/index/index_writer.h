@@ -27,8 +27,8 @@ namespace tenann {
 class IndexWriter {
  public:
   virtual ~IndexWriter();
-  TNN_FORBID_COPY_AND_ASSIGN(IndexWriter);
-  TNN_FORBID_MOVE(IndexWriter);
+  T_FORBID_COPY_AND_ASSIGN(IndexWriter);
+  T_FORBID_MOVE(IndexWriter);
 
   // Write index file
   virtual void WriteIndex(IndexRef index, const std::string& path) = 0;

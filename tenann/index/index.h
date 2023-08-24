@@ -36,7 +36,7 @@ class Index {
   ~Index() noexcept;
 
   // disable copy, enable moving
-  TNN_FORBID_COPY_AND_ASSIGN(Index);
+  T_FORBID_COPY_AND_ASSIGN(Index);
 
   Index(Index&& rhs) noexcept;
 

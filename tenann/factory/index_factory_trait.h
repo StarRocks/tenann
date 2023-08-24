@@ -44,30 +44,30 @@ namespace tenann {
 template <IndexType type>
 struct IndexFactoryTrait {
   [[noreturn]] static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    TNN_LOG(FATAL) << "method not implemented: CreateReaderFromMeta";
+    T_LOG(FATAL) << "method not implemented: CreateReaderFromMeta";
   };
 
   [[noreturn]] static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    TNN_LOG(FATAL) << "method not implemented: CreateWriterFromMeta";
+    T_LOG(FATAL) << "method not implemented: CreateWriterFromMeta";
   };
 
  [[noreturn]] static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    TNN_LOG(FATAL) << "method not implemented: CreateBuilderFromMeta";
+    T_LOG(FATAL) << "method not implemented: CreateBuilderFromMeta";
   };
 };
 
 template <>
 struct IndexFactoryTrait<kFaissHnsw> {
   [[noreturn]] static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    TNN_LOG(FATAL) << "method not implemented: CreateReaderFromMeta";
+    T_LOG(FATAL) << "method not implemented: CreateReaderFromMeta";
   };
 
   [[noreturn]] static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    TNN_LOG(FATAL) << "method not implemented: CreateWriterFromMeta";
+    T_LOG(FATAL) << "method not implemented: CreateWriterFromMeta";
   };
 
   [[noreturn]] static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    TNN_LOG(FATAL) << "method not implemented: CreateBuilderFromMeta";
+    T_LOG(FATAL) << "method not implemented: CreateBuilderFromMeta";
   };
 };
 

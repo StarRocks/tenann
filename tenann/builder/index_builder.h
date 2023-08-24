@@ -31,8 +31,8 @@ class IndexBuilder {
  public:
   virtual ~IndexBuilder() = default;
 
-  TNN_FORBID_COPY_AND_ASSIGN(IndexBuilder);
-  TNN_FORBID_MOVE(IndexBuilder);
+  T_FORBID_COPY_AND_ASSIGN(IndexBuilder);
+  T_FORBID_MOVE(IndexBuilder);
 
   /// Build index and use the row number as primary key.
   IndexBuilder& Build(const std::vector<SeqView>& input_columns);
