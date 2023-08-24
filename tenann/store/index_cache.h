@@ -27,7 +27,7 @@
 
 namespace tenann {
 
-class IndexCacheEntry;
+class IndexCacheHandle;
 
 /**
  * @brief  Wrapper around Cache, and used for cache indexes.
@@ -52,33 +52,33 @@ class IndexCache {
    * @return true if index found
    * @return false if index not found
    */
-  bool Lookup(const CacheKey& key, IndexCacheEntry* handle);
+  bool Lookup(const CacheKey& key, IndexCacheHandle* handle);
 
   /**
    * @brief Insert an index with key into this cache.
    *
    *
-   * Given handle will be set to valid reference.
+   * Given handle will be set to valid reference if a non-null pointer is passed.
    * This function is thread-safe, and when two clients insert two same key
-   * concurrently, this function can assure that only one function is cached.
+   * concurrently, this function can assure that only one value is cached.
    *
    * @param key cache key
    * @param index index to cache
-   * @param handle will be set to valid reference after writing the given index to cache
+   * @param handle will be set to valid reference if handle is a non-null pointer
    */
-  void Insert(const CacheKey& key, IndexRef index, IndexCacheEntry* handle);
-
-  size_t memory_usage() const;
+  void Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle = nullptr);
 
   void SetCapacity(size_t capacity);
+
+  bool AdjustCapacity(int64_t delta, size_t min_capacity = 0);
+
+  size_t memory_usage() const;
 
   size_t capacity();
 
   uint64_t lookup_count();
 
   uint64_t hit_count();
-
-  bool AdjustCapacity(int64_t delta, size_t min_capacity = 0);
 
  private:
   std::unique_ptr<Cache> cache_ = nullptr;
@@ -91,16 +91,17 @@ class IndexCache {
  * Users don't need to release the obtained cache entry.
  * This class will release the cache entry when it is destroyed.
  */
-class IndexCacheEntry {
+class IndexCacheHandle {
  public:
-  IndexCacheEntry();
-  IndexCacheEntry(Cache* cache, Cache::Handle* handle);
-  ~IndexCacheEntry();
-  T_FORBID_COPY_AND_ASSIGN(IndexCacheEntry);
+  IndexCacheHandle();
+  IndexCacheHandle(Cache* cache, Cache::Handle* handle);
+  ~IndexCacheHandle();
+  T_FORBID_COPY_AND_ASSIGN(IndexCacheHandle);
 
-  IndexCacheEntry(IndexCacheEntry&& other) noexcept;
-  IndexCacheEntry& operator=(IndexCacheEntry&& other) noexcept;
+  IndexCacheHandle(IndexCacheHandle&& other) noexcept;
+  IndexCacheHandle& operator=(IndexCacheHandle&& other) noexcept;
 
+  uint32_t cache_entry_ref_count();
   Cache* cache() const;
   IndexRef index_ref() const;
 

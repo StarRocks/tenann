@@ -33,21 +33,21 @@ IndexCache* IndexCache::GetGlobalInstance() {
   return &instance;
 }
 
-bool IndexCache::Lookup(const CacheKey& key, IndexCacheEntry* handle) {
+bool IndexCache::Lookup(const CacheKey& key, IndexCacheHandle* handle) {
   auto* lru_handle = cache_->lookup(key);
   if (lru_handle == nullptr) {
     return false;
   }
-  *handle = IndexCacheEntry(cache_.get(), lru_handle);
+  *handle = IndexCacheHandle(cache_.get(), lru_handle);
   return true;
 }
 
-void IndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheEntry* handle) {
+void IndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle) {
   auto index_size = index->EstimateMemorySizeInBytes();
-  // Create a new reference to the index and intentionally leak the reference
+  // create a new reference to the index and intentionally leak the reference
   void* leaked_index = reinterpret_cast<void*>(new IndexRef(index));
 
-  // The reference will not be destroyed until we manually delete it through a custom deleter
+  // the reference will not be destroyed until we manually delete it through a custom deleter
   auto deleter = [](const CacheKey& key, void* value) {
     auto leaked_index = reinterpret_cast<IndexRef*>(value);
     delete leaked_index;
@@ -56,12 +56,18 @@ void IndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheEntry* ha
   CachePriority priority = CachePriority::NORMAL;
 
   auto* lru_handle = cache_->insert(key, leaked_index, index_size, deleter, priority);
-  *handle = IndexCacheEntry(cache_.get(), lru_handle);
+  if (handle != nullptr) {
+    *handle = IndexCacheHandle(cache_.get(), lru_handle);
+  }
+}
+
+void IndexCache::SetCapacity(size_t capacity) { cache_->set_capacity(capacity); }
+
+bool IndexCache::AdjustCapacity(int64_t delta, size_t min_capacity) {
+  return cache_->adjust_capacity(delta, min_capacity);
 }
 
 size_t IndexCache::memory_usage() const { return cache_->get_memory_usage(); }
-
-void IndexCache::SetCapacity(size_t capacity) { cache_->set_capacity(capacity); }
 
 size_t IndexCache::capacity() { return cache_->get_capacity(); }
 
@@ -69,36 +75,38 @@ uint64_t IndexCache::lookup_count() { return cache_->get_lookup_count(); }
 
 uint64_t IndexCache::hit_count() { return cache_->get_hit_count(); }
 
-bool IndexCache::AdjustCapacity(int64_t delta, size_t min_capacity) {
-  return cache_->adjust_capacity(delta, min_capacity);
-}
+IndexCacheHandle::IndexCacheHandle() = default;
 
-IndexCacheEntry::IndexCacheEntry() = default;
-
-IndexCacheEntry::IndexCacheEntry(Cache* cache, Cache::Handle* handle)
+IndexCacheHandle::IndexCacheHandle(Cache* cache, Cache::Handle* handle)
     : cache_(cache), handle_(handle) {}
 
-IndexCacheEntry::~IndexCacheEntry() {
+IndexCacheHandle::~IndexCacheHandle() {
   if (handle_ != nullptr) {
     cache_->release(handle_);
   }
 }
 
-IndexCacheEntry::IndexCacheEntry(IndexCacheEntry&& other) noexcept {
+IndexCacheHandle::IndexCacheHandle(IndexCacheHandle&& other) noexcept {
   // we can use std::exchange if we switch c++14 on
   std::swap(cache_, other.cache_);
   std::swap(handle_, other.handle_);
 }
 
-IndexCacheEntry& IndexCacheEntry::operator=(IndexCacheEntry&& other) noexcept {
+IndexCacheHandle& IndexCacheHandle::operator=(IndexCacheHandle&& other) noexcept {
   std::swap(cache_, other.cache_);
   std::swap(handle_, other.handle_);
   return *this;
 }
 
-Cache* IndexCacheEntry::cache() const { return cache_; }
+uint32_t IndexCacheHandle::cache_entry_ref_count() {
+  T_DCHECK(handle_ != nullptr);
+  auto* handle = reinterpret_cast<LRUHandle*>(handle_);
+  return handle->refs;
+}
 
-IndexRef IndexCacheEntry::index_ref() const {
+Cache* IndexCacheHandle::cache() const { return cache_; }
+
+IndexRef IndexCacheHandle::index_ref() const {
   T_DCHECK(handle_ != nullptr);
   auto* handle = reinterpret_cast<LRUHandle*>(handle_);
   // Ownership of the cache entry can be safely shared.

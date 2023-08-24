@@ -38,30 +38,29 @@ int main() {
                               IndexType::kFaissHnsw,    //
                               [](void* index) { delete reinterpret_cast<IndexMock*>(index); });
 
-  T_LOG(INFO) << "index built: " << reinterpret_cast<IndexMock*>(index_ref->index_raw())->name;
+  T_LOG(INFO) << "Index built: " << reinterpret_cast<IndexMock*>(index_ref->index_raw())->name;
 
   // write index to cache
   auto* cache = IndexCache::GetGlobalInstance();
-  IndexCacheEntry write_entry;
-  cache->Insert("index1", index_ref, &write_entry);
+  cache->Insert("index1", index_ref);
 
   // read index from cache
-  IndexCacheEntry read_entry;
-  auto found = cache->Lookup("index1", &read_entry);
+  IndexCacheHandle read_handle;
+  auto found = cache->Lookup("index1", &read_handle);
   T_CHECK(found);
 
   // There should be two references to the index: one is original index_ref, and another is held by
   // the cache.
-  T_LOG(INFO) << "index ref count: " << index_ref.use_count();
+  T_LOG(INFO) << "IndexRef use count: " << index_ref.use_count();
 
-  auto shared_ref_from_cache = read_entry.index_ref();
+  auto shared_ref_from_cache = read_handle.index_ref();
   // There should be three references to the index:
   // 1. `index_ref`
   // 2. the reference held by the cache
   // 3. `shared_ref_from_cache`
-  T_LOG(INFO) << "index ref count: " << index_ref.use_count();
+  T_LOG(INFO) << "IndexRef use count: " << index_ref.use_count();
 
-  T_LOG(INFO) << "index read from cache: "
+  T_LOG(INFO) << "Index read from cache: "
               << reinterpret_cast<const IndexMock*>(shared_ref_from_cache->index_raw())->name;
   return 0;
 }
