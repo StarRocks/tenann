@@ -35,7 +35,7 @@ IndexBuilder& IndexBuilder::BuildWithPrimaryKey(const std::vector<SeqView>& inpu
 }
 
 IndexBuilder& IndexBuilder::WriteIndex(const std::string& path, bool write_index_cache) {
-  index_writer_->WriteIndex(index_, path);
+  index_writer_->WriteIndex(index_ref_, path);
   return *this;
 }
 
@@ -51,7 +51,7 @@ IndexBuilder& IndexBuilder::SetIndexCache(IndexCache* cache) {
 
 const IndexMeta& IndexBuilder::index_meta() const { return index_meta_; }
 
-IndexRef IndexBuilder::index() const { return index_; }
+IndexRef IndexBuilder::index_ref() const { return index_ref_; }
 
 IndexWriter* IndexBuilder::index_writer() { return index_writer_; }
 

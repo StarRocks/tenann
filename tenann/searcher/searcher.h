@@ -35,7 +35,7 @@ class Searcher {
 
   SearcherImpl& ReadIndex(const std::string& path, bool force_read_and_flush_cache = false) {
     assert(index_reader_ != nullptr);
-    index_ = index_reader_->ReadIndex(path);
+    index_ref_ = index_reader_->ReadIndex(path);
     return static_cast<SearcherImpl&>(*this);
   };
 
@@ -65,7 +65,7 @@ class Searcher {
     return static_cast<SearcherImpl&>(*this);
   }
 
-  IndexRef index() const { return index_; }
+  IndexRef index_ref() const { return index_ref_; }
 
   const IndexReader* index_reader() const { return index_reader_; }
 
@@ -83,7 +83,7 @@ class Searcher {
   virtual void SearchParamsChangeHook(const json& value) = 0;
 
   IndexMeta index_meta_;
-  IndexRef index_;
+  IndexRef index_ref_;
   bool is_index_loaded_;
   json search_params_;
 

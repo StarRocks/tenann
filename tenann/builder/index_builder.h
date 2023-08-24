@@ -56,7 +56,7 @@ class IndexBuilder {
 
   const IndexWriter* index_writer() const;
 
-  IndexRef index() const;
+  IndexRef index_ref() const;
 
   IndexCache* index_cache();
 
@@ -76,7 +76,7 @@ class IndexBuilder {
   IndexMeta index_meta_;
 
   /* index */
-  IndexRef index_;
+  IndexRef index_ref_;
   bool is_built_;
 
   /* writer and cache */
