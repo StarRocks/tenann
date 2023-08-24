@@ -19,6 +19,8 @@
 
 #include "tenann/store/index_meta.h"
 
+#include "tenann/common/logging.h"
+
 namespace tenann {
 
 IndexMeta::IndexMeta() = default;
@@ -48,7 +50,7 @@ const json& IndexMeta::search_params() const { return meta_json_["search"]; }
 const json& IndexMeta::extra_params() const { return meta_json_["extra"]; }
 
 // @TODO
-IndexMeta IndexMeta::Read(const std::string& path) {}
+IndexMeta IndexMeta::Read(const std::string& path) { T_LOG(ERROR) << "not implemented"; }
 
 IndexMeta IndexMeta::Deserialize(const std::vector<uint8_t>& buffer) {
   auto meta_json = json::from_msgpack(buffer);

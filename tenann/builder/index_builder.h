@@ -41,8 +41,18 @@ class IndexBuilder {
   IndexBuilder& BuildWithPrimaryKey(const std::vector<SeqView>& input_columns,
                                     int primary_key_column_index);
 
-  /// Write index file.
-  IndexBuilder& WriteIndex(const std::string& path, bool write_index_cache = true);
+  /**
+   * @brief Write the built index to a file. Optionally write the index to cache.
+   * 
+   * @param path File path to write the index.
+   * @param write_index_cache Whether to write the index to cache.
+   * @param use_custom_cache_key Whether to use a custom cache key (default cache key is the given path).
+   * @param custom_cache_key Custom cache key to be used when use_custom_cache_key=true.
+   * @return IndexBuilder& Reference to this IndexBuilder instance.
+   */
+  IndexBuilder& WriteIndex(const std::string& path, bool write_index_cache = false,
+                           bool use_custom_cache_key = false,
+                           const std::string& custom_cache_key = "");
 
   /** Setters */
   IndexBuilder& SetIndexWriter(IndexWriter* writer);

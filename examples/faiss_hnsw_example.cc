@@ -39,16 +39,15 @@ std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0) {
 }
 
 int main() {
-  using namespace tenann;
-  IndexMeta meta;
+  tenann::IndexMeta meta;
 
   // set meta values
   meta.SetMetaVersion(0);
-  meta.SetIndexFamily(IndexFamily::kVectorIndex);
-  meta.SetIndexType(IndexType::kFaissHnsw);
+  meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
+  meta.SetIndexType(tenann::IndexType::kFaissHnsw);
   meta.common_params()["dim"] = 128;
   meta.common_params()["is_vector_normed"] = false;
-  meta.common_params()["metric_type"] = MetricType::kL2Distance;
+  meta.common_params()["metric_type"] = tenann::MetricType::kL2Distance;
   meta.index_params()["efConstruction"] = 40;
   meta.search_params()["efSearch"] = 40;
   meta.extra_params()["comments"] = "my comments";
@@ -56,16 +55,16 @@ int main() {
   // dimension of the vectors to index
   uint32_t d = 128;
   // size of the database we plan to index
-  size_t nb = 200 * 1000;
+  size_t nb = 20000;
   // size of the query vectors we plan to test
-  size_t nq = 1000;
+  size_t nq = 100;
   // index save path
   constexpr const char* index_path = "tmp/T_hnsw_index";
 
   // generate data and query
   T_LOG(WARNING) << "Generating base vectors...";
   auto base = RandomVectors(nb, d);
-  auto base_view = ArraySeqView{
+  auto base_view = tenann::ArraySeqView{
       .data = reinterpret_cast<uint8_t*>(base.data()), .dim = d, .size = static_cast<uint32_t>(nb)};
 
   T_LOG(WARNING) << "Generating query vectors...";
@@ -73,20 +72,22 @@ int main() {
 
   // build and write index
   try {
-    auto index_builder = IndexFactory::CreateBuilderFromMeta(meta);
-    auto index_writer = IndexFactory::CreateWriterFromMeta(meta);
+    auto index_builder = tenann::IndexFactory::CreateBuilderFromMeta(meta);
+    auto index_writer = tenann::IndexFactory::CreateWriterFromMeta(meta);
 
     index_builder->SetIndexWriter(index_writer.get())
+        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
         .Build({base_view})
-        .WriteIndex(index_path, false);
-  } catch (Error& e) {
+        .WriteIndex(index_path, /*write_index_cache=*/true);
+
+  } catch (tenann::Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";
   }
 
   // read and search index
   try {
-    auto index_reader = IndexFactory::CreateReaderFromMeta(meta);
-    auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta);
+    auto index_reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
+    auto ann_searcher = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
 
     // load index from disk file
     ann_searcher->SetIndexReader(index_reader.get()).ReadIndex(index_path);
@@ -97,12 +98,13 @@ int main() {
 
     // search index
     for (int i = 0; i < nq; i++) {
-      auto query_view = PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query.data() + i * d),
-                                         .size = d,
-                                         .elem_type = PrimitiveType::kFloatType};
+      auto query_view =
+          tenann::PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query.data() + i * d),
+                                   .size = d,
+                                   .elem_type = tenann::PrimitiveType::kFloatType};
       ann_searcher->AnnSearch(query_view, k, result_ids.data() + i * k);
     }
-  } catch (Error& e) {
+  } catch (tenann::Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";
   }
 }

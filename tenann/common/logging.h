@@ -250,13 +250,13 @@ std::unique_ptr<std::string> LogCheckFormat(const X& x, const Y& y) {
 // GCC. We wrap all comparisons in a function so that we can use #pragma to
 // silence bad comparison warnings.
 #define T_CHECK_FUNC(name, op)                                                          \
-  template <typename X, typename Y>                                                       \
+  template <typename X, typename Y>                                                     \
   T_ALWAYS_INLINE std::unique_ptr<std::string> LogCheck##name(const X& x, const Y& y) { \
-    if (x op y) return nullptr;                                                           \
-    return LogCheckFormat(x, y);                                                          \
-  }                                                                                       \
+    if (x op y) return nullptr;                                                         \
+    return LogCheckFormat(x, y);                                                        \
+  }                                                                                     \
   T_ALWAYS_INLINE std::unique_ptr<std::string> LogCheck##name(int x, int y) {           \
-    return LogCheck##name<int, int>(x, y);                                                \
+    return LogCheck##name<int, int>(x, y);                                              \
   }
 
 #pragma GCC diagnostic push
@@ -281,10 +281,9 @@ T_CHECK_FUNC(_NE, !=)
 #define T_LOG_FATAL ::tenann::detail::LogFatal(__FILE__, __LINE__).stream()
 #define T_LOG_INFO ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_INFO).stream()
 #define T_LOG_ERROR ::tenann::detail::LogError(__FILE__, __LINE__).stream()
-#define T_LOG_WARNING \
-  ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_WARNING).stream()
+#define T_LOG_WARNING ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_WARNING).stream()
 
-#define T_CHECK_BINARY_OP(name, op, x, y)                          \
+#define T_CHECK_BINARY_OP(name, op, x, y)                            \
   if (auto __tvm__log__err = ::tenann::detail::LogCheck##name(x, y)) \
   ::tenann::detail::LogError(__FILE__, __LINE__).stream()            \
       << "Check failed: " << #x " " #op " " #y << *__tvm__log__err << ": "
@@ -295,13 +294,13 @@ T_CHECK_FUNC(_NE, !=)
 #define T_CHECK_GE(x, y) T_CHECK_BINARY_OP(_GE, >=, x, y)
 #define T_CHECK_EQ(x, y) T_CHECK_BINARY_OP(_EQ, ==, x, y)
 #define T_CHECK_NE(x, y) T_CHECK_BINARY_OP(_NE, !=, x, y)
-#define T_CHECK_NOTNULL(x)                                                                  \
+#define T_CHECK_NOTNULL(x)                                                                    \
   ((x) == nullptr                                                                             \
    ? ::tenann::detail::LogError(__FILE__, __LINE__).stream() << "Check not null: " #x << ' ', \
    (x) : (x))  // NOLINT(*)
 
 #define T_CHECK(x) \
-  if (!(x))          \
+  if (!(x))        \
   ::tenann::detail::LogError(__FILE__, __LINE__).stream() << "Check failed: (" #x << ") is false: "
 
 #ifndef NDEBUG
@@ -312,6 +311,7 @@ T_CHECK_FUNC(_NE, !=)
 #define T_DCHECK_GE(x, y) T_CHECK((x) >= (y))
 #define T_DCHECK_EQ(x, y) T_CHECK((x) == (y))
 #define T_DCHECK_NE(x, y) T_CHECK((x) != (y))
+#define T_DCHECK_NOTNULL(x) T_CHECK_NOTNULL((x))
 #else
 #define T_DCHECK(x) \
   while (false) T_CHECK(x)
@@ -327,11 +327,12 @@ T_CHECK_FUNC(_NE, !=)
   while (false) T_CHECK((x) == (y))
 #define T_DCHECK_NE(x, y) \
   while (false) T_CHECK((x) != (y))
+#define T_DCHECK_NOTNULL(x) (x)
 #endif
 
 #define T_ICHECK_INDENT "  "
 
-#define T_ICHECK(x)                                     \
+#define T_ICHECK(x)                                       \
   if (!(x))                                               \
   ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() \
       << "FatalError: Check failed: (" #x << ") is false: "
@@ -342,7 +343,7 @@ T_CHECK_FUNC(_NE, !=)
 #define T_ICHECK_GE(x, y) T_ICHECK_BINARY_OP(_GE, >=, x, y)
 #define T_ICHECK_EQ(x, y) T_ICHECK_BINARY_OP(_EQ, ==, x, y)
 #define T_ICHECK_NE(x, y) T_ICHECK_BINARY_OP(_NE, !=, x, y)
-#define T_ICHECK_NOTNULL(x)                                               \
+#define T_ICHECK_NOTNULL(x)                                                 \
   ((x) == nullptr ? ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() \
                         << "FatalError: Check not null: " #x << ' ',        \
    (x) : (x))  // NOLINT(*)

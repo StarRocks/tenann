@@ -19,6 +19,8 @@
 
 #include "tenann/builder/index_builder.h"
 
+#include "tenann/common/logging.h"
+
 namespace tenann {
 
 IndexBuilder& IndexBuilder::Build(const std::vector<SeqView>& input_columns) {
@@ -28,14 +30,24 @@ IndexBuilder& IndexBuilder::Build(const std::vector<SeqView>& input_columns) {
 }
 
 IndexBuilder& IndexBuilder::BuildWithPrimaryKey(const std::vector<SeqView>& input_columns,
-                                       int primary_key_column_index) {
+                                                int primary_key_column_index) {
   // @TODO: collect some statistics for the building procedure
   BuildWithPrimaryKeyImpl(input_columns, primary_key_column_index);
   return *this;
 }
 
-IndexBuilder& IndexBuilder::WriteIndex(const std::string& path, bool write_index_cache) {
+IndexBuilder& IndexBuilder::WriteIndex(const std::string& path, bool write_index_cache,
+                                       bool use_custom_cache_key,
+                                       const std::string& custom_cache_key) {
+  T_DCHECK_NOTNULL(index_ref_);
+  // write index file
   index_writer_->WriteIndex(index_ref_, path);
+  // write index cache
+  if (write_index_cache) {
+    auto cache_key = use_custom_cache_key ? custom_cache_key : path;
+    T_DCHECK_NOTNULL(index_cache_);
+    index_cache_->Insert(cache_key, index_ref_);
+  }
   return *this;
 }
 
@@ -45,6 +57,7 @@ IndexBuilder& IndexBuilder::SetIndexWriter(IndexWriter* writer) {
 }
 
 IndexBuilder& IndexBuilder::SetIndexCache(IndexCache* cache) {
+  T_DCHECK_NOTNULL(cache);
   index_cache_ = cache;
   return *this;
 }
