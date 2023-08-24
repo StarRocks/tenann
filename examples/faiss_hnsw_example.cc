@@ -90,7 +90,9 @@ int main() {
     auto ann_searcher = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
 
     // load index from disk file
-    ann_searcher->SetIndexReader(index_reader.get()).ReadIndex(index_path);
+    ann_searcher->SetIndexReader(index_reader.get())
+        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
+        .ReadIndex(index_path, /*read_index_cache=*/true);
     T_DCHECK(ann_searcher->is_index_loaded());
 
     int k = 10;

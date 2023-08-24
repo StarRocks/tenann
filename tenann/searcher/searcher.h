@@ -34,11 +34,11 @@ class Searcher {
   T_FORBID_COPY_AND_ASSIGN(Searcher);
   T_FORBID_MOVE(Searcher);
 
-  ChildSearcher& ReadIndex(const std::string& path, bool use_cache = false,
+  ChildSearcher& ReadIndex(const std::string& path, bool read_index_cache = false,
                            bool use_custom_cache_key = false,
                            const std::string& custom_cache_key = "",
                            bool force_read_and_overwrite_cache = false) {
-    if (use_cache) {
+    if (read_index_cache) {
       auto cache_key = use_custom_cache_key ? custom_cache_key : path;
       T_DCHECK_NOTNULL(index_cache_);
       if (force_read_and_overwrite_cache) {
