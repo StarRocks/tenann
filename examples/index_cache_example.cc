@@ -20,7 +20,9 @@
 #include <iostream>
 
 #include "tenann/common/logging.h"
-#include "tenann/store/index_cache.h"
+#include "tenann/index/index_cache.h"
+
+using namespace tenann;
 
 class IndexMock {
  public:
@@ -31,18 +33,23 @@ class IndexMock {
   std::string name;
 };
 
-int main() {
-  using namespace tenann;
+IndexRef CreateIndex(const std::string& name) {
   IndexRef index_ref =
-      std::make_shared<Index>(new IndexMock("index1"),  //
-                              IndexType::kFaissHnsw,    //
+      std::make_shared<Index>(new IndexMock(name),    //
+                              IndexType::kFaissHnsw,  //
                               [](void* index) { delete reinterpret_cast<IndexMock*>(index); });
+  return index_ref;
+}
+
+void ReadWriteExample() {
+  IndexRef index_ref = CreateIndex("index1");
 
   T_LOG(INFO) << "Index built: " << reinterpret_cast<IndexMock*>(index_ref->index_raw())->name;
 
   // write index to cache
+  IndexCacheHandle write_handle;
   auto* cache = IndexCache::GetGlobalInstance();
-  cache->Insert("index1", index_ref);
+  cache->Insert("index1", index_ref, &write_handle);
 
   // read index from cache
   IndexCacheHandle read_handle;
@@ -62,5 +69,42 @@ int main() {
 
   T_LOG(INFO) << "Index read from cache: "
               << reinterpret_cast<const IndexMock*>(shared_ref_from_cache->index_raw())->name;
+}
+
+void EvictExample() {
+  auto cache = IndexCache::GetGlobalInstance();
+  cache->SetCapacity(2);
+
+  auto index1 = CreateIndex("index1");
+  auto index2 = CreateIndex("index2");
+  auto index3 = CreateIndex("index3");
+
+  // insert index1 to cache
+  {
+    IndexCacheHandle handle;
+    cache->Insert("index1", std::move(index1), &handle);
+  }
+
+  // lookup index1 for 10 times
+  for (int i = 0; i < 10; i++) {
+    IndexCacheHandle handle;
+    cache->Lookup("index1", &handle);
+  }
+
+  // insert index2 to cache
+  {
+    IndexCacheHandle handle;
+    cache->Insert("index2", std::move(index2), &handle);
+  }
+
+  // Insert index3 into the cache and monitor which one (index1 or index2) will be evicted.
+  {
+    IndexCacheHandle handle;
+    cache->Insert("index3", std::move(index3), &handle);
+  }
+}
+
+int main() {
+  EvictExample();
   return 0;
 }

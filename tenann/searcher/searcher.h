@@ -19,50 +19,69 @@
 
 #pragma once
 
+#include "tenann/common/logging.h"
 #include "tenann/common/macros.h"
+#include "tenann/index/index_cache.h"
 #include "tenann/index/index_reader.h"
-#include "tenann/store/index_cache.h"
 #include "tenann/store/index_meta.h"
 
 namespace tenann {
 
-template <typename SearcherImpl>
+template <typename ChildSearcher>
 class Searcher {
  public:
   virtual ~Searcher() = default;
   T_FORBID_COPY_AND_ASSIGN(Searcher);
   T_FORBID_MOVE(Searcher);
 
-  SearcherImpl& ReadIndex(const std::string& path, bool force_read_and_flush_cache = false) {
-    assert(index_reader_ != nullptr);
-    index_ref_ = index_reader_->ReadIndex(path);
-    return static_cast<SearcherImpl&>(*this);
+  ChildSearcher& ReadIndex(const std::string& path, bool use_cache = false,
+                           bool use_custom_cache_key = false,
+                           const std::string& custom_cache_key = "",
+                           bool force_read_and_overwrite_cache = false) {
+    if (use_cache) {
+      auto cache_key = use_custom_cache_key ? custom_cache_key : path;
+      T_DCHECK_NOTNULL(index_cache_);
+      if (force_read_and_overwrite_cache) {
+        ForceReadIndexAndOverwriteCache(path, cache_key);
+      } else {
+        auto found = index_cache_->Lookup(cache_key, &cache_handle_);
+        if (found) {
+          index_ref_ = cache_handle_.index_ref();
+        } else {
+          ForceReadIndexAndOverwriteCache(path, cache_key);
+        }
+      }
+    } else {
+      index_ref_ = index_reader_->ReadIndex(path);
+    }
+
+    return static_cast<ChildSearcher&>(*this);
   };
 
   /// Set single search parameter.
-  SearcherImpl& SetSearchParamItem(const std::string& key, const json& value) {
+  ChildSearcher& SetSearchParamItem(const std::string& key, const json& value) {
     search_params_[key] = value;
     this->SearchParamItemChangeHook(key, value);
-    return static_cast<SearcherImpl&>(*this);
+    return static_cast<ChildSearcher&>(*this);
   };
 
   /// Set all search parameters.
-  SearcherImpl& SetSearchParams(const nlohmann::json& params) {
+  ChildSearcher& SetSearchParams(const nlohmann::json& params) {
     search_params_ = params;
     this->SearchParamsChangeHook(params);
-    return static_cast<SearcherImpl&>(*this);
+    return static_cast<ChildSearcher&>(*this);
   }
 
   /* setters and getters */
 
-  SearcherImpl& SetIndexReader(IndexReader* reader) {
+  ChildSearcher& SetIndexReader(IndexReader* reader) {
     index_reader_ = reader;
-    return static_cast<SearcherImpl&>(*this);
+    return static_cast<ChildSearcher&>(*this);
   }
 
-  SearcherImpl& SetIndexCache(IndexCache* cache) {
+  ChildSearcher& SetIndexCache(IndexCache* cache) {
     index_cache_ = cache;
-    return static_cast<SearcherImpl&>(*this);
+    return static_cast<ChildSearcher&>(*this);
   }
 
   IndexRef index_ref() const { return index_ref_; }
@@ -78,6 +97,11 @@ class Searcher {
   bool is_index_loaded() const { return is_index_loaded_; }
 
  protected:
+  void ForceReadIndexAndOverwriteCache(const std::string& path, const std::string& cache_key) {
+    index_ref_ = index_reader_->ReadIndex(path);
+    index_cache_->Insert(cache_key, index_ref_, &cache_handle_);
+  }
+
   virtual void SearchParamItemChangeHook(const std::string& key, const json& value) = 0;
 
   virtual void SearchParamsChangeHook(const json& value) = 0;
@@ -90,6 +114,13 @@ class Searcher {
   /* reader and cache */
   IndexReader* index_reader_;
   IndexCache* index_cache_;
+
+  /**
+   * @brief Use this handle to maintain a reference to the cache entry.
+   *        Otherwise the cache entry may be cleaned when the reference count decreases to 1.
+   *
+   */
+  IndexCacheHandle cache_handle_;
 };
 
 }  // namespace tenann

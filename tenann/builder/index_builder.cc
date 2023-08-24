@@ -46,7 +46,8 @@ IndexBuilder& IndexBuilder::WriteIndex(const std::string& path, bool write_index
   if (write_index_cache) {
     auto cache_key = use_custom_cache_key ? custom_cache_key : path;
     T_DCHECK_NOTNULL(index_cache_);
-    index_cache_->Insert(cache_key, index_ref_);
+    IndexCacheHandle handle;
+    index_cache_->Insert(cache_key, index_ref_, &handle);
   }
   return *this;
 }

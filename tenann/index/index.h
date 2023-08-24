@@ -49,14 +49,13 @@ class Index {
   void* index_raw() const;
   IndexType index_type() const;
 
-
   /**
    * @brief  Get the amount of memory occupied by the index in bytes.
-   * 
-   * @return size_t 
-   * 
+   *
+   * @return size_t
+   *
    * @note Currently this function always return 1.
-   * 
+   *
    * @TODO(petri): implement it
    */
   size_t EstimateMemorySizeInBytes();

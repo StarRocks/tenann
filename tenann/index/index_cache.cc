@@ -17,8 +17,9 @@
  * under the License.
  */
 
-#include "tenann/store/index_cache.h"
+#include "tenann/index/index_cache.h"
 
+#include "index_cache.h"
 #include "tenann/common/logging.h"
 
 namespace tenann {
@@ -56,15 +57,19 @@ void IndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* h
   CachePriority priority = CachePriority::NORMAL;
 
   auto* lru_handle = cache_->insert(key, leaked_index, index_size, deleter, priority);
-  if (handle != nullptr) {
-    *handle = IndexCacheHandle(cache_.get(), lru_handle);
-  }
+  *handle = IndexCacheHandle(cache_.get(), lru_handle);
 }
 
 void IndexCache::SetCapacity(size_t capacity) { cache_->set_capacity(capacity); }
 
 bool IndexCache::AdjustCapacity(int64_t delta, size_t min_capacity) {
   return cache_->adjust_capacity(delta, min_capacity);
+}
+
+nlohmann::json IndexCache::status() const {
+  nlohmann::json doc;
+  cache_->get_cache_status(&doc);
+  return doc;
 }
 
 size_t IndexCache::memory_usage() const { return cache_->get_memory_usage(); }

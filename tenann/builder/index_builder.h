@@ -20,9 +20,9 @@
 #pragma once
 
 #include "tenann/common/seq_view.h"
+#include "tenann/index/index_cache.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
-#include "tenann/store/index_cache.h"
 #include "tenann/store/index_meta.h"
 
 namespace tenann {
@@ -43,10 +43,11 @@ class IndexBuilder {
 
   /**
    * @brief Write the built index to a file. Optionally write the index to cache.
-   * 
+   *
    * @param path File path to write the index.
    * @param write_index_cache Whether to write the index to cache.
-   * @param use_custom_cache_key Whether to use a custom cache key (default cache key is the given path).
+   * @param use_custom_cache_key Whether to use a custom cache key (default cache key is the given
+   * path).
    * @param custom_cache_key Custom cache key to be used when use_custom_cache_key=true.
    * @return IndexBuilder& Reference to this IndexBuilder instance.
    */

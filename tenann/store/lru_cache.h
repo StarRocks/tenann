@@ -302,7 +302,7 @@ class LRUCache {
   uint64_t _hit_count{0};
 };
 
-static const int kNumShardBits = 5;
+static const int kNumShardBits = 1;
 static const int kNumShards = 1 << kNumShardBits;
 
 class ShardedLRUCache : public Cache {

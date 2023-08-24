@@ -58,19 +58,21 @@ class IndexCache {
    * @brief Insert an index with key into this cache.
    *
    *
-   * Given handle will be set to valid reference if a non-null pointer is passed.
+   * Given handle will be set to valid reference.
    * This function is thread-safe, and when two clients insert two same key
    * concurrently, this function can assure that only one value is cached.
    *
    * @param key cache key
    * @param index index to cache
-   * @param handle will be set to valid reference if handle is a non-null pointer
+   * @param handle will be set to a valid reference to the cache entry
    */
-  void Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle = nullptr);
+  void Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle);
 
   void SetCapacity(size_t capacity);
 
   bool AdjustCapacity(int64_t delta, size_t min_capacity = 0);
+
+  nlohmann::json status() const;
 
   size_t memory_usage() const;
 
