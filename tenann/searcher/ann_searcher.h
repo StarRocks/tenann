@@ -26,7 +26,7 @@ namespace tenann {
 
 class AnnSearcher : public Searcher<AnnSearcher> {
  public:
-  AnnSearcher() = default;
+  explicit AnnSearcher(const IndexMeta& meta) : Searcher<AnnSearcher>(meta) {};
   virtual ~AnnSearcher() override = default;
   T_FORBID_MOVE(AnnSearcher);
   T_FORBID_COPY_AND_ASSIGN(AnnSearcher);

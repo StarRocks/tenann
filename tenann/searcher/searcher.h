@@ -30,7 +30,7 @@ namespace tenann {
 template <typename ChildSearcher>
 class Searcher {
  public:
-  Searcher() = default;
+  explicit Searcher(const IndexMeta& meta) : index_meta_(meta){};
   virtual ~Searcher() = default;
   T_FORBID_COPY_AND_ASSIGN(Searcher);
   T_FORBID_MOVE(Searcher);
