@@ -30,15 +30,14 @@
 
 namespace tenann {
 
-#define CASE_ALL_INDEX_TYPE \
-  case kFaissHnsw: {        \
-    CASE_FN(kFaissHnsw);    \
-    break;                  \
-  }                         \
-  default: {                \
-    throw "unknown index";  \
-  }                         \
-    // @TODO: use exception instead
+#define CASE_ALL_INDEX_TYPE                     \
+  case kFaissHnsw: {                            \
+    CASE_FN(kFaissHnsw);                        \
+    break;                                      \
+  }                                             \
+  default: {                                    \
+    T_LOG(ERROR) << "using unsupported index type"; \
+  }
 
 /// Currently, we use this template class to create the IndexReader, IndexWriter, etc.,
 /// for specific index types.
@@ -47,26 +46,26 @@ namespace tenann {
 template <IndexType type>
 struct IndexFactoryTrait {
   [[noreturn]] static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    T_LOG(FATAL) << "method not implemented: CreateReaderFromMeta";
+    T_LOG(ERROR) << "method not implemented: CreateReaderFromMeta";
   };
 
   [[noreturn]] static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    T_LOG(FATAL) << "method not implemented: CreateWriterFromMeta";
+    T_LOG(ERROR) << "method not implemented: CreateWriterFromMeta";
   };
 
   [[noreturn]] static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    T_LOG(FATAL) << "method not implemented: CreateBuilderFromMeta";
+    T_LOG(ERROR) << "method not implemented: CreateBuilderFromMeta";
   };
 };
 
 template <>
 struct IndexFactoryTrait<kFaissHnsw> {
   static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    return std::unique_ptr<FaissHnswIndexReader>(new FaissHnswIndexReader(meta));
+    return std::make_unique<FaissHnswIndexReader>(meta);
   };
 
   static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    return std::unique_ptr<FaissHnswIndexWriter>(new FaissHnswIndexWriter(meta));
+    return std::make_unique<FaissHnswIndexWriter>(meta);
   };
 
   static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {

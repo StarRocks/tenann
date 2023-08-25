@@ -49,6 +49,7 @@ int main() {
   meta.common_params()["is_vector_normed"] = false;
   meta.common_params()["metric_type"] = tenann::MetricType::kL2Distance;
   meta.index_params()["efConstruction"] = 40;
+  meta.index_params()["M"] = 32;
   meta.search_params()["efSearch"] = 40;
   meta.extra_params()["comments"] = "my comments";
 
