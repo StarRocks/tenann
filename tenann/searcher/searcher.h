@@ -32,6 +32,8 @@ class Searcher {
  public:
   explicit Searcher(const IndexMeta& meta) : index_meta_(meta){};
   virtual ~Searcher() = default;
+
+  T_FORBID_DEFAULT_CTOR(Searcher);
   T_FORBID_COPY_AND_ASSIGN(Searcher);
   T_FORBID_MOVE(Searcher);
 
