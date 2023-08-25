@@ -26,8 +26,7 @@ namespace tenann {
 
 class FaissHnswIndexWriter : public IndexWriter {
  public:
-  FaissHnswIndexWriter(const IndexMeta& meta);
-  FaissHnswIndexWriter() = delete;
+  using IndexWriter::IndexWriter;
   virtual ~FaissHnswIndexWriter();
   T_FORBID_COPY_AND_ASSIGN(FaissHnswIndexWriter);
   T_FORBID_MOVE(FaissHnswIndexWriter);

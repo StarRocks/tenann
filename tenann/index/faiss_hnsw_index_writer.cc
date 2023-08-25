@@ -17,26 +17,22 @@
  * under the License.
  */
 
-#include <fstream>
-
-#include <faiss/index_io.h>
-#include <faiss/impl/io.h>
-#include <faiss/IndexHNSW.h>
-
 #include "tenann/index/faiss_hnsw_index_writer.h"
 
-namespace tenann {
+#include <faiss/IndexHNSW.h>
+#include <faiss/impl/io.h>
+#include <faiss/index_io.h>
 
-FaissHnswIndexWriter::FaissHnswIndexWriter(const IndexMeta& meta) {
-  index_meta_ = meta;
-}
+#include <fstream>
+
+namespace tenann {
 
 FaissHnswIndexWriter::~FaissHnswIndexWriter() = default;
 
 void FaissHnswIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
   auto index_hnsw = static_cast<faiss::IndexHNSW*>(index->index_raw());
-  //faiss::FileIOWriter writer(path.c_str());
-  //faiss::write_index(&index_hnsw, writer);
+  // faiss::FileIOWriter writer(path.c_str());
+  // faiss::write_index(&index_hnsw, writer);
   faiss::write_index(index_hnsw, path.c_str());
 }
 

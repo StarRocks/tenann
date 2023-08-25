@@ -19,10 +19,16 @@
 
 #include "tenann/index/index_writer.h"
 
+#include "index_writer.h"
+
 namespace tenann {
 
 IndexWriter::~IndexWriter() = default;
 
 const IndexMeta& IndexWriter::index_meta() const { return index_meta_; }
+
+nlohmann::json& IndexWriter::conf() { return conf_; }
+
+const nlohmann::json& IndexWriter::conf() const { return conf_; }
 
 }  // namespace tenann

@@ -26,20 +26,29 @@ namespace tenann {
 
 class IndexWriter {
  public:
-  IndexWriter() = default;
+  explicit IndexWriter(const IndexMeta& meta) : index_meta_(meta){};
   virtual ~IndexWriter();
+
+  T_FORBID_DEFAULT_CTOR(IndexWriter);
   T_FORBID_COPY_AND_ASSIGN(IndexWriter);
   T_FORBID_MOVE(IndexWriter);
 
   // Write index file
   virtual void WriteIndex(IndexRef index, const std::string& path) = 0;
 
+  nlohmann::json& conf();
+  const nlohmann::json& conf() const;
+
   /** Getters */
   const IndexMeta& index_meta() const;
 
  protected:
+  // @TODO: consider using a shared_ptr to save index meta,
+  // otherwise there are too many meta copies.
   /* meta */
   IndexMeta index_meta_;
+  /* write options */
+  nlohmann::json conf_;
 };
 
 }  // namespace tenann
