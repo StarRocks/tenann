@@ -24,6 +24,7 @@
 
 namespace tenann {
 
+// @TODO(jack): trying to shared a single writer implementation for all faiss indexes.
 class FaissHnswIndexWriter : public IndexWriter {
  public:
   using IndexWriter::IndexWriter;

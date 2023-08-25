@@ -26,20 +26,28 @@ namespace tenann {
 
 class IndexReader {
  public:
-  IndexReader() = default;
+  explicit IndexReader(const IndexMeta& meta) : index_meta_(meta){};
   virtual ~IndexReader();
+
+  T_FORBID_DEFAULT_CTOR(IndexReader);
   T_FORBID_COPY_AND_ASSIGN(IndexReader);
   T_FORBID_MOVE(IndexReader);
 
   // Read index file
   virtual IndexRef ReadIndex(const std::string& path) = 0;
 
+  nlohmann::json& conf();
+  const nlohmann::json& conf() const;
+
   /** Getters */
   const IndexMeta& index_meta() const;
 
  protected:
-  /* meta */
+  /// @brief index meta
   IndexMeta index_meta_;
+
+  /// @brief read options
+  nlohmann::json conf_;
 };
 
 }  // namespace tenann

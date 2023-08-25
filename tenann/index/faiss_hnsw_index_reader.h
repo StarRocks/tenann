@@ -24,10 +24,10 @@
 
 namespace tenann {
 
+// @TODO(jack): trying to shared a single reader implementation for all faiss indexes.
 class FaissHnswIndexReader : public IndexReader {
  public:
-  FaissHnswIndexReader(const IndexMeta& meta);
-  FaissHnswIndexReader() = delete;
+  using IndexReader::IndexReader;
   virtual ~FaissHnswIndexReader();
   T_FORBID_COPY_AND_ASSIGN(FaissHnswIndexReader);
   T_FORBID_MOVE(FaissHnswIndexReader);
