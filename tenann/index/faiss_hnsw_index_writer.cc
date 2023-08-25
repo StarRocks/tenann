@@ -17,22 +17,27 @@
  * under the License.
  */
 
+#include <fstream>
+
 #include <faiss/index_io.h>
+#include <faiss/impl/io.h>
 #include <faiss/IndexHNSW.h>
 
-#include "tenann/index/faiss_hnsw_ann_index_reader.h"
+#include "tenann/index/faiss_hnsw_index_writer.h"
 
 namespace tenann {
 
-FaissHnswAnnIndexReader::FaissHnswAnnIndexReader(const IndexMeta& meta) {
+FaissHnswIndexWriter::FaissHnswIndexWriter(const IndexMeta& meta) {
   index_meta_ = meta;
 }
 
-FaissHnswAnnIndexReader::~FaissHnswAnnIndexReader() = default;
+FaissHnswIndexWriter::~FaissHnswIndexWriter() = default;
 
-IndexRef FaissHnswAnnIndexReader::ReadIndex(const std::string& path) {
-  auto index_hnsw = std::unique_ptr<faiss::IndexHNSW>(dynamic_cast<faiss::IndexHNSW*>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP)));
-  return std::make_shared<Index>(index_hnsw.release(), IndexType::kFaissHnsw, [](void* index) {delete static_cast<faiss::IndexHNSW*>(index);});
+void FaissHnswIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
+  auto index_hnsw = static_cast<faiss::IndexHNSW*>(index->index_raw());
+  //faiss::FileIOWriter writer(path.c_str());
+  //faiss::write_index(&index_hnsw, writer);
+  faiss::write_index(index_hnsw, path.c_str());
 }
 
 }  // namespace tenann

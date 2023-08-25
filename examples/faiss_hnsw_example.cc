@@ -55,11 +55,11 @@ int main() {
   // dimension of the vectors to index
   uint32_t d = 128;
   // size of the database we plan to index
-  size_t nb = 20000;
+  size_t nb = 200;
   // size of the query vectors we plan to test
-  size_t nq = 100;
+  size_t nq = 10;
   // index save path
-  constexpr const char* index_path = "/tmp/T_hnsw_index";
+  constexpr const char* index_path = "/tmp/faiss_hnsw_index";
 
   // generate data and query
   T_LOG(WARNING) << "Generating base vectors...";
@@ -105,6 +105,12 @@ int main() {
                                    .size = d,
                                    .elem_type = tenann::PrimitiveType::kFloatType};
       ann_searcher->AnnSearch(query_view, k, result_ids.data() + i * k);
+
+      std::cout << "Result of query " << i << ": ";
+      for (int j = 0; j < k; j++) {
+        std::cout << result_ids[i * k + j] << ",";
+      }
+      std::cout << "\n";
     }
   } catch (tenann::Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";

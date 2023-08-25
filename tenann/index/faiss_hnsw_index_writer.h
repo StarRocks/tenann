@@ -19,26 +19,21 @@
 
 #pragma once
 
-#include "tenann/builder/index_builder.h"
+#include "tenann/common/json.hpp"
+#include "tenann/index/index_writer.h"
 
 namespace tenann {
 
-class FaissHnswAnnIndexBuilder : public IndexBuilder {
+class FaissHnswIndexWriter : public IndexWriter {
  public:
-  FaissHnswAnnIndexBuilder(const IndexMeta& meta);
-  FaissHnswAnnIndexBuilder() = delete;
-  virtual ~FaissHnswAnnIndexBuilder() = default;
+  FaissHnswIndexWriter(const IndexMeta& meta);
+  FaissHnswIndexWriter() = delete;
+  virtual ~FaissHnswIndexWriter();
+  T_FORBID_COPY_AND_ASSIGN(FaissHnswIndexWriter);
+  T_FORBID_MOVE(FaissHnswIndexWriter);
 
-  T_FORBID_COPY_AND_ASSIGN(FaissHnswAnnIndexBuilder);
-  T_FORBID_MOVE(FaissHnswAnnIndexBuilder);
-
- protected:
-  /// Use the given primary key column as vector id.
-  void BuildWithPrimaryKeyImpl(const std::vector<SeqView>& input_columns,
-                               int primary_key_column_index) override;
-
-  /// Use the row number as vector id.
-  void BuildImpl(const std::vector<SeqView>& input_columns) override;
+  // Write index file
+  void WriteIndex(IndexRef index, const std::string& path) override;
 };
 
 }  // namespace tenann

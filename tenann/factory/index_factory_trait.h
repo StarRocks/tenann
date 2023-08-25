@@ -20,11 +20,11 @@
 #include <memory>
 
 #include "tenann/builder/index_builder.h"
-#include "tenann/builder/faiss_hnsw_ann_index_builder.h"
+#include "tenann/builder/faiss_hnsw_index_builder.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
-#include "tenann/index/faiss_hnsw_ann_index_writer.h"
-#include "tenann/index/faiss_hnsw_ann_index_reader.h"
+#include "tenann/index/faiss_hnsw_index_writer.h"
+#include "tenann/index/faiss_hnsw_index_reader.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/store/index_type.h"
 
@@ -62,15 +62,15 @@ struct IndexFactoryTrait {
 template <>
 struct IndexFactoryTrait<kFaissHnsw> {
   static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    return std::unique_ptr<FaissHnswAnnIndexReader>(new FaissHnswAnnIndexReader(meta));
+    return std::unique_ptr<FaissHnswIndexReader>(new FaissHnswIndexReader(meta));
   };
 
   static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    return std::unique_ptr<FaissHnswAnnIndexWriter>(new FaissHnswAnnIndexWriter(meta));
+    return std::unique_ptr<FaissHnswIndexWriter>(new FaissHnswIndexWriter(meta));
   };
 
   static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    return std::unique_ptr<FaissHnswAnnIndexBuilder>(new FaissHnswAnnIndexBuilder(meta));
+    return std::unique_ptr<FaissHnswIndexBuilder>(new FaissHnswIndexBuilder(meta));
   };
 };
 

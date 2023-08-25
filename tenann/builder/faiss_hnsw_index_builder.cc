@@ -21,20 +21,20 @@
 
 #include <faiss/index_factory.h>
 
-#include "faiss_hnsw_ann_index_builder.h"
+#include "faiss_hnsw_index_builder.h"
 
 namespace tenann {
 
 // del IndexBuilder()
-FaissHnswAnnIndexBuilder::FaissHnswAnnIndexBuilder(const IndexMeta& meta) {
+FaissHnswIndexBuilder::FaissHnswIndexBuilder(const IndexMeta& meta) {
   index_meta_ = meta;
 }
 
-void FaissHnswAnnIndexBuilder::BuildWithPrimaryKeyImpl(const std::vector<SeqView>& input_columns,
+void FaissHnswIndexBuilder::BuildWithPrimaryKeyImpl(const std::vector<SeqView>& input_columns,
                                                        int primary_key_column_index) {
 }
 
-void FaissHnswAnnIndexBuilder::BuildImpl(const std::vector<SeqView>& input_columns) {
+void FaissHnswIndexBuilder::BuildImpl(const std::vector<SeqView>& input_columns) {
 
   int d = index_meta_.common_params()["dim"].get<int>();
   /// std::string index_type = "HNSW" + std::to_string(index_meta_.meta_json_["M"].get<int>());

@@ -17,27 +17,23 @@
  * under the License.
  */
 
-#include <fstream>
+#pragma once
 
-#include <faiss/index_io.h>
-#include <faiss/impl/io.h>
-#include <faiss/IndexHNSW.h>
-
-#include "tenann/index/faiss_hnsw_ann_index_writer.h"
+#include "tenann/common/json.hpp"
+#include "tenann/index/index_reader.h"
 
 namespace tenann {
 
-FaissHnswAnnIndexWriter::FaissHnswAnnIndexWriter(const IndexMeta& meta) {
-  index_meta_ = meta;
-}
+class FaissHnswIndexReader : public IndexReader {
+ public:
+  FaissHnswIndexReader(const IndexMeta& meta);
+  FaissHnswIndexReader() = delete;
+  virtual ~FaissHnswIndexReader();
+  T_FORBID_COPY_AND_ASSIGN(FaissHnswIndexReader);
+  T_FORBID_MOVE(FaissHnswIndexReader);
 
-FaissHnswAnnIndexWriter::~FaissHnswAnnIndexWriter() = default;
-
-void FaissHnswAnnIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
-  auto index_hnsw = static_cast<faiss::IndexHNSW*>(index->index_raw());
-  //faiss::FileIOWriter writer(path.c_str());
-  //faiss::write_index(&index_hnsw, writer);
-  faiss::write_index(index_hnsw, path.c_str());
-}
+  // Read index file
+  IndexRef ReadIndex(const std::string& path) override;
+};
 
 }  // namespace tenann
