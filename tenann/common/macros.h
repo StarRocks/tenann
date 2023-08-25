@@ -19,6 +19,8 @@
 
 #pragma once
 
+#define T_FORBID_DEFAULT_CTOR(TypeName) TypeName() = delete;
+
 #define T_FORBID_COPY_AND_ASSIGN(TypeName) \
   TypeName(const TypeName&) = delete;      \
   TypeName& operator=(const TypeName&) = delete;
@@ -26,7 +28,6 @@
 #define T_FORBID_MOVE(TypeName)  \
   TypeName(TypeName&&) = delete; \
   TypeName& operator=(TypeName&&) = delete;
-
 
 #define T_THROW_EXCEPTION noexcept(false)
 

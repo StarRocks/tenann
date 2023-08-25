@@ -70,9 +70,7 @@ struct IndexFactoryTrait<kFaissHnsw> {
   };
 
   static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    auto builder = std::make_unique<FaissHnswIndexBuilder>();
-    builder->SetIndexMeta(meta);
-    return builder;
+    return std::make_unique<FaissHnswIndexBuilder>(meta);
   };
 };
 

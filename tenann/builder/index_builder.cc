@@ -63,11 +63,6 @@ IndexBuilder& IndexBuilder::SetIndexCache(IndexCache* cache) {
   return *this;
 }
 
-IndexBuilder& IndexBuilder::SetIndexMeta(const IndexMeta& meta) {
-  index_meta_ = meta;
-  return *this;
-}
-
 const IndexMeta& IndexBuilder::index_meta() const { return index_meta_; }
 
 IndexRef IndexBuilder::index_ref() const { return index_ref_; }

@@ -29,9 +29,10 @@ namespace tenann {
 
 class IndexBuilder {
  public:
-  IndexBuilder() = default;
+  explicit IndexBuilder(const IndexMeta& meta) : index_meta_(meta){};
   virtual ~IndexBuilder() = default;
 
+  T_FORBID_DEFAULT_CTOR(IndexBuilder);
   T_FORBID_COPY_AND_ASSIGN(IndexBuilder);
   T_FORBID_MOVE(IndexBuilder);
 
@@ -60,8 +61,6 @@ class IndexBuilder {
   IndexBuilder& SetIndexWriter(IndexWriter* writer);
 
   IndexBuilder& SetIndexCache(IndexCache* cache);
-
-  IndexBuilder& SetIndexMeta(const IndexMeta& meta);
 
   /** Getters */
   const IndexMeta& index_meta() const;
