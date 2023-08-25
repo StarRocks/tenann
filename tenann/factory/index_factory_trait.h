@@ -19,12 +19,12 @@
 
 #include <memory>
 
-#include "tenann/builder/index_builder.h"
 #include "tenann/builder/faiss_hnsw_index_builder.h"
+#include "tenann/builder/index_builder.h"
+#include "tenann/index/faiss_hnsw_index_reader.h"
+#include "tenann/index/faiss_hnsw_index_writer.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
-#include "tenann/index/faiss_hnsw_index_writer.h"
-#include "tenann/index/faiss_hnsw_index_reader.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/store/index_type.h"
 
@@ -54,7 +54,7 @@ struct IndexFactoryTrait {
     T_LOG(FATAL) << "method not implemented: CreateWriterFromMeta";
   };
 
- [[noreturn]] static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
+  [[noreturn]] static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
     T_LOG(FATAL) << "method not implemented: CreateBuilderFromMeta";
   };
 };
@@ -70,7 +70,9 @@ struct IndexFactoryTrait<kFaissHnsw> {
   };
 
   static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    return std::unique_ptr<FaissHnswIndexBuilder>(new FaissHnswIndexBuilder(meta));
+    auto builder = std::make_unique<FaissHnswIndexBuilder>();
+    builder->SetIndexMeta(meta);
+    return builder;
   };
 };
 

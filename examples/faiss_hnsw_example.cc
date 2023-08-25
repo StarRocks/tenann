@@ -64,8 +64,10 @@ int main() {
   // generate data and query
   T_LOG(WARNING) << "Generating base vectors...";
   auto base = RandomVectors(nb, d);
-  auto base_view = tenann::ArraySeqView{
-      .data = reinterpret_cast<uint8_t*>(base.data()), .dim = d, .size = static_cast<uint32_t>(nb)};
+  auto base_view = tenann::ArraySeqView{.data = reinterpret_cast<uint8_t*>(base.data()),
+                                        .dim = d,
+                                        .size = static_cast<uint32_t>(nb),
+                                        .elem_type = tenann::PrimitiveType::kFloatType};
 
   T_LOG(WARNING) << "Generating query vectors...";
   auto query = RandomVectors(nq, d, /*seed=*/1);

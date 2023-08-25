@@ -17,38 +17,60 @@
  * under the License.
  */
 
-#include <faiss/IndexHNSW.h>
+#include "tenann/builder/faiss_hnsw_index_builder.h"
 
-#include <faiss/index_factory.h>
+#include <sstream>
 
-#include "faiss_hnsw_index_builder.h"
+#include "faiss/IndexHNSW.h"
+#include "faiss/index_factory.h"
+#include "tenann/common/logging.h"
 
 namespace tenann {
 
-// del IndexBuilder()
-FaissHnswIndexBuilder::FaissHnswIndexBuilder(const IndexMeta& meta) {
-  index_meta_ = meta;
-}
-
 void FaissHnswIndexBuilder::BuildWithPrimaryKeyImpl(const std::vector<SeqView>& input_columns,
-                                                       int primary_key_column_index) {
-}
+                                                    int primary_key_column_index) {}
 
 void FaissHnswIndexBuilder::BuildImpl(const std::vector<SeqView>& input_columns) {
+  T_CHECK(input_columns.size() == 1);
+  // @TODO(petri): add support for VlArraySeqView
+  T_CHECK(input_columns[0].seq_view_type == SeqViewType::kArraySeqView);
+  T_CHECK(input_columns[0].seq_view.array_seq_view.elem_type == PrimitiveType::kFloatType);
 
-  int d = index_meta_.common_params()["dim"].get<int>();
-  /// std::string index_type = "HNSW" + std::to_string(index_meta_.meta_json_["M"].get<int>());
-  constexpr const char* index_type = "HNSW64";  /// TODO: setting M in index_meta
-  /// meta.common_params()["metric_type"] = MetricType::kL2Distance; TODO: get metric_type from index_meta
-  //std::unique_ptr<faiss::Index> index = std::unique_ptr<faiss::Index>(faiss::index_factory(d, index_type, faiss::METRIC_L2));
-  auto index = std::unique_ptr<faiss::IndexHNSW>(dynamic_cast<faiss::IndexHNSW*>(faiss::index_factory(d, index_type, faiss::METRIC_L2)));
-  index->hnsw.efConstruction = index_meta_.index_params()["efConstruction"].get<int>();
-  index->hnsw.efSearch = index_meta_.search_params()["efSearch"].get<int>();
-  
+  // @TODO(petri): provide a unified macro to report parameter errors
+  T_LOG_IF(ERROR, !index_meta_.common_params().contains("dim"))
+      << "required common parameter `dim` is not set in index meta";
+  T_LOG_IF(ERROR, !index_meta_.common_params().contains("metric_type"))
+      << "required common parameter `metric_type` is not set in index meta";
+
+  // @TODO(petri): catch errors thrown from both faiss and the json library
+  std::ostringstream oss;
+  oss << "HNSW";
+  if (index_meta_.index_params().contains("M")) {
+    oss << index_meta_.index_params()["M"].get<int>();
+  }
+
+  T_LOG_IF(ERROR, index_meta_.common_params()["metric_type"].get<int>() != MetricType::kL2Distance)
+      << "only l2 distance is supported now";
+
+  auto dim = index_meta_.common_params()["dim"].get<int>();
+  auto index = std::unique_ptr<faiss::IndexHNSW>(static_cast<faiss::IndexHNSW*>(
+      faiss::index_factory(dim, oss.str().c_str(), faiss::METRIC_L2)));
+
+  if (index_meta_.index_params().contains("efConstruction")) {
+    index->hnsw.efConstruction = index_meta_.index_params()["efConstruction"].get<int>();
+  }
+
+  if (index_meta_.search_params().contains("efSearch")) {
+    index->hnsw.efSearch = index_meta_.search_params()["efSearch"].get<int>();
+  }
+
   auto array_seq_view = input_columns[0].seq_view.array_seq_view;
   index->add(array_seq_view.size, reinterpret_cast<float*>(array_seq_view.data));
 
-  index_ref_ = std::make_shared<Index>(index.release(), IndexType::kFaissHnsw, [](void* index) {delete static_cast<faiss::IndexHNSW*>(index);});
+  index_ref_ =
+      std::make_shared<Index>(index.release(),        //
+                              IndexType::kFaissHnsw,  //
+                              [](void* index) { delete static_cast<faiss::IndexHNSW*>(index); });
 }
 
 }  // namespace tenann

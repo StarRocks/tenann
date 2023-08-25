@@ -25,8 +25,7 @@ namespace tenann {
 
 class FaissHnswIndexBuilder : public IndexBuilder {
  public:
-  FaissHnswIndexBuilder(const IndexMeta& meta);
-  FaissHnswIndexBuilder() = delete;
+  using IndexBuilder::IndexBuilder;
   virtual ~FaissHnswIndexBuilder() = default;
 
   T_FORBID_COPY_AND_ASSIGN(FaissHnswIndexBuilder);

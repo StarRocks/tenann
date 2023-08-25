@@ -61,6 +61,8 @@ class IndexBuilder {
 
   IndexBuilder& SetIndexCache(IndexCache* cache);
 
+  IndexBuilder& SetIndexMeta(const IndexMeta& meta);
+
   /** Getters */
   const IndexMeta& index_meta() const;
 
