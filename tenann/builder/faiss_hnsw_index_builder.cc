@@ -28,7 +28,9 @@
 namespace tenann {
 
 void FaissHnswIndexBuilder::BuildWithPrimaryKeyImpl(const std::vector<SeqView>& input_columns,
-                                                    int primary_key_column_index) {}
+                                                    int primary_key_column_index) {
+  T_LOG(ERROR) << "method not implemented";
+}
 
 void FaissHnswIndexBuilder::BuildImpl(const std::vector<SeqView>& input_columns) {
   T_CHECK(input_columns.size() == 1);
