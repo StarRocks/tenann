@@ -19,27 +19,25 @@
 
 #pragma once
 
-#include "tenann/searcher/ann_searcher.h"
+#include "tenann/builder/index_builder.h"
 
 namespace tenann {
 
-class FaissHnswAnnSearcher : public AnnSearcher {
+class FaissHnswIndexBuilder : public IndexBuilder {
  public:
-  using AnnSearcher::AnnSearcher;
-  virtual ~FaissHnswAnnSearcher() = default;
-  T_FORBID_MOVE(FaissHnswAnnSearcher);
-  T_FORBID_COPY_AND_ASSIGN(FaissHnswAnnSearcher);
+  using IndexBuilder::IndexBuilder;
+  virtual ~FaissHnswIndexBuilder() = default;
 
-  /// ANN搜索接口，只返回k近邻的id
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) override;
-
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                 uint8_t* result_distances) override{};
+  T_FORBID_COPY_AND_ASSIGN(FaissHnswIndexBuilder);
+  T_FORBID_MOVE(FaissHnswIndexBuilder);
 
  protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override{};
+  /// Use the given primary key column as vector id.
+  void BuildWithPrimaryKeyImpl(const std::vector<SeqView>& input_columns,
+                               int primary_key_column_index) override;
 
-  void SearchParamsChangeHook(const json& value) override{};
+  /// Use the row number as vector id.
+  void BuildImpl(const std::vector<SeqView>& input_columns) override;
 };
 
 }  // namespace tenann

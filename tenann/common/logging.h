@@ -238,6 +238,18 @@ class LogMessage {
   static const char* level_strings_[];
 };
 
+// Below is from dmlc-core
+// This class is used to explicitly ignore values in the conditional
+// logging macros.  This avoids compiler warnings like "value computed
+// is not used" and "statement has no effect".
+class LogMessageVoidify {
+ public:
+  LogMessageVoidify() {}
+  // This has to be an operator with a precedence lower than << but
+  // higher than "?:". See its usage.
+  void operator&(std::ostream&) {}
+};
+
 template <typename X, typename Y>
 std::unique_ptr<std::string> LogCheckFormat(const X& x, const Y& y) {
   std::ostringstream os;
@@ -302,6 +314,9 @@ T_CHECK_FUNC(_NE, !=)
 #define T_CHECK(x) \
   if (!(x))        \
   ::tenann::detail::LogError(__FILE__, __LINE__).stream() << "Check failed: (" #x << ") is false: "
+
+#define T_LOG_IF(severity, condition) \
+  !(condition) ? (void)0 : ::tenann::detail::LogMessageVoidify() & T_LOG(severity)
 
 #ifndef NDEBUG
 #define T_DCHECK(x) T_CHECK(x)

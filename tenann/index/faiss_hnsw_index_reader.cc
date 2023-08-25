@@ -17,29 +17,20 @@
  * under the License.
  */
 
-#pragma once
+#include "tenann/index/faiss_hnsw_index_reader.h"
 
-#include "tenann/searcher/ann_searcher.h"
+#include "faiss/IndexHNSW.h"
+#include "faiss/index_io.h"
 
 namespace tenann {
 
-class FaissHnswAnnSearcher : public AnnSearcher {
- public:
-  using AnnSearcher::AnnSearcher;
-  virtual ~FaissHnswAnnSearcher() = default;
-  T_FORBID_MOVE(FaissHnswAnnSearcher);
-  T_FORBID_COPY_AND_ASSIGN(FaissHnswAnnSearcher);
+FaissHnswIndexReader::~FaissHnswIndexReader() = default;
 
-  /// ANN搜索接口，只返回k近邻的id
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) override;
-
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                 uint8_t* result_distances) override{};
-
- protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override{};
-
-  void SearchParamsChangeHook(const json& value) override{};
-};
+IndexRef FaissHnswIndexReader::ReadIndex(const std::string& path) {
+  auto index_hnsw = std::unique_ptr<faiss::IndexHNSW>(
+      dynamic_cast<faiss::IndexHNSW*>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP)));
+  return std::make_shared<Index>(index_hnsw.release(), IndexType::kFaissHnsw,
+                                 [](void* index) { delete static_cast<faiss::IndexHNSW*>(index); });
+}
 
 }  // namespace tenann

@@ -19,12 +19,16 @@
 
 #include "tenann/index/index_reader.h"
 
+#include "index_reader.h"
+
 namespace tenann {
 
 IndexReader::~IndexReader() = default;
 
-void IndexReader::SetConf(const json& conf) { conf_ = conf; }
+const IndexMeta& IndexReader::index_meta() const { return index_meta_; }
 
-const nlohmann::json& IndexReader::conf() { return conf_; }
+nlohmann::json& IndexReader::conf() { return conf_; }
+
+const nlohmann::json& IndexReader::conf() const { return conf_; }
 
 }  // namespace tenann

@@ -7,13 +7,16 @@
 set(TENANN_SRC
     version.cc
     builder/index_builder.cc
+    builder/faiss_hnsw_index_builder.cc
     common/logging.cc
     factory/index_factory.cc
     factory/ann_searcher_factory.cc
     index/index.cc
     index/index_cache.cc
     index/index_reader.cc
+    index/faiss_hnsw_index_reader.cc
     index/index_writer.cc
+    index/faiss_hnsw_index_writer.cc
     searcher/searcher.cc
     searcher/faiss_hnsw_ann_searcher.cc
     store/index_meta.cc
@@ -23,6 +26,7 @@ set(TENANN_SRC
 set(TENANN_HEADERS
     version.h
     builder/index_builder.h
+    builder/faiss_hnsw_index_builder.h
     common/json.hpp
     common/logging.h
     common/macros.h
@@ -32,7 +36,9 @@ set(TENANN_HEADERS
     factory/index_factory.h
     index/index_cache.h
     index/index_reader.h
+    index/faiss_hnsw_index_reader.h
     index/index_writer.h
+    index/faiss_hnsw_index_writer.h
     index/index.h
     searcher/ann_searcher.h
     searcher/faiss_hnsw_ann_searcher.h

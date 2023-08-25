@@ -19,11 +19,13 @@
 
 #include "tenann/factory/ann_searcher_factory.h"
 
+#include "tenann/searcher/faiss_hnsw_ann_searcher.h"
+
 namespace tenann {
 
 std::unique_ptr<AnnSearcher> AnnSearcherFactory::CreateSearcherFromMeta(const IndexMeta& meta) {
   // @TODO(jackj): check meta and create hnsw searcher
-  return nullptr;
+  return std::make_unique<FaissHnswAnnSearcher>(meta);
 }
 
-}
+}  // namespace tenann

@@ -19,27 +19,21 @@
 
 #pragma once
 
-#include "tenann/searcher/ann_searcher.h"
+#include "tenann/common/json.hpp"
+#include "tenann/index/index_reader.h"
 
 namespace tenann {
 
-class FaissHnswAnnSearcher : public AnnSearcher {
+// @TODO(jack): trying to shared a single reader implementation for all faiss indexes.
+class FaissHnswIndexReader : public IndexReader {
  public:
-  using AnnSearcher::AnnSearcher;
-  virtual ~FaissHnswAnnSearcher() = default;
-  T_FORBID_MOVE(FaissHnswAnnSearcher);
-  T_FORBID_COPY_AND_ASSIGN(FaissHnswAnnSearcher);
+  using IndexReader::IndexReader;
+  virtual ~FaissHnswIndexReader();
+  T_FORBID_COPY_AND_ASSIGN(FaissHnswIndexReader);
+  T_FORBID_MOVE(FaissHnswIndexReader);
 
-  /// ANN搜索接口，只返回k近邻的id
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) override;
-
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                 uint8_t* result_distances) override{};
-
- protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override{};
-
-  void SearchParamsChangeHook(const json& value) override{};
+  // Read index file
+  IndexRef ReadIndex(const std::string& path) override;
 };
 
 }  // namespace tenann

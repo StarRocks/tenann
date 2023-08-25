@@ -37,7 +37,7 @@ class IndexCacheHandle;
  */
 class IndexCache {
  public:
-  IndexCache(size_t capacity);
+  explicit IndexCache(size_t capacity);
   ~IndexCache();
 
   static IndexCache* GetGlobalInstance();
