@@ -17,26 +17,27 @@
  * under the License.
  */
 
-#pragma once
+#include <fstream>
 
-#include "tenann/common/seq_view.h"
-#include "tenann/searcher/searcher.h"
+#include <faiss/index_io.h>
+#include <faiss/impl/io.h>
+#include <faiss/IndexHNSW.h>
+
+#include "tenann/index/faiss_hnsw_ann_index_writer.h"
 
 namespace tenann {
 
-class AnnSearcher : public Searcher<AnnSearcher> {
- public:
-  AnnSearcher() = default;
-  virtual ~AnnSearcher() override = default;
-  T_FORBID_MOVE(AnnSearcher);
-  T_FORBID_COPY_AND_ASSIGN(AnnSearcher);
+FaissHnswAnnIndexWriter::FaissHnswAnnIndexWriter(const IndexMeta& meta) {
+  index_meta_ = meta;
+}
 
-  /// ANN搜索接口，只返回k近邻的id
-  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) = 0;
+FaissHnswAnnIndexWriter::~FaissHnswAnnIndexWriter() = default;
 
-  /// ANN搜索接口，同时返回k近邻的id和距离
-  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                         uint8_t* result_distances) = 0;
-};
+void FaissHnswAnnIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
+  auto index_hnsw = static_cast<faiss::IndexHNSW*>(index->index_raw());
+  //faiss::FileIOWriter writer(path.c_str());
+  //faiss::write_index(&index_hnsw, writer);
+  faiss::write_index(index_hnsw, path.c_str());
+}
 
 }  // namespace tenann

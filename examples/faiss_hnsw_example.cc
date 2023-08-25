@@ -59,7 +59,7 @@ int main() {
   // size of the query vectors we plan to test
   size_t nq = 100;
   // index save path
-  constexpr const char* index_path = "tmp/T_hnsw_index";
+  constexpr const char* index_path = "/tmp/T_hnsw_index";
 
   // generate data and query
   T_LOG(WARNING) << "Generating base vectors...";

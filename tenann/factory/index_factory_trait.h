@@ -20,8 +20,11 @@
 #include <memory>
 
 #include "tenann/builder/index_builder.h"
+#include "tenann/builder/faiss_hnsw_ann_index_builder.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
+#include "tenann/index/faiss_hnsw_ann_index_writer.h"
+#include "tenann/index/faiss_hnsw_ann_index_reader.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/store/index_type.h"
 
@@ -58,16 +61,16 @@ struct IndexFactoryTrait {
 
 template <>
 struct IndexFactoryTrait<kFaissHnsw> {
-  [[noreturn]] static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    T_LOG(FATAL) << "method not implemented: CreateReaderFromMeta";
+  static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
+    return std::unique_ptr<FaissHnswAnnIndexReader>(new FaissHnswAnnIndexReader(meta));
   };
 
-  [[noreturn]] static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    T_LOG(FATAL) << "method not implemented: CreateWriterFromMeta";
+  static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
+    return std::unique_ptr<FaissHnswAnnIndexWriter>(new FaissHnswAnnIndexWriter(meta));
   };
 
-  [[noreturn]] static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    T_LOG(FATAL) << "method not implemented: CreateBuilderFromMeta";
+  static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
+    return std::unique_ptr<FaissHnswAnnIndexBuilder>(new FaissHnswAnnIndexBuilder(meta));
   };
 };
 

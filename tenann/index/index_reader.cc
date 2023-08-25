@@ -23,8 +23,6 @@ namespace tenann {
 
 IndexReader::~IndexReader() = default;
 
-void IndexReader::SetConf(const json& conf) { conf_ = conf; }
-
-const nlohmann::json& IndexReader::conf() { return conf_; }
+const IndexMeta& IndexReader::index_meta() const { return index_meta_; }
 
 }  // namespace tenann

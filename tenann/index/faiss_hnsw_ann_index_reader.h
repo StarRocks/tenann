@@ -19,24 +19,21 @@
 
 #pragma once
 
-#include "tenann/common/seq_view.h"
-#include "tenann/searcher/searcher.h"
+#include "tenann/common/json.hpp"
+#include "tenann/index/index_reader.h"
 
 namespace tenann {
 
-class AnnSearcher : public Searcher<AnnSearcher> {
+class FaissHnswAnnIndexReader : public IndexReader {
  public:
-  AnnSearcher() = default;
-  virtual ~AnnSearcher() override = default;
-  T_FORBID_MOVE(AnnSearcher);
-  T_FORBID_COPY_AND_ASSIGN(AnnSearcher);
+  FaissHnswAnnIndexReader(const IndexMeta& meta);
+  FaissHnswAnnIndexReader() = delete;
+  virtual ~FaissHnswAnnIndexReader();
+  T_FORBID_COPY_AND_ASSIGN(FaissHnswAnnIndexReader);
+  T_FORBID_MOVE(FaissHnswAnnIndexReader);
 
-  /// ANN搜索接口，只返回k近邻的id
-  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) = 0;
-
-  /// ANN搜索接口，同时返回k近邻的id和距离
-  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                         uint8_t* result_distances) = 0;
+  // Read index file
+  IndexRef ReadIndex(const std::string& path) override;
 };
 
 }  // namespace tenann

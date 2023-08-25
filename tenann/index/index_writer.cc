@@ -23,8 +23,6 @@ namespace tenann {
 
 IndexWriter::~IndexWriter() = default;
 
-void IndexWriter::SetConf(const nlohmann::json& conf) { conf_ = conf; }
-
-const nlohmann::json& IndexWriter::conf() { return conf_; }
+const IndexMeta& IndexWriter::index_meta() const { return index_meta_; }
 
 }  // namespace tenann

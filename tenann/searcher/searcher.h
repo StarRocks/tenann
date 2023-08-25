@@ -30,6 +30,7 @@ namespace tenann {
 template <typename ChildSearcher>
 class Searcher {
  public:
+  Searcher() = default;
   virtual ~Searcher() = default;
   T_FORBID_COPY_AND_ASSIGN(Searcher);
   T_FORBID_MOVE(Searcher);
@@ -51,8 +52,10 @@ class Searcher {
           ForceReadIndexAndOverwriteCache(path, cache_key);
         }
       }
+      is_index_loaded_ = true;
     } else {
       index_ref_ = index_reader_->ReadIndex(path);
+      is_index_loaded_ = true;
     }
 
     return static_cast<ChildSearcher&>(*this);

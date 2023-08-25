@@ -26,6 +26,7 @@ namespace tenann {
 
 class IndexReader {
  public:
+  IndexReader() = default;
   virtual ~IndexReader();
   T_FORBID_COPY_AND_ASSIGN(IndexReader);
   T_FORBID_MOVE(IndexReader);
@@ -33,14 +34,12 @@ class IndexReader {
   // Read index file
   virtual IndexRef ReadIndex(const std::string& path) = 0;
 
-  /* setters and getters */
-  void SetConf(const nlohmann::json& conf);
-
-  const nlohmann::json& conf();
+  /** Getters */
+  const IndexMeta& index_meta() const;
 
  protected:
-  // Reader configurations
-  nlohmann::json conf_;
+  /* meta */
+  IndexMeta index_meta_;
 };
 
 }  // namespace tenann

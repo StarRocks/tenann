@@ -26,6 +26,7 @@ namespace tenann {
 
 class IndexWriter {
  public:
+  IndexWriter() = default;
   virtual ~IndexWriter();
   T_FORBID_COPY_AND_ASSIGN(IndexWriter);
   T_FORBID_MOVE(IndexWriter);
@@ -33,14 +34,12 @@ class IndexWriter {
   // Write index file
   virtual void WriteIndex(IndexRef index, const std::string& path) = 0;
 
-  /* setters and getters */
-  void SetConf(const nlohmann::json& conf);
-
-  const nlohmann::json& conf();
+  /** Getters */
+  const IndexMeta& index_meta() const;
 
  protected:
-  // Writer configurations
-  nlohmann::json conf_;
+  /* meta */
+  IndexMeta index_meta_;
 };
 
 }  // namespace tenann

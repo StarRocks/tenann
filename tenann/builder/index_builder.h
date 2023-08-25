@@ -29,6 +29,7 @@ namespace tenann {
 
 class IndexBuilder {
  public:
+  IndexBuilder() = default;
   virtual ~IndexBuilder() = default;
 
   T_FORBID_COPY_AND_ASSIGN(IndexBuilder);
