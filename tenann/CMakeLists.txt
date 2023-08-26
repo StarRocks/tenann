@@ -48,6 +48,8 @@ set(TENANN_HEADERS
     store/lru_cache.h
 )
 
+set(CMAKE_CXX_FLAGS "-static-libstdc++ -static-libgcc ${CMAKE_CXX_FLAGS} -gdwarf-4")
+
 # 生成 tenann 库
 ADD_LIBRARY(tenann STATIC ${TENANN_SRC})
 
@@ -59,10 +61,10 @@ target_include_directories(tenann
 
 # 添加 faiss 库
 set(faiss_DIR "${PROJECT_SOURCE_DIR}/thirdparty/installed/share/faiss" CACHE PATH "grpc search path")
-find_package (faiss REQUIRED)
+find_package(faiss REQUIRED)
 
 # 添加 lapack 库
-find_package(LAPACK REQUIRED)
+find_package(LAPACK REQUIRED BLA_STATIC)
 # 添加 OpenMP 库
 find_package(OpenMP REQUIRED)
 
@@ -74,6 +76,7 @@ set(TENANN_LINK_LIBS
     LAPACK::LAPACK
     OpenMP::OpenMP_CXX
 )
+
 target_link_libraries(tenann
     ${TENANN_LINK_LIBS}
 )

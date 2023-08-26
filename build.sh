@@ -210,7 +210,7 @@ if [ ${BUILD_TENANN} -eq 1 ]; then
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
         -DBUILD_TESTS=${WITH_TESTS} \
-        -DBUILD_EXAMPLES=${WITH} \
+        -DBUILD_EXAMPLES=${WITH_EXAMPLES} \
         ..
 
     time ${BUILD_SYSTEM} -j${PARALLEL}
