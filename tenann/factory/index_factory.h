@@ -22,7 +22,6 @@
 #include <memory>
 
 #include "tenann/builder/index_builder.h"
-#include "tenann/common/logging.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
 #include "tenann/store/index_meta.h"

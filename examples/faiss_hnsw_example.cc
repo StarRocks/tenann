@@ -24,6 +24,7 @@
 #include <iostream>
 #include <random>
 
+#include "tenann/common/logging.h"
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/factory/index_factory.h"
 #include "tenann/store/index_meta.h"

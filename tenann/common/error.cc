@@ -17,23 +17,10 @@
  * under the License.
  */
 
-#include "tenann/searcher/faiss_hnsw_ann_searcher.h"
-
-#include "faiss/IndexHNSW.h"
-#include "tenann/common/logging.h"
+#include "tenann/common/error.h"
 
 namespace tenann {
 
-void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) {
-  T_DCHECK_NOTNULL(index_ref_);
-
-  T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
-  T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
-
-  auto index_hnsw = static_cast<faiss::IndexHNSW*>(index_ref_->index_raw());
-  std::vector<float> distances(k);
-  index_hnsw->search(1, reinterpret_cast<const float*>(query_vector.data), k, distances.data(),
-                     result_id);
-}
+std::string Backtrace() { return ""; }
 
 }  // namespace tenann

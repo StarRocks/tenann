@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include "tenann/common/logging.h"
+#include <cassert>
+
 #include "tenann/common/macros.h"
 #include "tenann/index/index_cache.h"
 #include "tenann/index/index_reader.h"
@@ -43,7 +44,7 @@ class Searcher {
                            bool force_read_and_overwrite_cache = false) {
     if (read_index_cache) {
       auto cache_key = use_custom_cache_key ? custom_cache_key : path;
-      T_DCHECK_NOTNULL(index_cache_);
+      assert(index_cache_ != nullptr);
       if (force_read_and_overwrite_cache) {
         ForceReadIndexAndOverwriteCache(path, cache_key);
       } else {

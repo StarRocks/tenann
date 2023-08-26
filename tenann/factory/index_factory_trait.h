@@ -21,6 +21,7 @@
 
 #include "tenann/builder/faiss_hnsw_index_builder.h"
 #include "tenann/builder/index_builder.h"
+#include "tenann/common/error.h"
 #include "tenann/index/faiss_hnsw_index_reader.h"
 #include "tenann/index/faiss_hnsw_index_writer.h"
 #include "tenann/index/index_reader.h"
@@ -30,13 +31,13 @@
 
 namespace tenann {
 
-#define CASE_ALL_INDEX_TYPE                     \
-  case kFaissHnsw: {                            \
-    CASE_FN(kFaissHnsw);                        \
-    break;                                      \
-  }                                             \
-  default: {                                    \
-    T_LOG(ERROR) << "using unsupported index type"; \
+#define CASE_ALL_INDEX_TYPE                                          \
+  case kFaissHnsw: {                                                 \
+    CASE_FN(kFaissHnsw);                                             \
+    break;                                                           \
+  }                                                                  \
+  default: {                                                         \
+    throw Error(__FILE__, __LINE__, "using unsupported index type"); \
   }
 
 /// Currently, we use this template class to create the IndexReader, IndexWriter, etc.,
@@ -46,15 +47,15 @@ namespace tenann {
 template <IndexType type>
 struct IndexFactoryTrait {
   [[noreturn]] static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    T_LOG(ERROR) << "method not implemented: CreateReaderFromMeta";
+    throw Error(__FILE__, __LINE__, "method not implemented: CreateReaderFromMeta");
   };
 
   [[noreturn]] static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    T_LOG(ERROR) << "method not implemented: CreateWriterFromMeta";
+    throw Error(__FILE__, __LINE__, "method not implemented: CreateWriterFromMeta");
   };
 
   [[noreturn]] static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    T_LOG(ERROR) << "method not implemented: CreateBuilderFromMeta";
+    throw Error(__FILE__, __LINE__, "method not implemented: CreateBuilderFromMeta");
   };
 };
 
