@@ -84,14 +84,6 @@ check_prerequest() {
 # sudo yum install cmake
 check_prerequest "${CMAKE_CMD} --version" "cmake"
 
-# sudo apt-get install byacc
-# sudo yum install byacc
-# check_prerequest "byacc -V" "byacc"
-
-# sudo apt-get install flex
-# sudo yum install flex
-# check_prerequest "flex -V" "flex"
-
 # sudo apt-get install automake
 # sudo yum install automake
 check_prerequest "automake --version" "automake"
@@ -114,18 +106,6 @@ lapack_check() {
 check_prerequest "lapack_check" "lapack-devel"
 
 BUILD_SYSTEM=${BUILD_SYSTEM:-make}
-
-# sudo apt-get install binutils-dev
-# sudo yum install binutils-devel
-#check_prerequest "locate libbfd.a" "binutils-dev"
-
-# sudo apt-get install libiberty-dev
-# no need in centos 7.1
-#check_prerequest "locate libiberty.a" "libiberty-dev"
-
-# sudo apt-get install bison
-# sudo yum install bison
-#check_prerequest "bison --version" "bison"
 
 #########################
 # build all thirdparties
