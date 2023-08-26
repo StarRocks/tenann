@@ -64,7 +64,7 @@ set(faiss_DIR "${PROJECT_SOURCE_DIR}/thirdparty/installed/share/faiss" CACHE PAT
 find_package(faiss REQUIRED)
 
 # 添加 lapack 库
-find_package(LAPACK REQUIRED BLA_STATIC)
+find_package(LAPACK REQUIRED)
 # 添加 OpenMP 库
 find_package(OpenMP REQUIRED)
 
