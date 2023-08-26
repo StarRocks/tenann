@@ -28,8 +28,11 @@
 #################################################################################
 set -e
 
-curdir=`dirname "$0"`
-curdir=`cd "$curdir"; pwd`
+curdir=$(dirname "$0")
+curdir=$(
+    cd "$curdir"
+    pwd
+)
 
 export TENANN_HOME=${TENANN_HOME:-$curdir/..}
 export TP_DIR=$curdir
@@ -84,14 +87,6 @@ check_prerequest() {
 # sudo yum install cmake
 check_prerequest "${CMAKE_CMD} --version" "cmake"
 
-# sudo apt-get install byacc
-# sudo yum install byacc
-# check_prerequest "byacc -V" "byacc"
-
-# sudo apt-get install flex
-# sudo yum install flex
-# check_prerequest "flex -V" "flex"
-
 # sudo apt-get install automake
 # sudo yum install automake
 check_prerequest "automake --version" "automake"
@@ -115,22 +110,9 @@ check_prerequest "lapack_check" "lapack-devel"
 
 BUILD_SYSTEM=${BUILD_SYSTEM:-make}
 
-# sudo apt-get install binutils-dev
-# sudo yum install binutils-devel
-#check_prerequest "locate libbfd.a" "binutils-dev"
-
-# sudo apt-get install libiberty-dev
-# no need in centos 7.1
-#check_prerequest "locate libiberty.a" "libiberty-dev"
-
-# sudo apt-get install bison
-# sudo yum install bison
-#check_prerequest "bison --version" "bison"
-
 #########################
 # build all thirdparties
 #########################
-
 
 # Name of cmake build directory in each thirdpary project.
 # Do not use `build`, because many projects contained a file named `BUILD`
@@ -151,7 +133,7 @@ check_if_source_exist() {
         exit 1
     fi
 
-    if [ ! -d $TP_SOURCE_DIR/$1 ];then
+    if [ ! -d $TP_SOURCE_DIR/$1 ]; then
         echo "$TP_SOURCE_DIR/$1 does not exist."
         exit 1
     fi
@@ -164,7 +146,7 @@ check_if_archieve_exist() {
         exit 1
     fi
 
-    if [ ! -f $TP_SOURCE_DIR/$1 ];then
+    if [ ! -f $TP_SOURCE_DIR/$1 ]; then
         echo "$TP_SOURCE_DIR/$1 does not exist."
         exit 1
     fi
@@ -178,15 +160,17 @@ build_faiss() {
     cd $BUILD_DIR
     rm -rf CMakeCache.txt CMakeFiles/
     $CMAKE_CMD -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
-    -DCMAKE_CXX_COMPILER=$TENANN_GCC_HOME/bin/g++ \
-    -DCMAKE_C_COMPILER=$TENANN_GCC_HOME/bin/gcc \
-    -DCMAKE_INSTALL_LIBDIR=lib \
-    -DFAISS_ENABLE_GPU=OFF \
-    -DFAISS_ENABLE_PYTHON=OFF \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DBUILD_TESTING=OFF \
-    ..
+        -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
+        -DCMAKE_CXX_COMPILER=$TENANN_GCC_HOME/bin/g++ \
+        -DCMAKE_C_COMPILER=$TENANN_GCC_HOME/bin/gcc \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DFAISS_ENABLE_GPU=OFF \
+        -DFAISS_ENABLE_PYTHON=OFF \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DBUILD_TESTING=OFF \
+        # -DFAISS_OPT_LEVEL=avx2 \
+        -DBLA_STATIC=ON \
+        ..
 
     ${BUILD_SYSTEM} -j$PARALLEL
     ${BUILD_SYSTEM} install
@@ -208,12 +192,11 @@ strip_binary() {
     strip $TP_INSTALL_DIR/bin/* 2>/dev/null || true
 }
 
-
 # set GLOBAL_C*FLAGS for easy restore in each sub build process
 export GLOBAL_CPPFLAGS="-I ${TP_INCLUDE_DIR}"
 # https://stackoverflow.com/questions/42597685/storage-size-of-timespec-isnt-known
-export GLOBAL_CFLAGS="-O3 -fno-omit-frame-pointer -std=c99 -fPIC -g -D_POSIX_C_SOURCE=199309L"
-export GLOBAL_CXXFLAGS="-O3 -fno-omit-frame-pointer -Wno-class-memaccess -fPIC -g"
+export GLOBAL_CFLAGS="-static-libstdc++ -static-libgcc -O3 -fno-omit-frame-pointer -std=c99 -fPIC -g -D_POSIX_C_SOURCE=199309L"
+export GLOBAL_CXXFLAGS="-static-libstdc++ -static-libgcc -O3 -fno-omit-frame-pointer -Wno-class-memaccess -fPIC -g"
 
 # set those GLOBAL_*FLAGS to the CFLAGS/CXXFLAGS/CPPFLAGS
 export CPPFLAGS=$GLOBAL_CPPFLAGS

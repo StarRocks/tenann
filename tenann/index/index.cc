@@ -23,7 +23,11 @@
 
 namespace tenann {
 
-Index::~Index() noexcept { deleter_(index_raw_); }
+Index::~Index() noexcept {
+  if (index_raw_ != nullptr) {
+    deleter_(index_raw_);
+  }
+}
 
 Index::Index(Index&& rhs) noexcept { std::swap(*this, rhs); }
 
