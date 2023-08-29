@@ -52,7 +52,7 @@ IndexBuilder& IndexBuilder::WriteIndex(const std::string& path, bool write_index
   return *this;
 }
 
-IndexBuilder& IndexBuilder::SetIndexWriter(IndexWriter* writer) {
+IndexBuilder& IndexBuilder::SetIndexWriter(IndexWriterRef writer) {
   index_writer_ = writer;
   return *this;
 }
@@ -67,9 +67,9 @@ const IndexMeta& IndexBuilder::index_meta() const { return index_meta_; }
 
 IndexRef IndexBuilder::index_ref() const { return index_ref_; }
 
-IndexWriter* IndexBuilder::index_writer() { return index_writer_; }
+IndexWriter* IndexBuilder::index_writer() { return index_writer_.get(); }
 
-const IndexWriter* IndexBuilder::index_writer() const { return index_writer_; }
+const IndexWriter* IndexBuilder::index_writer() const { return index_writer_.get(); }
 
 IndexCache* IndexBuilder::index_cache() { return index_cache_; }
 

@@ -86,14 +86,14 @@ int main() {
   // build and write index
   try {
     auto index_builder = tenann::IndexFactory::CreateBuilderFromMeta(meta);
-    auto index_writer = tenann::IndexFactory::CreateWriterFromMeta(meta);
+    tenann::IndexWriterRef index_writer = tenann::IndexFactory::CreateWriterFromMeta(meta);
 
-    index_builder->SetIndexWriter(index_writer.get())
+    index_builder->SetIndexWriter(index_writer)
         .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
         .Build({base_view})
         .WriteIndex(index_path, /*write_index_cache=*/true);
 
-    index_builder->SetIndexWriter(index_writer.get())
+    index_builder->SetIndexWriter(index_writer)
         .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
         .BuildWithPrimaryKey({id_view, base_view}, 0)
         .WriteIndex(index_with_primary_key_path, /*write_index_cache=*/true);
@@ -104,11 +104,11 @@ int main() {
 
   // read and search index
   try {
-    auto index_reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
+    tenann::IndexReaderRef index_reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
     auto ann_searcher = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
 
     // load index from disk file
-    ann_searcher->SetIndexReader(index_reader.get())
+    ann_searcher->SetIndexReader(index_reader)
         .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
         .ReadIndex(index_path, /*read_index_cache=*/true);
     T_DCHECK(ann_searcher->is_index_loaded());
@@ -137,11 +137,12 @@ int main() {
   std::cout << "-------------------------------------------------------------------\n";
   // read and search index
   try {
-    auto index_reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
+  tenann:;
+    tenann::IndexReaderRef index_reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
     auto ann_searcher = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
 
     // load index from disk file
-    ann_searcher->SetIndexReader(index_reader.get())
+    ann_searcher->SetIndexReader(index_reader)
         .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
         .ReadIndex(index_with_primary_key_path, /*read_index_cache=*/true);
     T_DCHECK(ann_searcher->is_index_loaded());
