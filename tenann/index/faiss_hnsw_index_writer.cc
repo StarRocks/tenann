@@ -30,10 +30,8 @@ namespace tenann {
 FaissHnswIndexWriter::~FaissHnswIndexWriter() = default;
 
 void FaissHnswIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
-  auto index_hnsw = static_cast<faiss::IndexHNSW*>(index->index_raw());
-  // faiss::FileIOWriter writer(path.c_str());
-  // faiss::write_index(&index_hnsw, writer);
-  faiss::write_index(index_hnsw, path.c_str());
+  auto faiss_index = static_cast<faiss::Index*>(index->index_raw());
+  faiss::write_index(faiss_index, path.c_str());
 }
 
 }  // namespace tenann

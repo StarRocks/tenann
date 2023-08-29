@@ -62,6 +62,15 @@ int main() {
   size_t nq = 10;
   // index save path
   constexpr const char* index_path = "/tmp/faiss_hnsw_index";
+  constexpr const char* index_with_primary_key_path = "/tmp/faiss_hnsw_index_with_ids";
+
+  std::vector<int64_t> ids(nb);
+  for (int i = 0; i < nb; i++) {
+    ids[i] = i;
+  }
+  tenann::PrimitiveSeqView id_view = {.data = reinterpret_cast<uint8_t*>(ids.data()),
+                                      .size = static_cast<uint32_t>(nb),
+                                      .elem_type = tenann::PrimitiveType::kInt64Type};
 
   // generate data and query
   T_LOG(WARNING) << "Generating base vectors...";
@@ -84,6 +93,11 @@ int main() {
         .Build({base_view})
         .WriteIndex(index_path, /*write_index_cache=*/true);
 
+    index_builder->SetIndexWriter(index_writer.get())
+        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
+        .BuildWithPrimaryKey({id_view, base_view}, 0)
+        .WriteIndex(index_with_primary_key_path, /*write_index_cache=*/true);
+
   } catch (tenann::Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";
   }
@@ -97,6 +111,39 @@ int main() {
     ann_searcher->SetIndexReader(index_reader.get())
         .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
         .ReadIndex(index_path, /*read_index_cache=*/true);
+    T_DCHECK(ann_searcher->is_index_loaded());
+
+    int k = 10;
+    std::vector<int64_t> result_ids(nq * k);
+
+    // search index
+    for (int i = 0; i < nq; i++) {
+      auto query_view =
+          tenann::PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query.data() + i * d),
+                                   .size = d,
+                                   .elem_type = tenann::PrimitiveType::kFloatType};
+      ann_searcher->AnnSearch(query_view, k, result_ids.data() + i * k);
+
+      std::cout << "Result of query " << i << ": ";
+      for (int j = 0; j < k; j++) {
+        std::cout << result_ids[i * k + j] << ",";
+      }
+      std::cout << "\n";
+    }
+  } catch (tenann::Error& e) {
+    std::cerr << "Exception caught: " << e.what() << "\n";
+  }
+
+  std::cout << "-------------------------------------------------------------------\n";
+  // read and search index
+  try {
+    auto index_reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
+    auto ann_searcher = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
+
+    // load index from disk file
+    ann_searcher->SetIndexReader(index_reader.get())
+        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
+        .ReadIndex(index_with_primary_key_path, /*read_index_cache=*/true);
     T_DCHECK(ann_searcher->is_index_loaded());
 
     int k = 10;

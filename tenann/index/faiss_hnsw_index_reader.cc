@@ -27,10 +27,11 @@ namespace tenann {
 FaissHnswIndexReader::~FaissHnswIndexReader() = default;
 
 IndexRef FaissHnswIndexReader::ReadIndex(const std::string& path) {
-  auto index_hnsw = std::unique_ptr<faiss::IndexHNSW>(
-      dynamic_cast<faiss::IndexHNSW*>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP)));
-  return std::make_shared<Index>(index_hnsw.release(), IndexType::kFaissHnsw,
-                                 [](void* index) { delete static_cast<faiss::IndexHNSW*>(index); });
+  auto faiss_index =
+      std::unique_ptr<faiss::Index>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP));
+  return std::make_shared<Index>(faiss_index.release(),  //
+                                 IndexType::kFaissHnsw,  //
+                                 [](void* index) { delete static_cast<faiss::Index*>(index); });
 }
 
 }  // namespace tenann
