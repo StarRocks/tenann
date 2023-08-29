@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "tenann/common/json.hpp"
 #include "tenann/index/index.h"
 
@@ -49,5 +51,7 @@ class IndexReader {
   /// @brief read options
   nlohmann::json conf_;
 };
+
+using IndexReaderRef = std::shared_ptr<IndexReader>;
 
 }  // namespace tenann

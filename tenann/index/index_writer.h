@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "tenann/common/json.hpp"
 #include "tenann/index/index.h"
 
@@ -50,5 +52,7 @@ class IndexWriter {
   /* write options */
   nlohmann::json conf_;
 };
+
+using IndexWriterRef = std::shared_ptr<IndexWriter>;
 
 }  // namespace tenann

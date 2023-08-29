@@ -58,7 +58,7 @@ class IndexBuilder {
                            const std::string& custom_cache_key = "");
 
   /** Setters */
-  IndexBuilder& SetIndexWriter(IndexWriter* writer);
+  IndexBuilder& SetIndexWriter(IndexWriterRef writer);
 
   IndexBuilder& SetIndexCache(IndexCache* cache);
 
@@ -93,7 +93,7 @@ class IndexBuilder {
   bool is_built_;
 
   /* writer and cache */
-  IndexWriter* index_writer_;
+  IndexWriterRef index_writer_;
   IndexCache* index_cache_;
 
   /* statistics */

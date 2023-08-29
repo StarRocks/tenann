@@ -80,7 +80,7 @@ class Searcher {
 
   /* setters and getters */
 
-  ChildSearcher& SetIndexReader(IndexReader* reader) {
+  ChildSearcher& SetIndexReader(IndexReaderRef reader) {
     index_reader_ = reader;
     return static_cast<ChildSearcher&>(*this);
   }
@@ -92,9 +92,9 @@ class Searcher {
 
   IndexRef index_ref() const { return index_ref_; }
 
-  const IndexReader* index_reader() const { return index_reader_; }
+  const IndexReader* index_reader() const { return index_reader_.get(); }
 
-  IndexReader* index_reader() { return index_reader_; }
+  IndexReader* index_reader() { return index_reader_.get(); }
 
   const IndexCache* index_cache() const { return index_cache_; }
 
@@ -118,7 +118,7 @@ class Searcher {
   json search_params_;
 
   /* reader and cache */
-  IndexReader* index_reader_;
+  IndexReaderRef index_reader_;
   IndexCache* index_cache_;
 
   /**
