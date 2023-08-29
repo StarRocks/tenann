@@ -38,6 +38,9 @@ class FaissHnswIndexBuilder : public IndexBuilder {
 
   /// Use the row number as vector id.
   void BuildImpl(const std::vector<SeqView>& input_columns) override;
+
+  void FetchIds(const std::vector<SeqView>& input_columns, int primary_key_column_index,
+                int* data_col_index, int64_t** ids, size_t* size);
 };
 
 }  // namespace tenann
