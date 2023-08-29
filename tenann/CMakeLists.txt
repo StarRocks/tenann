@@ -27,13 +27,14 @@ set(TENANN_HEADERS
     version.h
     builder/index_builder.h
     builder/faiss_hnsw_index_builder.h
+    common/error.h
     common/json.hpp
     common/logging.h
     common/macros.h
     common/primitive_type.h
     common/seq_view.h
-    common/typed_seq_view.h
     common/type_traits.h
+    common/typed_seq_view.h
     factory/ann_searcher_factory.h
     factory/index_factory_trait.h
     factory/index_factory.h
