@@ -20,6 +20,8 @@
 // This file is based on code available under the Apache License 2.0 here:
 //     https://github.com/apache/tvm/blob/main/include/tvm/runtime/logging.h
 
+#pragma once
+
 #include <iomanip>
 #include <iostream>
 #include <sstream>

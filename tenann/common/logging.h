@@ -182,10 +182,10 @@ T_CHECK_FUNC(_NE, !=)
 #define T_LOG_ERROR ::tenann::detail::LogError(__FILE__, __LINE__).stream()
 #define T_LOG_WARNING ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_WARNING).stream()
 
-#define T_CHECK_BINARY_OP(name, op, x, y)                            \
-  if (auto __tvm__log__err = ::tenann::detail::LogCheck##name(x, y)) \
-  ::tenann::detail::LogError(__FILE__, __LINE__).stream()            \
-      << "Check failed: " << #x " " #op " " #y << *__tvm__log__err << ": "
+#define T_CHECK_BINARY_OP(name, op, x, y)                          \
+  if (auto __t__log__err = ::tenann::detail::LogCheck##name(x, y)) \
+  ::tenann::detail::LogError(__FILE__, __LINE__).stream()          \
+      << "Check failed: " << #x " " #op " " #y << *__t__log__err << ": "
 
 #define T_CHECK_LT(x, y) T_CHECK_BINARY_OP(_LT, <, x, y)
 #define T_CHECK_GT(x, y) T_CHECK_BINARY_OP(_GT, >, x, y)

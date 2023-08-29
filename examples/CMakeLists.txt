@@ -15,26 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# hello world example
-add_executable(helloworld_example helloworld_example.cc)
-target_link_libraries(helloworld_example tenann)
+FILE(GLOB examples ./*.cc)
 
-# meta example
-add_executable(meta_example meta_example.cc)
-target_link_libraries(meta_example tenann)
-
-# index factory example
-add_executable(index_factory_example index_factory_example.cc)
-target_link_libraries(index_factory_example tenann)
-
-# faiss hnsw example
-add_executable(faiss_hnsw_example faiss_hnsw_example.cc)
-target_link_libraries(faiss_hnsw_example tenann)
-
-# error handling example
-add_executable(error_handling_example error_handling_example.cc)
-target_link_libraries(error_handling_example tenann)
-
-# index cache example
-add_executable(index_cache_example index_cache_example.cc)
-target_link_libraries(index_cache_example tenann)
+FOREACH (path ${examples})
+    get_filename_component(name ${path} NAME_WE)
+    add_executable(${name} ${path})
+    target_link_libraries(${name} tenann)
+ENDFOREACH ()
