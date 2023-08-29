@@ -226,21 +226,21 @@ done
 rm -r $TP_SOURCE_DIR/tmp_dir
 echo "===== Unpacking all thirdparty archives...done"
 
-echo "===== Patching thirdparty archives..."
+# echo "===== Patching thirdparty archives..."
 
-###################################################################################
-# PATCHED_MARK is a empty file which will be created in some thirdparty source dir
-# only after that thirdparty source is patched.
-# This is to avoid duplicated patch.
-###################################################################################
-PATCHED_MARK="patched_mark"
+# ###################################################################################
+# # PATCHED_MARK is a empty file which will be created in some thirdparty source dir
+# # only after that thirdparty source is patched.
+# # This is to avoid duplicated patch.
+# ###################################################################################
+# PATCHED_MARK="patched_mark"
 
-# patch faiss
-cd $TP_SOURCE_DIR/$FAISS_SOURCE
-if [ ! -f $PATCHED_MARK ] && [ $FAISS_SOURCE = "faiss-1.7.3" ]; then
-    patch -p0 < $TP_PATCH_DIR/faiss-1.7.3.patch
-    touch $PATCHED_MARK
-fi
-cd -
-echo "Finished patching $FAISS_SOURCE"
+# # patch faiss
+# cd $TP_SOURCE_DIR/$FAISS_SOURCE
+# if [ ! -f $PATCHED_MARK ] && [ $FAISS_SOURCE = "faiss-1.7.3" ]; then
+#     patch -p0 < $TP_PATCH_DIR/faiss-1.7.3.patch
+#     touch $PATCHED_MARK
+# fi
+# cd -
+# echo "Finished patching $FAISS_SOURCE"
 
