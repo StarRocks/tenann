@@ -21,16 +21,9 @@
 
 #include <cstdint>
 
-namespace tenann {
+#include "tenann/common/primitive_type.h"
 
-enum PrimitiveType {
-  kInt32Type = 1,
-  kInt64Type,
-  kUInt32Type,
-  kUint64Type,
-  kFloatType,
-  kDoubleType
-};
+namespace tenann {
 
 /// View for a sequence of primitive c values.
 struct PrimitiveSeqView {
