@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include "tenann/index/faiss_hnsw_index_writer.h"
+#include "tenann/index/faiss_index_writer.h"
 
 #include <faiss/IndexHNSW.h>
 #include <faiss/impl/io.h>
@@ -27,9 +27,9 @@
 
 namespace tenann {
 
-FaissHnswIndexWriter::~FaissHnswIndexWriter() = default;
+FaissIndexWriter::~FaissIndexWriter() = default;
 
-void FaissHnswIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
+void FaissIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
   auto faiss_index = static_cast<faiss::Index*>(index->index_raw());
   faiss::write_index(faiss_index, path.c_str());
 }

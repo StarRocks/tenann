@@ -17,16 +17,16 @@
  * under the License.
  */
 
-#include "tenann/index/faiss_hnsw_index_reader.h"
+#include "tenann/index/faiss_index_reader.h"
 
 #include "faiss/IndexHNSW.h"
 #include "faiss/index_io.h"
 
 namespace tenann {
 
-FaissHnswIndexReader::~FaissHnswIndexReader() = default;
+FaissIndexReader::~FaissIndexReader() = default;
 
-IndexRef FaissHnswIndexReader::ReadIndex(const std::string& path) {
+IndexRef FaissIndexReader::ReadIndex(const std::string& path) {
   auto faiss_index =
       std::unique_ptr<faiss::Index>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP));
   return std::make_shared<Index>(faiss_index.release(),  //
