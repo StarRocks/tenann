@@ -168,9 +168,9 @@ build_faiss() {
         -DFAISS_ENABLE_PYTHON=OFF \
         -DBUILD_SHARED_LIBS=OFF \
         -DBUILD_TESTING=OFF \
-        # -DFAISS_OPT_LEVEL=avx2 \
-        -DBLA_STATIC=ON \
-        ..
+        $TP_SOURCE_DIR/$FAISS_SOURCE
+    # -DFAISS_OPT_LEVEL=avx2 \
+    # -DBLA_STATIC=ON
 
     ${BUILD_SYSTEM} -j$PARALLEL
     ${BUILD_SYSTEM} install
