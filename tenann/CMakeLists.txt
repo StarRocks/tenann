@@ -14,9 +14,9 @@ set(TENANN_SRC
     index/index.cc
     index/index_cache.cc
     index/index_reader.cc
-    index/faiss_hnsw_index_reader.cc
+    index/faiss_index_reader.cc
     index/index_writer.cc
-    index/faiss_hnsw_index_writer.cc
+    index/faiss_index_writer.cc
     searcher/searcher.cc
     searcher/faiss_hnsw_ann_searcher.cc
     store/index_meta.cc
@@ -39,9 +39,9 @@ set(TENANN_HEADERS
     factory/index_factory.h
     index/index_cache.h
     index/index_reader.h
-    index/faiss_hnsw_index_reader.h
+    index/faiss_index_reader.h
     index/index_writer.h
-    index/faiss_hnsw_index_writer.h
+    index/faiss_index_writer.h
     index/index.h
     searcher/ann_searcher.h
     searcher/faiss_hnsw_ann_searcher.h

@@ -22,8 +22,8 @@
 #include "tenann/builder/faiss_hnsw_index_builder.h"
 #include "tenann/builder/index_builder.h"
 #include "tenann/common/error.h"
-#include "tenann/index/faiss_hnsw_index_reader.h"
-#include "tenann/index/faiss_hnsw_index_writer.h"
+#include "tenann/index/faiss_index_reader.h"
+#include "tenann/index/faiss_index_writer.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
 #include "tenann/store/index_meta.h"
@@ -62,11 +62,11 @@ struct IndexFactoryTrait {
 template <>
 struct IndexFactoryTrait<kFaissHnsw> {
   static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    return std::make_unique<FaissHnswIndexReader>(meta);
+    return std::make_unique<FaissIndexReader>(meta);
   };
 
   static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    return std::make_unique<FaissHnswIndexWriter>(meta);
+    return std::make_unique<FaissIndexWriter>(meta);
   };
 
   static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
