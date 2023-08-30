@@ -1,4 +1,5 @@
-build*
+.cache
+/build*
 !builder
 !build-thirdparty.sh
 thirdparty/src

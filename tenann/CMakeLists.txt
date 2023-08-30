@@ -1,8 +1,19 @@
-# Copyright (c) Tencent, Inc. and its affiliates.
-# All rights reserved.
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
 #
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 
 set(TENANN_SRC
     version.cc
@@ -52,83 +63,41 @@ set(TENANN_HEADERS
     store/lru_cache.h
 )
 
-set(CMAKE_CXX_FLAGS "-static-libstdc++ -static-libgcc ${CMAKE_CXX_FLAGS} -gdwarf-4")
+# TenANN library target
+add_library(tenann STATIC ${TENANN_SRC})
 
-# 生成 tenann 库
-ADD_LIBRARY(tenann STATIC ${TENANN_SRC})
+########################################################
+# Thrid-party dependicies
+########################################################
 
-target_include_directories(tenann
-  INTERFACE
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-)
 
 # 添加 faiss 库
-find_package(faiss REQUIRED PATHS "${PROJECT_SOURCE_DIR}/thirdparty/installed/lib/cmake/faiss")
+find_package(faiss REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
 
 # 添加 faiss_avx2 库
-find_package(faiss_avx2 REQUIRED PATHS "${PROJECT_SOURCE_DIR}/thirdparty/installed/lib/cmake/faiss")
+find_package(faiss_avx2 REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
 
 # 添加 lapack 库
-find_package(LAPACK REQUIRED PATHS "${PROJECT_SOURCE_DIR}/thirdparty/installed/lib/cmake/lapack")
+find_package(LAPACK REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/lapack")
 
 # 添加 OpenMP 库
 find_package(OpenMP REQUIRED)
 
-# 添加 gfortran 动态库依赖
-# TODO: 目前指定动态库软链名，后续考虑修改
-find_file(GFORTRAN_LIBRARY NAMES libgfortran.so.3 PATHS /usr/lib /usr/lib64/)
+set(WL_START_GROUP "-Wl,--start-group")
+set(WL_END_GROUP "-Wl,--end-group")
 
-# 链接依赖库
+# TenANN link options
 set(TENANN_LINK_LIBS
-    -static-libstdc++
-    -static-libgcc
+    ${WL_START_GROUP}
     faiss
-    faiss_avx2
+    # faiss_avx2 # temporaly disable avx2 version
     ${LAPACK_LIBRARIES}
     OpenMP::OpenMP_CXX
-    ${GFORTRAN_LIBRARY}
+    -l:libgfortran.a
+    -l:libquadmath.a
+    -lm
+    ${WL_END_GROUP}
 )
 
 target_link_libraries(tenann
-    ${TENANN_LINK_LIBS}
-)
-
-install(TARGETS tenann
-    EXPORT tenann-targets
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tenann/include)
-foreach(header ${TENANN_HEADERS})
-  get_filename_component(dir ${header} DIRECTORY )
-  file(COPY ${header} DESTINATION ${CMAKE_BINARY_DIR}/tenann/include/${dir})
-  install(FILES ${header}
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/tenann/${dir}
-  )
-endforeach()
-
-# 使用 CMake 的 CMakePackageConfigHelpers 模块来生成一个基本的包版本文件
-include(CMakePackageConfigHelpers)
-WRITE_BASIC_CONFIG_VERSION_FILE(
-  "${PROJECT_BINARY_DIR}/cmake/tenann-config-version.cmake"
-  VERSION ${CMAKE_PROJECT_VERSION}
-  COMPATIBILITY AnyNewerVersion
-)
-
-configure_file(${PROJECT_SOURCE_DIR}/cmake/tenann-config.cmake.in
-  ${PROJECT_BINARY_DIR}/cmake/tenann-config.cmake
-  COPYONLY
-)
-
-install(FILES ${PROJECT_BINARY_DIR}/cmake/tenann-config.cmake
-  ${PROJECT_BINARY_DIR}/cmake/tenann-config-version.cmake
-  DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/tenann
-)
-
-install(EXPORT tenann-targets
-  DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/tenann
-)
+    ${TENANN_LINK_LIBS})
