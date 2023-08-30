@@ -64,21 +64,30 @@ target_include_directories(tenann
 )
 
 # 添加 faiss 库
-set(faiss_DIR "${PROJECT_SOURCE_DIR}/thirdparty/installed/share/faiss" CACHE PATH "grpc search path")
-find_package(faiss REQUIRED)
+find_package(faiss REQUIRED PATHS "${PROJECT_SOURCE_DIR}/thirdparty/installed/lib/cmake/faiss")
+
+# 添加 faiss_avx2 库
+find_package(faiss_avx2 REQUIRED PATHS "${PROJECT_SOURCE_DIR}/thirdparty/installed/lib/cmake/faiss")
 
 # 添加 lapack 库
-find_package(LAPACK REQUIRED)
+find_package(LAPACK REQUIRED PATHS "${PROJECT_SOURCE_DIR}/thirdparty/installed/lib/cmake/lapack")
+
 # 添加 OpenMP 库
 find_package(OpenMP REQUIRED)
+
+# 添加 gfortran 动态库依赖
+# TODO: 目前指定动态库软链名，后续考虑修改
+find_file(GFORTRAN_LIBRARY NAMES libgfortran.so.3 PATHS /usr/lib /usr/lib64/)
 
 # 链接依赖库
 set(TENANN_LINK_LIBS
     -static-libstdc++
     -static-libgcc
     faiss
-    LAPACK::LAPACK
+    faiss_avx2
+    ${LAPACK_LIBRARIES}
     OpenMP::OpenMP_CXX
+    ${GFORTRAN_LIBRARY}
 )
 
 target_link_libraries(tenann
