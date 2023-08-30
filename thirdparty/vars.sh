@@ -89,5 +89,11 @@ FAISS_NAME=faiss-v1.7.3.tar.gz
 FAISS_SOURCE=faiss-1.7.3
 FAISS_MD5SUM="632c5f465e80ebf10a7e2a54e5c853f7"
 
+# lapack
+LAPACK_DOWNLOAD="https://github.com/Reference-LAPACK/lapack/archive/refs/tags/v3.11.0.tar.gz"
+LAPACK_NAME=lapack-3.11.0.tar.gz
+LAPACK_SOURCE=lapack-3.11.0
+LAPACK_MD5SUM="595b064fd448b161cd711fe346f498a7"
+
 # all thirdparties which need to be downloaded is set in array TP_ARCHIVES
-TP_ARCHIVES="FAISS"
+TP_ARCHIVES="FAISS LAPACK"

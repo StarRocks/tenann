@@ -99,15 +99,6 @@ check_prerequest "automake --version" "automake"
 # sudo yum install ldconfig
 check_prerequest "ldconfig --version" "ldconfig"
 
-# sudo apt-get install lapack-devel
-# sudo yum install lapack-devel
-lapack_check() {
-    echo
-    echo "Checking lapack-devel installation..."
-    ldconfig -p | grep liblapack
-}
-check_prerequest "lapack_check" "lapack-devel"
-
 BUILD_SYSTEM=${BUILD_SYSTEM:-make}
 
 #########################
@@ -152,28 +143,52 @@ check_if_archieve_exist() {
     fi
 }
 
+build_lapack() {
+    check_if_source_exist $LAPACK_SOURCE
+    cd $TP_SOURCE_DIR/$LAPACK_SOURCE
+    mkdir -p $BUILD_DIR
+    cd $BUILD_DIR
+    rm -rf CMakeCache.txt CMakeFiles/
+    $CMAKE_CMD -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_INSTALL_INCLUDEDIR=${TP_INSTALL_DIR}/include/lapack \
+    -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
+    -DLAPACKE:BOOL=OFF \
+    -DCBLAS:BOOL=OFF \
+    -DCMAKE_Fortran_FLAGS:STRING="-fimplicit-none -frecursive -fcheck=all" \
+    ..
+
+    $CMAKE_CMD --build . -j --target install
+    rm -rf ${TP_INSTALL_DIR}/lib/cmake/lapack
+    mv ${TP_INSTALL_DIR}/lib/cmake/$LAPACK_SOURCE ${TP_INSTALL_DIR}/lib/cmake/lapack
+    cp -f ${TP_INSTALL_DIR}/lib/cmake/lapack/lapack-config.cmake ${TP_INSTALL_DIR}/lib/cmake/lapack/blas-config.cmake
+}
+
 #faiss
 build_faiss() {
     check_if_source_exist $FAISS_SOURCE
     cd $TP_SOURCE_DIR/$FAISS_SOURCE
+
     mkdir -p $BUILD_DIR
     cd $BUILD_DIR
     rm -rf CMakeCache.txt CMakeFiles/
     $CMAKE_CMD -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
-        -DCMAKE_CXX_COMPILER=$TENANN_GCC_HOME/bin/g++ \
-        -DCMAKE_C_COMPILER=$TENANN_GCC_HOME/bin/gcc \
-        -DCMAKE_INSTALL_LIBDIR=lib \
-        -DFAISS_ENABLE_GPU=OFF \
-        -DFAISS_ENABLE_PYTHON=OFF \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DBUILD_TESTING=OFF \
-        $TP_SOURCE_DIR/$FAISS_SOURCE
-    # -DFAISS_OPT_LEVEL=avx2 \
-    # -DBLA_STATIC=ON
+    -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
+    -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_CXX_COMPILER=$TENANN_GCC_HOME/bin/g++ \
+    -DCMAKE_C_COMPILER=$TENANN_GCC_HOME/bin/gcc \
+    -DFAISS_ENABLE_GPU=OFF \
+    -DFAISS_ENABLE_PYTHON=OFF \
+    -DFAISS_OPT_LEVEL=avx2 \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_TESTING=OFF \
+    ..
 
     ${BUILD_SYSTEM} -j$PARALLEL
     ${BUILD_SYSTEM} install
+
+    cp -f ${TP_INSTALL_DIR}/lib/cmake/faiss/faiss-config.cmake ${TP_INSTALL_DIR}/lib/cmake/faiss/faiss_avx2-config.cmake
 }
 
 # restore cxxflags/cppflags/cflags to default one
@@ -203,6 +218,7 @@ export CPPFLAGS=$GLOBAL_CPPFLAGS
 export CXXFLAGS=$GLOBAL_CXXFLAGS
 export CFLAGS=$GLOBAL_CFLAGS
 
+build_lapack # must before faiss
 build_faiss
 
 # strip unnecessary debug symbol for binaries in thirdparty
