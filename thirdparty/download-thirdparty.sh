@@ -235,19 +235,10 @@ echo "===== Patching thirdparty archives..."
 ###################################################################################
 PATCHED_MARK="patched_mark"
 
-# patch lapack
-cd $TP_SOURCE_DIR/$LAPACK_SOURCE
-if [ ! -f $PATCHED_MARK ] && [ $LAPACK_SOURCE = "lapack-3.11.0" ]; then
-    patch -p0 < $TP_PATCH_DIR/lapack-3.11.0.patch
-    touch $PATCHED_MARK
-fi
-cd -
-echo "Finished patching $LAPACK_SOURCE"
-
 # patch faiss
 cd $TP_SOURCE_DIR/$FAISS_SOURCE
 if [ ! -f $PATCHED_MARK ] && [ $FAISS_SOURCE = "faiss-1.7.3" ]; then
-    patch -p0 < $TP_PATCH_DIR/faiss-1.7.3.patch
+    patch -p1 < $TP_PATCH_DIR/faiss-1.7.3.patch
     touch $PATCHED_MARK
 fi
 cd -

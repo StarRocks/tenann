@@ -169,10 +169,6 @@ build_faiss() {
     check_if_source_exist $FAISS_SOURCE
     cd $TP_SOURCE_DIR/$FAISS_SOURCE
 
-    # faiss 库依赖的lapack 动态库，导致链接了 faiss 的 tenann 也会依赖 lapack 动态库，幂等修改 faiss/CMakeLists.txt，链接静态 lapack 库
-    sed -i 's/find_package(BLAS REQUIRED)/find_package(BLAS REQUIRED PATHS ${CMAKE_INSTALL_DATAROOTDIR}\/lapack)/g' faiss/CMakeLists.txt
-    sed -i 's/find_package(LAPACK REQUIRED)/find_package(LAPACK REQUIRED PATHS ${CMAKE_INSTALL_DATAROOTDIR}\/lapack)/g' faiss/CMakeLists.txt
-
     mkdir -p $BUILD_DIR
     cd $BUILD_DIR
     rm -rf CMakeCache.txt CMakeFiles/
