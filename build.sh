@@ -218,6 +218,7 @@ if [ ${BUILD_TENANN} -eq 1 ]; then
         -DWITH_TESTS=${WITH_TESTS} \
         -DWITH_EXAMPLES=${WITH_EXAMPLES} \
         -DCMAKE_INSTALL_PREFIX=${TENANN_OUTPUT} \
+        -DBLA_STATIC=ON \
         ..
     time ${BUILD_SYSTEM} -j${PARALLEL}
 
