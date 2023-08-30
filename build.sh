@@ -184,6 +184,12 @@ echo "Get params:
     PARALLEL            -- $PARALLEL
 "
 if [ ${BUILD_TENANN} -eq 1 ]; then
+    cd ${TENANN_HOME}
+
+    # Clean and prepare output dir
+    TENANN_OUTPUT=${TENANN_HOME}/output/
+    mkdir -p ${TENANN_OUTPUT}
+
     # Clean and build tenann
     if ! ${CMAKE_CMD} --version; then
         echo "Error: cmake is not found"
@@ -209,33 +215,18 @@ if [ ${BUILD_TENANN} -eq 1 ]; then
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-        -DBUILD_TESTS=${WITH_TESTS} \
-        -DBUILD_EXAMPLES=${WITH_EXAMPLES} \
+        -DWITH_TESTS=${WITH_TESTS} \
+        -DWITH_EXAMPLES=${WITH_EXAMPLES} \
+        -DCMAKE_INSTALL_PREFIX=${TENANN_OUTPUT} \
         ..
-
     time ${BUILD_SYSTEM} -j${PARALLEL}
-# ${BUILD_SYSTEM} install
+
+    # Install TenANN to the output dirctory
+    rm -rf ${TENANN_OUTPUT}
+    ${BUILD_SYSTEM} install
 fi
 
-cd ${TENANN_HOME}
-
-# Clean and prepare output dir
-TENANN_OUTPUT=${TENANN_HOME}/output/
-mkdir -p ${TENANN_OUTPUT}
-
-if [ ${BUILD_TENANN} -eq 1 ]; then
-    rm -rf ${TENANN_OUTPUT}/tenann
-
-    install -d ${TENANN_OUTPUT}/tenann/lib \
-        ${TENANN_OUTPUT}/tenann/include
-
-    cp -r -p ${CMAKE_BUILD_DIR}/tenann/*.a ${TENANN_OUTPUT}/tenann/lib/
-    cp -r -p ${CMAKE_BUILD_DIR}/tenann/include ${TENANN_OUTPUT}/tenann/
-
-    MSG="${MSG} √ ${MSG_TENANN}"
-fi
-
-cp -r -p "${TENANN_HOME}/LICENSE.txt" "${TENANN_OUTPUT}/LICENSE.txt"
+MSG="${MSG} √ ${MSG_TENANN}"
 
 echo "***************************************"
 echo "Successfully build TenANN ${MSG}"

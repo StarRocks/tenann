@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "tenann/common/error.h"
 #include "tenann/common/macros.h"
 
