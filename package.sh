@@ -39,10 +39,11 @@ mkdir -p ${TENANN_OUTPUT}/tmp
 # Copy all third-party libraries to the output directory
 cp /opt/gcc/usr/lib64/libquadmath.a ${TENANN_OUTPUT}/tmp
 cp /usr/local/lib/libgfortran.a ${TENANN_OUTPUT}/tmp
+cp /opt/gcc/usr/lib64/libgomp.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libblas.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/liblapack.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a ${TENANN_OUTPUT}/tmp
-mv ${TENANN_OUTPUT}/lib/libtenann.a ${TENANN_OUTPUT}/tmp
+cp ${TENANN_OUTPUT}/lib/libtenann.a ${TENANN_OUTPUT}/tmp
 
 # Merge all static libraries into one
 cd ${TENANN_OUTPUT}/tmp
@@ -51,6 +52,9 @@ addlib libtenann.a
 addlib libfaiss.a
 addlib liblapack.a
 addlib libblas.a
+addlib libgomp.a
+addlib libgfortran.a
+addlib libquadmath.a
 save
 end" >libtenann-bundle.mri
 
