@@ -53,7 +53,7 @@ if [[ $OSTYPE == darwin* ]]; then
     PARALLEL=$(sysctl -n hw.ncpu)
     # We know for sure that build-thirdparty.sh will fail on darwin platform, so just skip the step.
 else
-    if [[ ! -f ${TENANN_THIRDPARTY}/installed/include/faiss/Index.h ]]; then
+    if [[ ! -f ${TENANN_THIRDPARTY}/installed/include/gtest/gtest.h ]]; then
         echo "Thirdparty libraries need to be build ..."
         sh ${TENANN_THIRDPARTY}/build-thirdparty.sh
     fi

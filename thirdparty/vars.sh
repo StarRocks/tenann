@@ -95,5 +95,11 @@ LAPACK_NAME=lapack-3.11.0.tar.gz
 LAPACK_SOURCE=lapack-3.11.0
 LAPACK_MD5SUM="595b064fd448b161cd711fe346f498a7"
 
+# gtest
+GTEST_DOWNLOAD="https://github.com/google/googletest/archive/release-1.10.0.tar.gz"
+GTEST_NAME=googletest-release-1.10.0.tar.gz
+GTEST_SOURCE=googletest-release-1.10.0
+GTEST_MD5SUM="ecd1fa65e7de707cd5c00bdac56022cd"
+
 # all thirdparties which need to be downloaded is set in array TP_ARCHIVES
-TP_ARCHIVES="FAISS LAPACK"
+TP_ARCHIVES="FAISS LAPACK GTEST"

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,18 +16,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set(TENANN_TEST_SRC
-    builder/test_faiss_hnsw_index_builder.cc
-)
+# get latest build dir
+LATEST_BUILD_DIR=$(ls -td build_* | head -n 1)
 
-add_executable(tenann_test ${TENANN_TEST_SRC})
+if [ -z ${LATEST_BUILD_DIR} ]; then
+  # build release default
+  sh build.sh --with-tests
+  LATEST_BUILD_DIR=$(ls -td build_* | head -n 1)
+else
+  DIR_SUFFIX=${LATEST_BUILD_DIR#build_}
+  BUILD_TYPE=${DIR_SUFFIX} sh build.sh --with-tests
+fi
 
-# add gtest lib
-set(GTest_DIR "${TENANN_THIRDPARTY}/installed/lib/cmake/GTest" CACHE PATH "gtest search path")
-find_package(GTest REQUIRED)
-
-target_link_libraries(tenann_test PRIVATE tenann GTest::gtest GTest::gtest_main)
-include(GoogleTest)
-
-# add tenann_test to ctest
-gtest_discover_tests(tenann_test)
+make -C ${LATEST_BUILD_DIR} test

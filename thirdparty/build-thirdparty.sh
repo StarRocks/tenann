@@ -191,6 +191,20 @@ build_faiss() {
     cp -f ${TP_INSTALL_DIR}/lib/cmake/faiss/faiss-config.cmake ${TP_INSTALL_DIR}/lib/cmake/faiss/faiss_avx2-config.cmake
 }
 
+# gtest
+build_gtest() {
+    check_if_source_exist $GTEST_SOURCE
+
+    cd $TP_SOURCE_DIR/$GTEST_SOURCE
+    mkdir -p $BUILD_DIR
+    cd $BUILD_DIR
+    rm -rf CMakeCache.txt CMakeFiles/
+    $CMAKE_CMD -G "${CMAKE_GENERATOR}" -DCMAKE_INSTALL_PREFIX=$TP_INSTALL_DIR -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=On ../
+    ${BUILD_SYSTEM} -j$PARALLEL
+    ${BUILD_SYSTEM} install
+}
+
 # restore cxxflags/cppflags/cflags to default one
 restore_compile_flags() {
     # c preprocessor flags
@@ -220,6 +234,7 @@ export CFLAGS=$GLOBAL_CFLAGS
 
 build_lapack # must before faiss
 build_faiss
+build_gtest
 
 # strip unnecessary debug symbol for binaries in thirdparty
 strip_binary
