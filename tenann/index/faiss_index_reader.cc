@@ -19,19 +19,25 @@
 
 #include "tenann/index/faiss_index_reader.h"
 
-#include "faiss/IndexHNSW.h"
+#include "faiss/Index.h"
+#include "faiss/impl/FaissException.h"
 #include "faiss/index_io.h"
+#include "tenann/common/logging.h"
 
 namespace tenann {
 
 FaissIndexReader::~FaissIndexReader() = default;
 
 IndexRef FaissIndexReader::ReadIndex(const std::string& path) {
-  auto faiss_index =
-      std::unique_ptr<faiss::Index>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP));
-  return std::make_shared<Index>(faiss_index.release(),  //
-                                 IndexType::kFaissHnsw,  //
-                                 [](void* index) { delete static_cast<faiss::Index*>(index); });
+  try {
+    auto faiss_index =
+        std::unique_ptr<faiss::Index>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP));
+    return std::make_shared<Index>(faiss_index.release(),  //
+                                   IndexType::kFaissHnsw,  //
+                                   [](void* index) { delete static_cast<faiss::Index*>(index); });
+  } catch (faiss::FaissException& e) {
+    T_LOG(ERROR) << e.what();
+  }
 }
 
 }  // namespace tenann

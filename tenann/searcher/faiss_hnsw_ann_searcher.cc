@@ -25,7 +25,7 @@
 namespace tenann {
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) {
-  T_DCHECK_NOTNULL(index_ref_);
+  T_CHECK_NOTNULL(index_ref_);
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
   T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);

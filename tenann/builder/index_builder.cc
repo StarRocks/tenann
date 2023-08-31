@@ -39,13 +39,13 @@ IndexBuilder& IndexBuilder::BuildWithPrimaryKey(const std::vector<SeqView>& inpu
 IndexBuilder& IndexBuilder::WriteIndex(const std::string& path, bool write_index_cache,
                                        bool use_custom_cache_key,
                                        const std::string& custom_cache_key) {
-  T_DCHECK_NOTNULL(index_ref_);
+  T_CHECK_NOTNULL(index_ref_);
   // write index file
   index_writer_->WriteIndex(index_ref_, path);
   // write index cache
   if (write_index_cache) {
     auto cache_key = use_custom_cache_key ? custom_cache_key : path;
-    T_DCHECK_NOTNULL(index_cache_);
+    T_CHECK_NOTNULL(index_cache_);
     IndexCacheHandle handle;
     index_cache_->Insert(cache_key, index_ref_, &handle);
   }
@@ -58,7 +58,7 @@ IndexBuilder& IndexBuilder::SetIndexWriter(IndexWriterRef writer) {
 }
 
 IndexBuilder& IndexBuilder::SetIndexCache(IndexCache* cache) {
-  T_DCHECK_NOTNULL(cache);
+  T_CHECK_NOTNULL(cache);
   index_cache_ = cache;
   return *this;
 }
