@@ -86,8 +86,6 @@ find_package(OpenMP REQUIRED)
 set(WL_START_GROUP "-Wl,--start-group")
 set(WL_END_GROUP "-Wl,--end-group")
 
-find_file(GFORTRAN_LIBRARY NAMES libgfortran.so.3 PATHS /usr/lib /usr/lib64/)
-
 # TenANN link options
 set(TENANN_LINK_LIBS
     ${WL_START_GROUP}
@@ -95,8 +93,7 @@ set(TENANN_LINK_LIBS
     # faiss_avx2 # temporaly disable avx2 version
     ${LAPACK_LIBRARIES}
     OpenMP::OpenMP_CXX
-    # -l:libgfortran.a link fail, TODO: fix it
-    ${GFORTRAN_LIBRARY}
+    -l:libgfortran.a
     -l:libquadmath.a
     -lm
     ${WL_END_GROUP}
