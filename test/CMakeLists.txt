@@ -15,4 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# TODO: add gtest cases
+set(TENANN_TEST_SRC
+    builder/test_faiss_hnsw_index_builder.cc
+)
+
+add_executable(tenann_test ${TENANN_TEST_SRC})
+
+# add gtest lib
+set(GTest_DIR "${TENANN_THIRDPARTY}/installed/lib/cmake/GTest" CACHE PATH "gtest search path")
+find_package(GTest REQUIRED)
+
+target_link_libraries(tenann_test PRIVATE tenann GTest::gtest GTest::gtest_main)
+include(GoogleTest)
+
+# add tenann_test to ctest
+gtest_discover_tests(tenann_test)

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include "gtest/gtest_prod.h"
+
 #include "tenann/builder/index_builder.h"
 
 namespace tenann {
@@ -41,6 +43,8 @@ class FaissHnswIndexBuilder : public IndexBuilder {
 
   void FetchIds(const std::vector<SeqView>& input_columns, int primary_key_column_index,
                 int* data_col_index, int64_t** ids, size_t* size);
+ private:
+   FRIEND_TEST(FaissHnswIndexBuilderTest, FetchIdsTest);
 };
 
 }  // namespace tenann
