@@ -37,9 +37,6 @@ class FaissHnswIndexBuilderTest : public ::testing::Test {
   std::unique_ptr<IndexBuilder>& index_builder() {
     return faiss_hnsw_index_builder_;
   }
-  //std::unique_ptr<FaissHnswIndexBuilder>& faiss_hnsw_index_builder() {
-  //  return static_cast<std::unique_ptr<FaissHnswIndexBuilder>>(faiss_hnsw_index_builder_);
-  //}
   IndexMeta& meta() { return meta_; }
   PrimitiveSeqView& id_view() { return id_view_; }
   ArraySeqView& base_view() { return base_view_; }

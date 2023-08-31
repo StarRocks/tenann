@@ -95,7 +95,7 @@ set(TENANN_LINK_LIBS
     # faiss_avx2 # temporaly disable avx2 version
     ${LAPACK_LIBRARIES}
     OpenMP::OpenMP_CXX
-    # -l:libgfortran.a
+    # -l:libgfortran.a link fail, TODO: fix it
     ${GFORTRAN_LIBRARY}
     -l:libquadmath.a
     -lm
