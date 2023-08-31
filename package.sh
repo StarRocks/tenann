@@ -42,18 +42,18 @@ cp /usr/local/lib/libgfortran.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libblas.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/liblapack.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a ${TENANN_OUTPUT}/tmp
-cp ${TENANN_OUTPUT}/lib/libtenann.a ${TENANN_OUTPUT}/tmp
+mv ${TENANN_OUTPUT}/lib/libtenann.a ${TENANN_OUTPUT}/tmp
 
 # Merge all static libraries into one
 cd ${TENANN_OUTPUT}/tmp
-echo "create libtenann-standalone.a
+echo "create libtenann-bundle.a
 addlib libtenann.a
 addlib libfaiss.a
 addlib liblapack.a
 addlib libblas.a
 save
-end" >libtenann-standalone.mri
+end" >libtenann-bundle.mri
 
-ar -M <libtenann-standalone.mri
-cp ${TENANN_OUTPUT}/tmp/libtenann-standalone.a ${TENANN_OUTPUT}/lib
+ar -M <libtenann-bundle.mri
+cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
 rm -rf ${TENANN_OUTPUT}/tmp
