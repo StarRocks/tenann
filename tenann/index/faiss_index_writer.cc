@@ -19,19 +19,22 @@
 
 #include "tenann/index/faiss_index_writer.h"
 
-#include <faiss/IndexHNSW.h>
-#include <faiss/impl/io.h>
-#include <faiss/index_io.h>
-
-#include <fstream>
+#include "faiss/Index.h"
+#include "faiss/impl/FaissException.h"
+#include "faiss/index_io.h"
+#include "tenann/common/logging.h"
 
 namespace tenann {
 
 FaissIndexWriter::~FaissIndexWriter() = default;
 
 void FaissIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
-  auto faiss_index = static_cast<faiss::Index*>(index->index_raw());
-  faiss::write_index(faiss_index, path.c_str());
+  try {
+    auto faiss_index = static_cast<faiss::Index*>(index->index_raw());
+    faiss::write_index(faiss_index, path.c_str());
+  } catch (faiss::FaissException& e) {
+    T_LOG(ERROR) << e.what();
+  }
 }
 
 }  // namespace tenann
