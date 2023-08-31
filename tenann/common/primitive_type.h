@@ -17,11 +17,23 @@
  * under the License.
  */
 
+#pragma once
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+enum PrimitiveType {
+  kUnknownType = 0, /* 0 */
+  kBoolType,        /* 1 */
+  kInt8Type,        /* 2 */
+  kInt16Type,       /* 3 */
+  kInt32Type,       /* 4 */
+  kInt64Type,       /* 5 */
+  kUInt8Type,       /* 6 */
+  kUInt16Type,      /* 7 */
+  kUInt32Type,      /* 8 */
+  kUInt64Type,      /* 9 */
+  kFloatType,       /* 10 */
+  kDoubleType       /* 11 */
+};
 
-void HelloWorld();
-int FaissTest();
-
-}  // namespace tenann
+}

@@ -17,11 +17,21 @@
  * under the License.
  */
 
+#pragma once
+
+#include <memory>
+
+#include "tenann/builder/index_builder.h"
+#include "tenann/index/index_reader.h"
+#include "tenann/index/index_writer.h"
+#include "tenann/store/index_meta.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
-
-void HelloWorld();
-int FaissTest();
+struct IndexFactory {
+  static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta);
+  static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta);
+  static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta);
+};
 
 }  // namespace tenann

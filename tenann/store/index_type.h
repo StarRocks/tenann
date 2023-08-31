@@ -17,11 +17,27 @@
  * under the License.
  */
 
+#pragma once
+
+#include <cstdint>
+
+#include "tenann/common/json.hpp"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+enum IndexFamily { kVectorIndex = 0, kTextIndex };
 
-void HelloWorld();
-int FaissTest();
+enum IndexType {
+  kFaissHnsw = 0,  // 0: faiss hnsw
+  kFaissIvfFlat,   // 1: faiss ivf-flat
+  kFaissIvfPq      // 2: faiss ivf-pq
+};
+
+enum MetricType {
+  kL2Distance = 0,    // 0: euclidean l2 distance
+  kCosineSimilarity,  // 1: cosine similarity
+  kInnerProduct,      // 2: inner product or dot product
+  kCosineDistance,    // 3: cosine distance = 1 - cosine similarity
+};
 
 }  // namespace tenann

@@ -17,11 +17,18 @@
  * under the License.
  */
 
+#include "tenann/index/index_reader.h"
+
+#include "index_reader.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+IndexReader::~IndexReader() = default;
 
-void HelloWorld();
-int FaissTest();
+const IndexMeta& IndexReader::index_meta() const { return index_meta_; }
+
+nlohmann::json& IndexReader::conf() { return conf_; }
+
+const nlohmann::json& IndexReader::conf() const { return conf_; }
 
 }  // namespace tenann

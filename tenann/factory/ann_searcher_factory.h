@@ -17,11 +17,15 @@
  * under the License.
  */
 
+#pragma once
+
+#include "tenann/searcher/ann_searcher.h"
+#include "tenann/store/index_meta.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
-
-void HelloWorld();
-int FaissTest();
+struct AnnSearcherFactory {
+  static std::unique_ptr<AnnSearcher> CreateSearcherFromMeta(const IndexMeta& meta);
+};
 
 }  // namespace tenann

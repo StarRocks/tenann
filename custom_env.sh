@@ -14,11 +14,3 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-FILE(GLOB examples ./*.cc)
-
-FOREACH (path ${examples})
-    get_filename_component(name ${path} NAME_WE)
-    add_executable(${name} ${path})
-    target_link_libraries(${name} tenann ${TENANN_LINK_LIBS})
-ENDFOREACH ()

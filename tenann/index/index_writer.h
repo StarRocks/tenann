@@ -17,11 +17,42 @@
  * under the License.
  */
 
+#pragma once
+
+#include <memory>
+
+#include "tenann/common/json.hpp"
+#include "tenann/index/index.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+class IndexWriter {
+ public:
+  explicit IndexWriter(const IndexMeta& meta) : index_meta_(meta){};
+  virtual ~IndexWriter();
 
-void HelloWorld();
-int FaissTest();
+  T_FORBID_DEFAULT_CTOR(IndexWriter);
+  T_FORBID_COPY_AND_ASSIGN(IndexWriter);
+  T_FORBID_MOVE(IndexWriter);
+
+  // Write index file
+  virtual void WriteIndex(IndexRef index, const std::string& path) = 0;
+
+  nlohmann::json& conf();
+  const nlohmann::json& conf() const;
+
+  /** Getters */
+  const IndexMeta& index_meta() const;
+
+ protected:
+  // @TODO: consider using a shared_ptr to save index meta,
+  // otherwise there are too many meta copies.
+  /* meta */
+  IndexMeta index_meta_;
+  /* write options */
+  nlohmann::json conf_;
+};
+
+using IndexWriterRef = std::shared_ptr<IndexWriter>;
 
 }  // namespace tenann

@@ -17,11 +17,37 @@
  * under the License.
  */
 
+#include "tenann/index/index.h"
+
+#include "index.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+Index::~Index() noexcept {
+  if (index_raw_ != nullptr) {
+    deleter_(index_raw_);
+  }
+}
 
-void HelloWorld();
-int FaissTest();
+Index::Index(Index&& rhs) noexcept { std::swap(*this, rhs); }
+
+Index::Index(void* index, IndexType index_type, const std::function<void(void*)>& deleter) noexcept
+    : index_raw_(index), index_type_(index_type), deleter_(deleter) {}
+
+Index& Index::operator=(Index&& rhs) noexcept {
+  std::swap(*this, rhs);
+  return *this;
+}
+
+void Index::SetIndexRaw(void* index) { index_raw_ = index; }
+
+void Index::SetIndexType(IndexType index_type) { index_type_ = index_type; }
+
+void* Index::index_raw() const { return index_raw_; }
+
+IndexType Index::index_type() const { return index_type_; }
+
+// @TODO(petri): implement it
+size_t Index::EstimateMemorySizeInBytes() { return 1; }
 
 }  // namespace tenann

@@ -1,15 +1,11 @@
-.cache
 /build*
-!builder
-!build-thirdparty.sh
-thirdparty/src
-thirdparty/installed
-log
-output
-cmake-build-*
-.idea
+/cmake-build-*
+/output
+/thirdparty/installed
+/thirdparty/src
 .vscode
-.DS_Store
+.idea
+.git
 
 # Prerequisites
 *.d

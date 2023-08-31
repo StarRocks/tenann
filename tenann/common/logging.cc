@@ -17,11 +17,31 @@
  * under the License.
  */
 
+#include "tenann/common/logging.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+std::string Backtrace() { return ""; }
 
-void HelloWorld();
-int FaissTest();
+namespace detail {
+
+const char* ::tenann::detail::LogMessage::level_strings_[] = {
+    ": Debug: ",    // TNN_LOG_LEVEL_DEBUG
+    ": INFO: ",     // TNN_LOG_LEVEL_INFO
+    ": Warning: ",  // TNN_LOG_LEVEL_WARNING
+    ": Error: ",    // TNN_LOG_LEVEL_ERROR
+};
+
+LogFatal::Entry& LogFatal::GetEntry() {
+  static thread_local LogFatal::Entry result;
+  return result;
+}
+
+LogError::Entry& LogError::GetEntry() {
+  static thread_local LogError::Entry result;
+  return result;
+}
+
+}  // namespace detail
 
 }  // namespace tenann

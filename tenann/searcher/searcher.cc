@@ -17,11 +17,6 @@
  * under the License.
  */
 
-namespace tenann {
+#include "tenann/searcher/searcher.h"
 
-constexpr const char* TENANN_VERSION = "0.0.2";
-
-void HelloWorld();
-int FaissTest();
-
-}  // namespace tenann
+namespace tenann {}  // namespace tenann

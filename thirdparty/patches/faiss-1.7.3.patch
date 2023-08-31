@@ -1,0 +1,18 @@
+diff --git a/faiss/CMakeLists.txt b/faiss/CMakeLists.txt
+index fd3ddb3..28592a1 100644
+--- a/faiss/CMakeLists.txt
++++ b/faiss/CMakeLists.txt
+@@ -248,11 +248,11 @@ if(MKL_FOUND)
+   target_link_libraries(faiss PRIVATE ${MKL_LIBRARIES})
+   target_link_libraries(faiss_avx2 PRIVATE ${MKL_LIBRARIES})
+ else()
+-  find_package(BLAS REQUIRED)
++  find_package(BLAS REQUIRED PATHS ${CMAKE_INSTALL_DATAROOTDIR}/lapack)
+   target_link_libraries(faiss PRIVATE ${BLAS_LIBRARIES})
+   target_link_libraries(faiss_avx2 PRIVATE ${BLAS_LIBRARIES})
+ 
+-  find_package(LAPACK REQUIRED)
++  find_package(LAPACK REQUIRED PATHS ${CMAKE_INSTALL_DATAROOTDIR}/lapack)
+   target_link_libraries(faiss PRIVATE ${LAPACK_LIBRARIES})
+   target_link_libraries(faiss_avx2 PRIVATE ${LAPACK_LIBRARIES})
+ endif()

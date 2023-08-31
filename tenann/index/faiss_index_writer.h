@@ -17,11 +17,23 @@
  * under the License.
  */
 
+#pragma once
+
+#include "tenann/common/json.hpp"
+#include "tenann/index/index_writer.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+// @TODO(jack): trying to shared a single writer implementation for all faiss indexes.
+class FaissIndexWriter : public IndexWriter {
+ public:
+  using IndexWriter::IndexWriter;
+  virtual ~FaissIndexWriter();
+  T_FORBID_COPY_AND_ASSIGN(FaissIndexWriter);
+  T_FORBID_MOVE(FaissIndexWriter);
 
-void HelloWorld();
-int FaissTest();
+  // Write index file
+  void WriteIndex(IndexRef index, const std::string& path) override;
+};
 
 }  // namespace tenann

@@ -1,3 +1,4 @@
+#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,10 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FILE(GLOB examples ./*.cc)
-
-FOREACH (path ${examples})
-    get_filename_component(name ${path} NAME_WE)
-    add_executable(${name} ${path})
-    target_link_libraries(${name} tenann ${TENANN_LINK_LIBS})
-ENDFOREACH ()
+############################################################
+# You may have to set variables bellow,
+# which are used for compiling thirdparties and tenann itself.
+############################################################

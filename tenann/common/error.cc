@@ -17,11 +17,10 @@
  * under the License.
  */
 
+#include "tenann/common/error.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
-
-void HelloWorld();
-int FaissTest();
+std::string Backtrace() { return ""; }
 
 }  // namespace tenann

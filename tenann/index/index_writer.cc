@@ -17,11 +17,18 @@
  * under the License.
  */
 
+#include "tenann/index/index_writer.h"
+
+#include "index_writer.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+IndexWriter::~IndexWriter() = default;
 
-void HelloWorld();
-int FaissTest();
+const IndexMeta& IndexWriter::index_meta() const { return index_meta_; }
+
+nlohmann::json& IndexWriter::conf() { return conf_; }
+
+const nlohmann::json& IndexWriter::conf() const { return conf_; }
 
 }  // namespace tenann

@@ -17,11 +17,27 @@
  * under the License.
  */
 
+#include "tenann/index/faiss_index_reader.h"
+
+#include "faiss/Index.h"
+#include "faiss/impl/FaissException.h"
+#include "faiss/index_io.h"
+#include "tenann/common/logging.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+FaissIndexReader::~FaissIndexReader() = default;
 
-void HelloWorld();
-int FaissTest();
+IndexRef FaissIndexReader::ReadIndex(const std::string& path) {
+  try {
+    auto faiss_index =
+        std::unique_ptr<faiss::Index>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP));
+    return std::make_shared<Index>(faiss_index.release(),  //
+                                   IndexType::kFaissHnsw,  //
+                                   [](void* index) { delete static_cast<faiss::Index*>(index); });
+  } catch (faiss::FaissException& e) {
+    T_LOG(ERROR) << e.what();
+  }
+}
 
 }  // namespace tenann

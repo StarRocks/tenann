@@ -17,11 +17,24 @@
  * under the License.
  */
 
+#include "tenann/index/faiss_index_writer.h"
+
+#include "faiss/Index.h"
+#include "faiss/impl/FaissException.h"
+#include "faiss/index_io.h"
+#include "tenann/common/logging.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+FaissIndexWriter::~FaissIndexWriter() = default;
 
-void HelloWorld();
-int FaissTest();
+void FaissIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
+  try {
+    auto faiss_index = static_cast<faiss::Index*>(index->index_raw());
+    faiss::write_index(faiss_index, path.c_str());
+  } catch (faiss::FaissException& e) {
+    T_LOG(ERROR) << e.what();
+  }
+}
 
 }  // namespace tenann

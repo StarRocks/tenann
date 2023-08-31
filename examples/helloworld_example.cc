@@ -17,11 +17,12 @@
  * under the License.
  */
 
-namespace tenann {
+#include "tenann/version.h"
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+#include <iostream>
 
-void HelloWorld();
-int FaissTest();
-
-}  // namespace tenann
+int main() {
+  std::cout << "main: Hello World\n";
+  tenann::HelloWorld();
+  tenann::FaissTest();
+}

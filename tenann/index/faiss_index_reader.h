@@ -17,11 +17,23 @@
  * under the License.
  */
 
+#pragma once
+
+#include "tenann/common/json.hpp"
+#include "tenann/index/index_reader.h"
+
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "0.0.2";
+// @TODO(jack): trying to shared a single reader implementation for all faiss indexes.
+class FaissIndexReader : public IndexReader {
+ public:
+  using IndexReader::IndexReader;
+  virtual ~FaissIndexReader();
+  T_FORBID_COPY_AND_ASSIGN(FaissIndexReader);
+  T_FORBID_MOVE(FaissIndexReader);
 
-void HelloWorld();
-int FaissTest();
+  // Read index file
+  IndexRef ReadIndex(const std::string& path) override;
+};
 
 }  // namespace tenann
