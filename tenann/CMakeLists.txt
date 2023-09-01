@@ -32,7 +32,35 @@ set(TENANN_SRC
     searcher/faiss_hnsw_ann_searcher.cc
     store/index_meta.cc
     store/lru_cache.cc
-    #util/runtime_profile.cc
+)
+
+set(TENANN_HEADERS
+    version.h
+    builder/index_builder.h
+    builder/faiss_hnsw_index_builder.h
+    common/error.h
+    common/json.hpp
+    common/logging.h
+    common/macros.h
+    common/primitive_type.h
+    common/seq_view.h
+    common/type_traits.h
+    common/typed_seq_view.h
+    factory/ann_searcher_factory.h
+    factory/index_factory_trait.h
+    factory/index_factory.h
+    index/index_cache.h
+    index/index_reader.h
+    index/faiss_index_reader.h
+    index/index_writer.h
+    index/faiss_index_writer.h
+    index/index.h
+    searcher/ann_searcher.h
+    searcher/faiss_hnsw_ann_searcher.h
+    searcher/searcher.h
+    store/index_meta.h
+    store/index_type.h
+    store/lru_cache.h
 )
 
 # TenANN library target
@@ -42,20 +70,17 @@ add_library(tenann STATIC ${TENANN_SRC})
 # Thrid-party dependicies
 ########################################################
 
-# fmt
-add_library(fmt STATIC IMPORTED)
-set_target_properties(fmt PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib64/libfmt.a)
 
-# faiss
+# 添加 faiss 库
 find_package(faiss REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
 
-# faiss_avx2
+# 添加 faiss_avx2 库
 find_package(faiss_avx2 REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
 
-# lapack
+# 添加 lapack 库
 find_package(LAPACK REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/lapack")
 
-# openmp
+# 添加 OpenMP 库
 find_package(OpenMP REQUIRED)
 
 set(WL_START_GROUP "-Wl,--start-group")
@@ -64,7 +89,6 @@ set(WL_END_GROUP "-Wl,--end-group")
 # TenANN link options
 set(TENANN_LINK_LIBS
     ${WL_START_GROUP}
-    fmt
     faiss
     # faiss_avx2 # temporaly disable avx2 version
     ${LAPACK_LIBRARIES}

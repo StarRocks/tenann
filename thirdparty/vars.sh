@@ -83,12 +83,6 @@ if [ -f /etc/lsb-release ]; then
     fi
 fi
 
-# fmt
-FMT_DOWNLOAD="https://github.com/fmtlib/fmt/releases/download/8.1.1/fmt-8.1.1.zip"
-FMT_NAME="fmt-8.1.1.zip"
-FMT_SOURCE="fmt-8.1.1"
-FMT_MD5SUM="16dcd48ecc166f10162450bb28aabc87"
-
 # faiss
 FAISS_DOWNLOAD="https://github.com/facebookresearch/faiss/archive/refs/tags/v1.7.3.tar.gz"
 FAISS_NAME=faiss-v1.7.3.tar.gz
@@ -108,4 +102,4 @@ GTEST_SOURCE=googletest-release-1.10.0
 GTEST_MD5SUM="ecd1fa65e7de707cd5c00bdac56022cd"
 
 # all thirdparties which need to be downloaded is set in array TP_ARCHIVES
-TP_ARCHIVES="FMT FAISS LAPACK GTEST"
+TP_ARCHIVES="FAISS LAPACK GTEST"
