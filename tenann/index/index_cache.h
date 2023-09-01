@@ -72,7 +72,7 @@ class IndexCache {
 
   bool AdjustCapacity(int64_t delta, size_t min_capacity = 0);
 
-  nlohmann::json status() const;
+  json status() const;
 
   size_t memory_usage() const;
 

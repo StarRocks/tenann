@@ -19,39 +19,8 @@
 
 #pragma once
 
-#include <memory>
-
-#include "tenann/common/json.h"
-#include "tenann/index/index.h"
+#include "tenann/common/nlohmann.hpp"
 
 namespace tenann {
-
-class IndexReader {
- public:
-  explicit IndexReader(const IndexMeta& meta) : index_meta_(meta){};
-  virtual ~IndexReader();
-
-  T_FORBID_DEFAULT_CTOR(IndexReader);
-  T_FORBID_COPY_AND_ASSIGN(IndexReader);
-  T_FORBID_MOVE(IndexReader);
-
-  // Read index file
-  virtual IndexRef ReadIndex(const std::string& path) = 0;
-
-  json& conf();
-  const json& conf() const;
-
-  /** Getters */
-  const IndexMeta& index_meta() const;
-
- protected:
-  /// @brief index meta
-  IndexMeta index_meta_;
-
-  /// @brief read options
-  json conf_;
-};
-
-using IndexReaderRef = std::shared_ptr<IndexReader>;
-
-}  // namespace tenann
+using namespace nlohmann;
+}

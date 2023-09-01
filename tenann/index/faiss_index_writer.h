@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "tenann/common/json.hpp"
+#include "tenann/common/json.h"
 #include "tenann/index/index_writer.h"
 
 namespace tenann {

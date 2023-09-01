@@ -21,12 +21,10 @@
 
 #include <cstdint>
 
-#include "tenann/common/json.hpp"
+#include "tenann/common/json.h"
 #include "tenann/store/index_type.h"
 
 namespace tenann {
-
-using json = nlohmann::json;
 
 class IndexMeta {
  public:

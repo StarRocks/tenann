@@ -18,6 +18,7 @@
 set(TENANN_TEST_SRC
     builder/test_faiss_hnsw_index_builder.cc
     thirdparty/test_fmt.cc
+    util/test_runtime_profile.cc
 )
 
 add_executable(tenann_test ${TENANN_TEST_SRC})

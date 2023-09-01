@@ -112,7 +112,7 @@ void FaissHnswIndexBuilder::BuildWithPrimaryKeyImpl(const std::vector<SeqView>& 
 
   } catch (faiss::FaissException& e) {
     T_LOG(ERROR) << e.what();
-  } catch (nlohmann::json::exception& e) {
+  } catch (json::exception& e) {
     T_LOG(ERROR) << e.what();
   }
 }
@@ -187,7 +187,7 @@ void FaissHnswIndexBuilder::BuildImpl(const std::vector<SeqView>& input_columns)
 
   } catch (faiss::FaissException& e) {
     T_LOG(ERROR) << e.what();
-  } catch (nlohmann::json::exception& e) {
+  } catch (json::exception& e) {
     T_LOG(ERROR) << e.what();
   }
 }

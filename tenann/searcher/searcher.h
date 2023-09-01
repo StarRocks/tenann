@@ -72,7 +72,7 @@ class Searcher {
   };
 
   /// Set all search parameters.
-  ChildSearcher& SetSearchParams(const nlohmann::json& params) {
+  ChildSearcher& SetSearchParams(const json& params) {
     search_params_ = params;
     this->SearchParamsChangeHook(params);
     return static_cast<ChildSearcher&>(*this);

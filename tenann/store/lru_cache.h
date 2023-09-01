@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-#include "tenann/common/json.hpp"
+#include "tenann/common/json.h"
 
 namespace tenann {
 
@@ -173,7 +173,7 @@ class Cache {
   // leveldb may change prune() to a pure abstract method.
   virtual void prune() {}
 
-  virtual void get_cache_status(nlohmann::json* document) = 0;
+  virtual void get_cache_status(json* document) = 0;
 
   virtual void set_capacity(size_t capacity) = 0;
   virtual size_t get_capacity() = 0;
@@ -318,7 +318,7 @@ class ShardedLRUCache : public Cache {
   void* value(Handle* handle) override;
   uint64_t new_id() override;
   void prune() override;
-  void get_cache_status(nlohmann::json* document) override;
+  void get_cache_status(json* document) override;
   void set_capacity(size_t capacity) override;
   size_t get_memory_usage() override;
   size_t get_capacity() override;
@@ -338,4 +338,4 @@ class ShardedLRUCache : public Cache {
   size_t _capacity;
 };
 
-}  // namespace starrocks
+}  // namespace tenann

@@ -32,7 +32,8 @@ set(TENANN_SRC
     searcher/faiss_hnsw_ann_searcher.cc
     store/index_meta.cc
     store/lru_cache.cc
-    #util/runtime_profile.cc
+    util/runtime_profile.cc
+    util/spinlock.cc
 )
 
 # TenANN library target

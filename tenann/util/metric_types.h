@@ -19,39 +19,41 @@
 
 #pragma once
 
-#include <memory>
-
-#include "tenann/common/json.h"
-#include "tenann/index/index.h"
+#include <cstdint>
 
 namespace tenann {
 
-class IndexReader {
- public:
-  explicit IndexReader(const IndexMeta& meta) : index_meta_(meta){};
-  virtual ~IndexReader();
-
-  T_FORBID_DEFAULT_CTOR(IndexReader);
-  T_FORBID_COPY_AND_ASSIGN(IndexReader);
-  T_FORBID_MOVE(IndexReader);
-
-  // Read index file
-  virtual IndexRef ReadIndex(const std::string& path) = 0;
-
-  json& conf();
-  const json& conf() const;
-
-  /** Getters */
-  const IndexMeta& index_meta() const;
-
- protected:
-  /// @brief index meta
-  IndexMeta index_meta_;
-
-  /// @brief read options
-  json conf_;
+struct TUnit {
+  enum type {
+    UNIT = 0,
+    UNIT_PER_SECOND = 1,
+    // CPU_TICKS = 2, // CPU_TICKS is not supported yet
+    BYTES = 3,
+    BYTES_PER_SECOND = 4,
+    TIME_NS = 5,
+    DOUBLE_VALUE = 6,
+    NONE = 7,
+    TIME_MS = 8,
+    TIME_S = 9
+  };
 };
 
-using IndexReaderRef = std::shared_ptr<IndexReader>;
+struct TMetricKind {
+  enum type { GAUGE = 0, COUNTER = 1, PROPERTY = 2, STATS = 3, SET = 4, HISTOGRAM = 5 };
+};
+
+struct TCounterAggregateType {
+  enum type { SUM = 0, AVG = 1 };
+};
+
+struct TCounterMergeType {
+  enum type { MERGE_ALL = 0, SKIP_ALL = 1, SKIP_FIRST_MERGE = 2, SKIP_SECOND_MERGE = 3 };
+};
+
+struct TCounterStrategy {
+  TCounterAggregateType::type aggregate_type;
+  TCounterMergeType::type merge_type;
+  int64_t display_threshold;
+};
 
 }  // namespace tenann

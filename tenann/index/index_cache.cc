@@ -66,8 +66,8 @@ bool IndexCache::AdjustCapacity(int64_t delta, size_t min_capacity) {
   return cache_->adjust_capacity(delta, min_capacity);
 }
 
-nlohmann::json IndexCache::status() const {
-  nlohmann::json doc;
+json IndexCache::status() const {
+  json doc;
   cache_->get_cache_status(&doc);
   return doc;
 }
