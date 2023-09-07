@@ -42,8 +42,9 @@ void FaissHnswIndexBuilder::BuildWithPrimaryKeyImpl(const std::vector<SeqView>& 
 
   auto input_seq_type = input_columns[data_col_index].seq_view_type;
   T_CHECK(input_seq_type == SeqViewType::kArraySeqView ||
-          input_seq_type == SeqViewType::kArraySeqView);
-  T_CHECK(input_columns[data_col_index].seq_view.array_seq_view.elem_type == PrimitiveType::kFloatType);
+          input_seq_type == SeqViewType::kVlArraySeqView);
+  T_CHECK(input_columns[data_col_index].seq_view.array_seq_view.elem_type == PrimitiveType::kFloatType ||
+          input_columns[data_col_index].seq_view.vl_array_seq_view.elem_type == PrimitiveType::kFloatType);
 
   // @TODO(petri): provide a unified macro to report parameter errors
   T_LOG_IF(ERROR, !index_meta_.common_params().contains("dim"))
@@ -51,6 +52,7 @@ void FaissHnswIndexBuilder::BuildWithPrimaryKeyImpl(const std::vector<SeqView>& 
   T_LOG_IF(ERROR, !index_meta_.common_params().contains("metric_type"))
       << "required common parameter `metric_type` is not set in index meta";
 
+  // TODO: add "M", "efConstruction", "efSearch" limit check
   try {
     std::ostringstream oss;
     oss << "IDMap,HNSW";
@@ -122,9 +124,10 @@ void FaissHnswIndexBuilder::BuildImpl(const std::vector<SeqView>& input_columns)
   T_CHECK(input_columns.size() == 1);
   auto input_seq_type = input_columns[0].seq_view_type;
   T_CHECK(input_seq_type == SeqViewType::kArraySeqView ||
-          input_seq_type == SeqViewType::kArraySeqView);
+          input_seq_type == SeqViewType::kVlArraySeqView);
 
-  T_CHECK(input_columns[0].seq_view.array_seq_view.elem_type == PrimitiveType::kFloatType);
+  T_CHECK(input_columns[0].seq_view.array_seq_view.elem_type == PrimitiveType::kFloatType ||
+          input_columns[0].seq_view.vl_array_seq_view.elem_type == PrimitiveType::kFloatType);
 
   // @TODO(petri): provide a unified macro to report parameter errors
   T_LOG_IF(ERROR, !index_meta_.common_params().contains("dim"))
@@ -132,6 +135,7 @@ void FaissHnswIndexBuilder::BuildImpl(const std::vector<SeqView>& input_columns)
   T_LOG_IF(ERROR, !index_meta_.common_params().contains("metric_type"))
       << "required common parameter `metric_type` is not set in index meta";
 
+  // TODO: add "M", "efConstruction", "efSearch" limit check
   try {
     std::ostringstream oss;
     oss << "HNSW";

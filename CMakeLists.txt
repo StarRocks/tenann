@@ -40,6 +40,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++ -static-libgcc -gdwarf
 option(WITH_TESTS "ON for build unit test or OFF for not" ON)
 option(WITH_EXAMPLES "ON for build examples or OFF for not" ON)
 
+if (WITH_TESTS STREQUAL "ON")
+    # Open code coverage before add_subdirectory(tenann)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_USE_OWN_TR1_TUPLE=0 -fprofile-arcs -ftest-coverage")
+endif ()
+
 include_directories(
     ${CMAKE_CURRENT_LIST_DIR}/
     ${TENANN_THIRDPARTY}/installed/include)
@@ -51,7 +56,6 @@ endif ()
 
 if (WITH_TESTS STREQUAL "ON")
     include(CTest)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_USE_OWN_TR1_TUPLE=0")
     add_subdirectory(test)
 endif ()
 

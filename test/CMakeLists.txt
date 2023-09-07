@@ -16,7 +16,9 @@
 # under the License.
 
 set(TENANN_TEST_SRC
+    test_base.cc
     builder/test_faiss_hnsw_index_builder.cc
+    searcher/test_faiss_hnsw_ann_searcher.cc
     thirdparty/test_fmt.cc
     util/test_runtime_profile.cc
 )
@@ -30,5 +32,15 @@ find_package(GTest REQUIRED)
 target_link_libraries(tenann_test PRIVATE tenann GTest::gtest GTest::gtest_main)
 include(GoogleTest)
 
-# add tenann_test to ctest
+# add tenann_test to ctest, log path: build_Release/Testing/Temporary/LastTest.log
 gtest_discover_tests(tenann_test)
+
+add_custom_target(coverage
+  COMMAND lcov --capture --directory . --output-file coverage.info
+  COMMAND lcov --extract coverage.info '*/tenann/tenann/*' --output-file coverage.info
+  COMMAND lcov --remove coverage.info '*/tenann/tenann/common*' --output-file coverage.info
+  COMMAND lcov --list coverage.info
+  COMMAND genhtml coverage.info --output-directory coverage_html
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  COMMENT "Generating code coverage report"
+)
