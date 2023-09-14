@@ -27,22 +27,22 @@ namespace tenann {
 
 /// View for a sequence of primitive c values.
 struct PrimitiveSeqView {
-  uint8_t* data;
+  const uint8_t* data;
   uint32_t size;
   PrimitiveType elem_type;
 };
 
 /// View for a sequence of variable-length arrays.
 struct VlArraySeqView {
-  uint8_t* data;
-  uint32_t* offsets;
+  const uint8_t* data;
+  const uint32_t* offsets;
   uint32_t size;
   PrimitiveType elem_type;
 };
 
 /// View for a sequence of fixed-length arrays, i.e., matrix.
 struct ArraySeqView {
-  uint8_t* data;
+  const uint8_t* data;
   uint32_t dim;
   uint32_t size;
   PrimitiveType elem_type;
@@ -50,8 +50,8 @@ struct ArraySeqView {
 
 /// View for a sequence of strings.
 struct StringSeqView {
-  uint8_t* data;
-  uint32_t* offsets;
+  const uint8_t* data;
+  const uint32_t* offsets;
   uint32_t size;
 };
 

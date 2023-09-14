@@ -251,4 +251,15 @@ T_CHECK_FUNC(_NE, !=)
   ((x) == nullptr ? ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() \
                         << "FatalError: Check not null: " #x << ' ',        \
    (x) : (x))  // NOLINT(*)
+
+#define CATCH_FAISS_ERROR             \
+  catch (faiss::FaissException & e) { \
+    T_LOG(ERROR) << e.what();         \
+  }
+
+#define CATCH_JSON_ERROR        \
+  catch (json::exception & e) { \
+    T_LOG(ERROR) << e.what();   \
+  }
+  
 }  // namespace tenann

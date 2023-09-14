@@ -29,8 +29,8 @@ IndexCache::IndexCache(size_t capacity) : cache_(new_lru_cache(capacity)) {}
 IndexCache::~IndexCache() = default;
 
 IndexCache* IndexCache::GetGlobalInstance() {
-  // The default cache can hold 1024 index files
-  static IndexCache instance(1024);
+  // The default cache capacity is 1GB
+  static IndexCache instance(1024 * 1024 * 1024);
   return &instance;
 }
 
@@ -44,7 +44,7 @@ bool IndexCache::Lookup(const CacheKey& key, IndexCacheHandle* handle) {
 }
 
 void IndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle) {
-  auto index_size = index->EstimateMemorySizeInBytes();
+  auto index_size = index->EstimateMemoryUsage();
   // create a new reference to the index and intentionally leak the reference
   void* leaked_index = reinterpret_cast<void*>(new IndexRef(index));
 

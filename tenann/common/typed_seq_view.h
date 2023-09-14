@@ -30,23 +30,25 @@ namespace tenann {
 
 template <typename T>
 struct TypedSlice {
-  T* data;
+  const T* data;
   size_t size;
 };
 
 template <typename T>
 struct TypedVlArraySeqView {
-  TypedVlArraySeqView(const VlArraySeqView& seq_view) {
+  TypedVlArraySeqView() : data(nullptr), offsets(nullptr), size(0) {}
+
+  explicit TypedVlArraySeqView(const VlArraySeqView& seq_view) {
     constexpr const PrimitiveType expected_type = RuntimePrimitiveType<T>::primitive_type;
     T_CHECK_EQ(seq_view.elem_type, expected_type);
     T_DCHECK_NE(seq_view.elem_type, PrimitiveType::kUnknownType);
 
-    data = reinterpret_cast<T*>(seq_view.data);
+    data = reinterpret_cast<const T*>(seq_view.data);
     offsets = seq_view.offsets;
     size = seq_view.size;
   }
 
-  TypedVlArraySeqView(T* data, uint32_t* offsets, uint32_t size)
+  TypedVlArraySeqView(const T* data, const uint32_t* offsets, uint32_t size)
       : data(data), offsets(offsets), size(size) {}
 
   class iterator {
@@ -58,7 +60,7 @@ struct TypedVlArraySeqView {
     using reference = TypedSlice<T>&;
     using iterator_category = std::forward_iterator_tag;
 
-    iterator(TypedVlArraySeqView* typed_view, size_t i) : typed_view_(typed_view), i_(i) {}
+    iterator(const TypedVlArraySeqView* typed_view, size_t i) : typed_view_(typed_view), i_(i) {}
 
     iterator& operator++() {
       i_ += 1;
@@ -80,15 +82,73 @@ struct TypedVlArraySeqView {
     }
 
    private:
-    TypedVlArraySeqView* typed_view_;
+    const TypedVlArraySeqView* typed_view_;
     size_t i_;
   };
 
-  iterator begin() { return iterator(this, 0); }
-  iterator end() { return iterator(this, size); }
+  iterator begin() const { return iterator(this, 0); }
+  iterator end() const { return iterator(this, size); }
 
-  T* data;
-  uint32_t* offsets;
+  const T* data;
+  const uint32_t* offsets;
+  uint32_t size;
+};
+
+template <typename T>
+struct TypedArraySeqView {
+  TypedArraySeqView() : data(nullptr), dim(0), size(0) {}
+
+  explicit TypedArraySeqView(const ArraySeqView& seq_view) {
+    constexpr const PrimitiveType expected_type = RuntimePrimitiveType<T>::primitive_type;
+    T_CHECK_EQ(seq_view.elem_type, expected_type);
+    T_DCHECK_NE(seq_view.elem_type, PrimitiveType::kUnknownType);
+
+    data = reinterpret_cast<const T*>(seq_view.data);
+    size = seq_view.size;
+  }
+
+  TypedArraySeqView(T* data, uint32_t dim, uint32_t size) : data(data), dim(dim), size(size) {}
+
+  class iterator {
+   public:
+    // iterator traits
+    using difference_type = size_t;
+    using value_type = TypedSlice<T>;
+    using pointer = TypedSlice<T>*;
+    using reference = TypedSlice<T>&;
+    using iterator_category = std::forward_iterator_tag;
+
+    iterator(const TypedArraySeqView* typed_view, size_t i) : typed_view_(typed_view), i_(i) {}
+
+    iterator& operator++() {
+      i_ += 1;
+      return *this;
+    }
+
+    iterator operator++(int) {
+      iterator ret_val = *this;
+      ++(*this);
+      return ret_val;
+    }
+
+    bool operator==(iterator other) const { return i_ == other.i_; }
+    bool operator!=(iterator other) const { return i_ != other.i_; }
+
+    TypedSlice<T> operator*() {
+      return TypedSlice<T>{.data = typed_view_->data + typed_view_->dim * i_,
+                           .size = typed_view_->dim};
+    }
+
+   private:
+    const TypedArraySeqView* typed_view_;
+    size_t i_;
+  };
+
+  iterator begin() const { return iterator(this, 0); }
+  iterator end() const { return iterator(this, size); }
+
+  const T* data;
+  uint32_t dim;
   uint32_t size;
 };
 

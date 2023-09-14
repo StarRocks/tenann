@@ -17,27 +17,6 @@
  * under the License.
  */
 
-#pragma once
+#include "tenann/builder/faiss_index_builder_with_buffer.h"
 
-#include "gtest/gtest_prod.h"
-#include "tenann/builder/faiss_index_builder.h"
-
-namespace faiss {
-class IndexHNSW;
-}
-
-namespace tenann {
-
-class FaissHnswIndexBuilder final : public FaissIndexBuilder {
- public:
-  using FaissIndexBuilder::FaissIndexBuilder;
-  virtual ~FaissHnswIndexBuilder();
-
-  T_FORBID_COPY_AND_ASSIGN(FaissHnswIndexBuilder);
-  T_FORBID_MOVE(FaissHnswIndexBuilder);
-
- protected:
-  IndexRef InitIndex() override;
-};
-
-}  // namespace tenann
+namespace tenann {}

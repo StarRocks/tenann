@@ -19,47 +19,51 @@
 
 #include "tenann/builder/index_builder.h"
 
+#include "index_builder.h"
 #include "tenann/common/logging.h"
+#include "tenann/util/runtime_profile_macros.h"
 
 namespace tenann {
 
-IndexBuilder& IndexBuilder::Build(const std::vector<SeqView>& input_columns) {
-  // @TODO: collect some statistics for the building procedure
-  BuildImpl(input_columns);
-  return *this;
-}
+IndexBuilder::IndexBuilder(const IndexMeta& meta) : index_meta_(meta){};
 
-IndexBuilder& IndexBuilder::BuildWithPrimaryKey(const std::vector<SeqView>& input_columns,
-                                                int primary_key_column_index) {
-  // @TODO: collect some statistics for the building procedure
-  BuildWithPrimaryKeyImpl(input_columns, primary_key_column_index);
-  return *this;
-}
+IndexBuilder::~IndexBuilder() {}
 
-IndexBuilder& IndexBuilder::WriteIndex(const std::string& path, bool write_index_cache,
-                                       bool use_custom_cache_key,
-                                       const std::string& custom_cache_key) {
-  T_CHECK_NOTNULL(index_ref_);
-  // write index file
-  index_writer_->WriteIndex(index_ref_, path);
-  // write index cache
-  if (write_index_cache) {
-    auto cache_key = use_custom_cache_key ? custom_cache_key : path;
-    T_CHECK_NOTNULL(index_cache_);
-    IndexCacheHandle handle;
-    index_cache_->Insert(cache_key, index_ref_, &handle);
-  }
+IndexBuilder& IndexBuilder::SetBuildOptions(const json& options) {
+  T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
+  build_options_ = options;
   return *this;
 }
 
 IndexBuilder& IndexBuilder::SetIndexWriter(IndexWriterRef writer) {
+  T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
   index_writer_ = writer;
   return *this;
 }
 
 IndexBuilder& IndexBuilder::SetIndexCache(IndexCache* cache) {
+  T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
   T_CHECK_NOTNULL(cache);
   index_cache_ = cache;
+  return *this;
+}
+
+IndexBuilder& IndexBuilder::EnableCustomRowId() {
+  T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
+  use_custom_row_id_ = true;
+  return *this;
+}
+
+IndexBuilder& IndexBuilder::EnableProfile() {
+  T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
+  profile_ = std::make_unique<RuntimeProfile>("IndexBuilderProfile");
+  PrepareProfile();
+  return *this;
+}
+
+IndexBuilder& IndexBuilder::DisableProfile() {
+  T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
+  profile_ = nullptr;
   return *this;
 }
 
@@ -75,6 +79,6 @@ IndexCache* IndexBuilder::index_cache() { return index_cache_; }
 
 const IndexCache* IndexBuilder::index_cache() const { return index_cache_; }
 
-bool IndexBuilder::is_built() { return is_built_; }
+RuntimeProfile* IndexBuilder::profile() { return profile_.get(); }
 
 }  // namespace tenann

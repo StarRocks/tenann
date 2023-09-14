@@ -58,7 +58,7 @@ class Index {
    *
    * @TODO(petri): implement it
    */
-  size_t EstimateMemorySizeInBytes();
+  size_t EstimateMemoryUsage();
 
  private:
   void* index_raw_;

@@ -77,4 +77,12 @@ class IndexMeta {
   json meta_json_;
 };
 
+#define CHECK_AND_GET_META(meta, section, name, type, result)                                    \
+  if (!(meta).section##_params().contains(name)) {                                               \
+    T_LOG(ERROR) << fmt::format("required {} parameter `{}` is not set in index meta", #section, \
+                                name);                                                           \
+  } else {                                                                                       \
+    result = (meta).section##_params()[name].get<type>();                                        \
+  }
+
 }  // namespace tenann

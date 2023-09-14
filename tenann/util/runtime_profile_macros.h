@@ -28,39 +28,71 @@
 
 #if T_ENABLE_COUNTERS
 #define T_ADD_COUNTER(profile, name, type) \
-  (profile)->add_counter(name, type, RuntimeProfile::Counter::create_strategy(type))
+  (profile) == nullptr                     \
+      ? nullptr                            \
+      : (profile)->add_counter(name, type, RuntimeProfile::Counter::create_strategy(type))
+
 #define T_ADD_COUNTER_SKIP_MERGE(profile, name, type, merge_type) \
-  (profile)->add_counter(name, type, RuntimeProfile::Counter::create_strategy(type, merge_type))
-#define T_ADD_TIMER(profile, name)             \
-  (profile)->add_counter(name, TUnit::TIME_NS, \
-                         RuntimeProfile::Counter::create_strategy(TUnit::TIME_NS))
+  (profile) == nullptr                                            \
+      ? nullptr                                                   \
+      : (profile)->add_counter(name, type,                        \
+                               RuntimeProfile::Counter::create_strategy(type, merge_type))
+
+#define T_ADD_TIMER(profile, name)                   \
+  (profile) == nullptr                               \
+      ? nullptr                                      \
+      : (profile)->add_counter(name, TUnit::TIME_NS, \
+                               RuntimeProfile::Counter::create_strategy(TUnit::TIME_NS))
+
 #define T_ADD_CHILD_COUNTER(profile, name, type, parent) \
-  (profile)->add_child_counter(name, type, RuntimeProfile::Counter::create_strategy(type), parent)
+  (profile) == nullptr ? nullptr                         \
+                       : (profile)->add_child_counter(   \
+                             name, type, RuntimeProfile::Counter::create_strategy(type), parent)
+
 #define T_ADD_CHILD_COUNTER_SKIP_MERGE(profile, name, type, merge_type, parent) \
-  (profile)->add_child_counter(name, type,                                      \
-                               RuntimeProfile::Counter::create_strategy(type, merge_type), parent)
-#define T_ADD_CHILD_TIMER_THESHOLD(profile, name, parent, threshold)                         \
-  (profile)->add_child_counter(name, TUnit::TIME_NS,                                         \
-                               RuntimeProfile::Counter::create_strategy(                     \
-                                   TUnit::TIME_NS, TCounterMergeType::MERGE_ALL, threshold), \
-                               parent)
-#define T_ADD_CHILD_TIMER(profile, name, parent)     \
-  (profile)->add_child_counter(name, TUnit::TIME_NS, \
-                               RuntimeProfile::Counter::create_strategy(TUnit::TIME_NS), parent)
+  (profile) == nullptr                                                          \
+      ? nullptr                                                                 \
+      : (profile)->add_child_counter(                                           \
+            name, type, RuntimeProfile::Counter::create_strategy(type, merge_type), parent)
+
+#define T_ADD_CHILD_TIMER_THRESHOLD(profile, name, parent, threshold)                              \
+  (profile) == nullptr                                                                             \
+      ? nullptr                                                                                    \
+      : (profile)->add_child_counter(name, TUnit::TIME_NS,                                         \
+                                     RuntimeProfile::Counter::create_strategy(                     \
+                                         TUnit::TIME_NS, TCounterMergeType::MERGE_ALL, threshold), \
+                                     parent)
+
+#define T_ADD_CHILD_TIMER(profile, name, parent)       \
+  (profile) == nullptr ? nullptr                       \
+                       : (profile)->add_child_counter( \
+                             name, TUnit::TIME_NS,     \
+                             RuntimeProfile::Counter::create_strategy(TUnit::TIME_NS), parent)
+
 #define T_SCOPED_TIMER(c) \
   ScopedTimer<MonotonicStopWatch> T_MACRO_CONCAT(T_SCOPED_TIMER, __COUNTER__)(c)
 #define T_CANCEL_SAFE_SCOPED_TIMER(c, is_cancelled) \
   ScopedTimer<MonotonicStopWatch> T_MACRO_CONCAT(T_SCOPED_TIMER, __COUNTER__)(c, is_cancelled)
 #define T_SCOPED_RAW_TIMER(c) \
   ScopedRawTimer<MonotonicStopWatch> T_MACRO_CONCAT(T_SCOPED_RAW_TIMER, __COUNTER__)(c)
-#define T_COUNTER_UPDATE(c, v) (c)->update(v)
-#define T_OUNTER_SET(c, v) (c)->set(v)
+#define T_COUNTER_UPDATE(c, v) \
+  if ((c) != nullptr) {        \
+    (c)->update(v);            \
+  }
+#define T_OUNTER_SET(c, v) \
+  if ((c) != nullptr) {    \
+    (c)->set(v);           \
+  }
 // this is only used for HighWaterMarkCounter
-#define T_COUNTER_ADD(c, v) (c)->add(v)
-#define T_ADD_THREAD_COUNTERS(profile, prefix) (profile)->add_thread_counters(prefix)
-#define T_SCOPED_THREAD_COUNTER_MEASUREMENT(c) \
-  /*ThreadCounterMeasurement                   \
-    MACRO_CONCAT(SCOPED_THREAD_COUNTER_MEASUREMENT, __COUNTER__)(c)*/
+#define T_COUNTER_ADD(c, v) \
+  if ((c) != nullptr) {     \
+    (c)->add(v);            \
+  }
+#define T_ADD_THREAD_COUNTERS(profile, prefix) \
+  if ((profile) != nullptr) {                  \
+    (profile)->add_thread_counters(prefix);    \
+  }
+
 #else
 #define T_ADD_COUNTER(profile, name, type) NULL
 #define T_ADD_TIMER(profile, name) NULL

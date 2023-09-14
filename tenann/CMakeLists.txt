@@ -18,6 +18,8 @@
 set(TENANN_SRC
     version.cc
     builder/index_builder.cc
+    builder/faiss_index_builder.cc
+    builder/faiss_index_builder_with_buffer.cc
     builder/faiss_hnsw_index_builder.cc
     common/logging.cc
     factory/index_factory.cc

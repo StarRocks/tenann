@@ -40,6 +40,7 @@
 #include "tenann/common/json.h"
 #include "tenann/common/logging.h"
 #include "tenann/util/metric_types.h"
+#include "tenann/util/object_pool.h"
 #include "tenann/util/stop_watch.h"
 
 // #include "common/compiler_util.h"
@@ -52,8 +53,6 @@
 namespace tenann {
 
 inline unsigned long long operator"" _ms(unsigned long long x) { return x * 1000 * 1000; }
-
-class ObjectPool;
 
 // Runtime profile is a group of profiling counters.  It supports adding named counters
 // and being able to serialize and deserialize them.

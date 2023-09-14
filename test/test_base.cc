@@ -82,8 +82,8 @@ std::vector<float> TestBase::RandomVectors(uint32_t n, uint32_t dim, int seed) {
 float TestBase::EuclideanDistance(const float* v1, const float* v2) {
   float sum = 0.0;
   for (size_t i = 0; i < d_; i++) {
-      float diff = *(v2 + i) - *(v1 + i);
-      sum += diff * diff;
+    float diff = *(v2 + i) - *(v1 + i);
+    sum += diff * diff;
   }
 
   return std::sqrt(sum);
@@ -93,17 +93,16 @@ void TestBase::InitAccurateQueryResult() {
   // search index
   for (int i = 0; i < nq_; i++) {
     std::vector<std::pair<int, double>> distances;
-    for ( int j = 0; j< nb_; j++) {
+    for (int j = 0; j < nb_; j++) {
       float distance = EuclideanDistance(query_.data() + i * d_, base_.data() + j * d_);
       distances.push_back(std::make_pair(j, distance));
     }
 
-    std::sort(distances.begin(), distances.end(), [](const auto& a, const auto& b) {
-      return a.second < b.second;
-    });
+    std::sort(distances.begin(), distances.end(),
+              [](const auto& a, const auto& b) { return a.second < b.second; });
     distances.resize(k_);
-    
-    for ( int j = 0; j < k_; j++) {
+
+    for (int j = 0; j < k_; j++) {
       accurate_query_result_ids_[i * k_ + j] = distances[j].first;
     }
   }
@@ -114,8 +113,10 @@ void TestBase::CreateAndWriteIndex() {
 
   faiss_hnsw_index_builder_->SetIndexWriter(index_writer_)
       .SetIndexCache(IndexCache::GetGlobalInstance())
-      .BuildWithPrimaryKey({id_view_, base_view_}, 0)
-      .WriteIndex(index_with_primary_key_path_, /*write_index_cache=*/true);
+      .Open(index_with_primary_key_path_)
+      .Add({base_view_}, reinterpret_cast<const int64_t*>(id_view_.data))
+      .Flush(/*write_index_cache=*/true)
+      .Close();
 }
 
 void TestBase::ReadIndexAndDefaultSearch() {
@@ -131,10 +132,9 @@ void TestBase::ReadIndexAndDefaultSearch() {
 
   // search index
   for (int i = 0; i < nq_; i++) {
-    auto query_view =
-        PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_.data() + i * d_),
-                         .size = d_,
-                         .elem_type = PrimitiveType::kFloatType};
+    auto query_view = PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_.data() + i * d_),
+                                       .size = d_,
+                                       .elem_type = PrimitiveType::kFloatType};
     ann_searcher_->AnnSearch(query_view, k_, result_ids_.data() + i * k_);
   }
 }
