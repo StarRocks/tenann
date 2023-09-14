@@ -166,7 +166,7 @@ build_lapack() {
         -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
         -DLAPACKE:BOOL=OFF \
         -DCBLAS:BOOL=OFF \
-        -DCMAKE_Fortran_FLAGS:STRING="-fimplicit-none -frecursive -fcheck=all" \
+        -DCMAKE_Fortran_FLAGS:STRING="-fimplicit-none -frecursive" \
         ..
 
     $CMAKE_CMD --build . -j --target install
