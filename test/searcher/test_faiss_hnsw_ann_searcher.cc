@@ -24,77 +24,65 @@
 #include <iostream>
 #include <random>
 
-#include "test/test_base.h"
+#include "test/faiss_test_base.h"
 
 namespace tenann {
 
-// class FaissHnswAnnSearcherTest : public TestBase {
-// };
+class FaissHnswAnnSearcherTest : public FaissTestBase {
+};
 
-// TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
-//   CreateAndWriteIndex();
-//   auto query_view =
-//       PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_data().data()),
-//                        .size = d(),
-//                        .elem_type = PrimitiveType::kFloatType};
+TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
+  CreateAndWriteFaissHnswIndex();
 
-//   {
-//     IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(meta());
-//     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta());
+  {
+    IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
+    auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
 
-//     // index path not exist
-//     EXPECT_THROW(
-//       ann_searcher->SetIndexReader(index_reader)
-//           .SetIndexCache(IndexCache::GetGlobalInstance())
-//           //.ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false),
-//           .ReadIndex("not_exist_path", /*read_index_cache=*/false),
-//       Error
-//     );
+    // index path not exist
+    EXPECT_THROW(
+      ann_searcher->SetIndexReader(index_reader)
+          .SetIndexCache(IndexCache::GetGlobalInstance())
+          .ReadIndex("not_exist_path", /*read_index_cache=*/false),
+      Error
+    );
 
-//     // because ReadIndex fail, index_ref_ is null
-//     EXPECT_THROW(
-//       ann_searcher->AnnSearch(query_view, k(), result_ids().data()),
-//       Error
-//     );
-//   }
+    // because ReadIndex fail, index_ref_ is null
+    EXPECT_THROW(ann_searcher->AnnSearch(query_view()[0], k(), result_ids().data()), Error);
+  }
 
-//   {
-//     // index_type() != IndexType::kFaissHnsw
-//     EXPECT_THROW(
-//       IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(meta());
-//       auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta());
-//       ann_searcher->SetIndexReader(index_reader)
-//           .SetIndexCache(IndexCache::GetGlobalInstance())
-//           .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
-//       ann_searcher->index_ref()->SetIndexType(IndexType::kFaissIvfPq);
-//       ann_searcher->AnnSearch(query_view, k(), result_ids().data()),
-//       Error
-//     );
-//   }
+  {
+    // index_type() != IndexType::kFaissHnsw
+    EXPECT_THROW(
+      IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
+      auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
+      ann_searcher->SetIndexReader(index_reader)
+          .SetIndexCache(IndexCache::GetGlobalInstance())
+          .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
+      ann_searcher->index_ref()->SetIndexType(IndexType::kFaissIvfPq);
+      ann_searcher->AnnSearch(query_view()[0], k(), result_ids().data()), Error
+    );
+  }
 
-//   {
-//     // query_vector.elem_type != PrimitiveType::kFloatType
-//     auto double_type_query_view =
-//       PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_data().data()),
-//                        .size = d(),
-//                        .elem_type = PrimitiveType::kDoubleType};
+  {
+    // query_vector.elem_type != PrimitiveType::kFloatType
+    auto double_type_query_view =
+      PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_data().data()),
+                       .size = d(),
+                       .elem_type = PrimitiveType::kDoubleType};
 
-//     IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(meta());
-//     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta());
-//     ann_searcher->SetIndexReader(index_reader)
-//         .SetIndexCache(IndexCache::GetGlobalInstance())
-//         .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
-//     EXPECT_THROW(
-//       ann_searcher->AnnSearch(double_type_query_view, k(), result_ids().data()),
-//       Error
-//     );
-//   }
-// }
+    IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
+    auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
+    ann_searcher->SetIndexReader(index_reader)
+        .SetIndexCache(IndexCache::GetGlobalInstance())
+        .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
+    EXPECT_THROW(ann_searcher->AnnSearch(double_type_query_view, k(), result_ids().data()), Error);
+  }
+}
 
-// TEST_F(FaissHnswAnnSearcherTest, AnnSearch_CheckIsWork) {
-//   CreateAndWriteIndex();
-//   ReadIndexAndDefaultSearch();
-//   EXPECT_TRUE(CheckResult());
-// }
+TEST_F(FaissHnswAnnSearcherTest, AnnSearch_CheckIsWork) {
+  CreateAndWriteFaissHnswIndex();
+  ReadIndexAndDefaultSearch();
+  EXPECT_TRUE(CheckResult());
+}
 
 }  // namespace tenann

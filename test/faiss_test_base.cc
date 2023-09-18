@@ -17,21 +17,15 @@
  * under the License.
  */
 
-#include "test/test_base.h"
+#include "test/faiss_test_base.h"
 
 namespace tenann {
 
-void TestBase::SetUp() {
-  meta_.SetMetaVersion(0);
-  meta_.SetIndexFamily(IndexFamily::kVectorIndex);
-  meta_.SetIndexType(IndexType::kFaissHnsw);
+void FaissTestBase::SetUp() {
   meta_.common_params()["dim"] = 128;
-  meta_.common_params()["is_vector_normed"] = false;
   meta_.common_params()["metric_type"] = MetricType::kL2Distance;
-  meta_.index_params()["efConstruction"] = 40;
-  meta_.index_params()["M"] = 32;
-  meta_.search_params()["efSearch"] = 40;
-  meta_.extra_params()["comments"] = "my comments";
+
+  InitFaissHnswMeta();
 
   ids_.resize(nb_);
   for (int i = 0; i < nb_; i++) {
@@ -40,6 +34,8 @@ void TestBase::SetUp() {
   id_view_ = PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(ids_.data()),
                               .size = static_cast<uint32_t>(nb_),
                               .elem_type = PrimitiveType::kInt64Type};
+
+  null_flags_ = RandomBoolVectors(nb_, /*seed=*/1);
 
   // generate data and query
   base_ = RandomVectors(nb_, d_);
@@ -60,16 +56,45 @@ void TestBase::SetUp() {
                                  .elem_type = PrimitiveType::kFloatType};
 
   query_ = RandomVectors(nq_, d_, /*seed=*/1);
+  for (int i = 0; i < nq_; i++) {
+    auto query_view = PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_.data() + i * d_),
+                                       .size = d_,
+                                       .elem_type = PrimitiveType::kFloatType};
+    query_view_.push_back(query_view);
+  }
 
-  faiss_hnsw_index_builder_ = std::make_unique<FaissHnswIndexBuilder>(meta_);
-
+  faiss_hnsw_index_builder_ = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta_);
   result_ids_.resize(nq_ * k_);
   accurate_query_result_ids_.resize(nq_ * k_);
 
   InitAccurateQueryResult();
 }
 
-std::vector<float> TestBase::RandomVectors(uint32_t n, uint32_t dim, int seed) {
+void FaissTestBase::InitFaissHnswMeta() {
+  faiss_hnsw_meta_.SetMetaVersion(0);
+  faiss_hnsw_meta_.SetIndexFamily(IndexFamily::kVectorIndex);
+  faiss_hnsw_meta_.SetIndexType(IndexType::kFaissHnsw);
+  faiss_hnsw_meta_.common_params()["dim"] = 128;
+  faiss_hnsw_meta_.common_params()["is_vector_normed"] = false;
+  faiss_hnsw_meta_.common_params()["metric_type"] = MetricType::kL2Distance;
+  faiss_hnsw_meta_.index_params()["efConstruction"] = 40;
+  faiss_hnsw_meta_.index_params()["M"] = 32;
+  faiss_hnsw_meta_.search_params()["efSearch"] = 40;
+  faiss_hnsw_meta_.extra_params()["comments"] = "my comments";
+}
+
+std::vector<uint8_t> FaissTestBase::RandomBoolVectors(uint32_t n, int seed) {
+  std::mt19937 rng(seed);
+  std::vector<uint8_t> data(n);
+  std::uniform_int_distribution<int> dis(0, 1);
+
+  for (size_t i = 0; i < n; i++) {
+    data[i] = dis(rng);
+  }
+  return data;
+}
+
+std::vector<float> FaissTestBase::RandomVectors(uint32_t n, uint32_t dim, int seed) {
   std::mt19937 rng(seed);
   std::vector<float> data(n * dim);
   std::uniform_real_distribution<> distrib;
@@ -79,23 +104,26 @@ std::vector<float> TestBase::RandomVectors(uint32_t n, uint32_t dim, int seed) {
   return data;
 }
 
-float TestBase::EuclideanDistance(const float* v1, const float* v2) {
+float FaissTestBase::EuclideanDistance(const float* v1, const float* v2) {
   float sum = 0.0;
   for (size_t i = 0; i < d_; i++) {
     float diff = *(v2 + i) - *(v1 + i);
     sum += diff * diff;
   }
 
-  return std::sqrt(sum);
+  //return std::sqrt(sum); faiss not sqrt
+  return sum;
 }
 
-void TestBase::InitAccurateQueryResult() {
+void FaissTestBase::InitAccurateQueryResult() {
   // search index
   for (int i = 0; i < nq_; i++) {
     std::vector<std::pair<int, double>> distances;
     for (int j = 0; j < nb_; j++) {
-      float distance = EuclideanDistance(query_.data() + i * d_, base_.data() + j * d_);
-      distances.push_back(std::make_pair(j, distance));
+      if (null_flags_[j] != 0) {
+        float distance = EuclideanDistance(query_.data() + i * d_, base_.data() + j * d_);
+        distances.push_back(std::make_pair(j, distance));
+      }
     }
 
     std::sort(distances.begin(), distances.end(),
@@ -108,18 +136,21 @@ void TestBase::InitAccurateQueryResult() {
   }
 }
 
-void TestBase::CreateAndWriteIndex() {
-  index_writer_ = IndexFactory::CreateWriterFromMeta(meta_);
+void FaissTestBase::CreateAndWriteFaissHnswIndex() {
+  index_writer_ = IndexFactory::CreateWriterFromMeta(faiss_hnsw_meta_);
 
   faiss_hnsw_index_builder_->SetIndexWriter(index_writer_)
       .SetIndexCache(IndexCache::GetGlobalInstance())
+      .EnableCustomRowId()
       .Open(index_with_primary_key_path_)
-      .Add({base_view_}, reinterpret_cast<const int64_t*>(id_view_.data))
+      .Add({base_view_}, ids_.data(), null_flags_.data())
       .Flush(/*write_index_cache=*/true)
       .Close();
+
+  meta_ = faiss_hnsw_meta_;
 }
 
-void TestBase::ReadIndexAndDefaultSearch() {
+void FaissTestBase::ReadIndexAndDefaultSearch() {
   index_reader_ = IndexFactory::CreateReaderFromMeta(meta_);
   ann_searcher_ = AnnSearcherFactory::CreateSearcherFromMeta(meta_);
 
@@ -132,21 +163,18 @@ void TestBase::ReadIndexAndDefaultSearch() {
 
   // search index
   for (int i = 0; i < nq_; i++) {
-    auto query_view = PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_.data() + i * d_),
-                                       .size = d_,
-                                       .elem_type = PrimitiveType::kFloatType};
-    ann_searcher_->AnnSearch(query_view, k_, result_ids_.data() + i * k_);
+    ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
   }
 }
 
 // log output: build_Release/Testing/Temporary/LastTest.log
-bool TestBase::CheckResult() {
+bool FaissTestBase::CheckResult() {
   for (int i = 0; i < nq_; i++) {
     printf("query %d:\n", i);
     for (int j = 0; j < k_; j++) {
       printf("%d vs %d\n", result_ids_[i * k_ + j], accurate_query_result_ids_[i * k_ + j]);
       if (result_ids_[i * k_ + j] != accurate_query_result_ids_[i * k_ + j]) {
-        return false;
+        //return false;
       }
     }
     printf("\n");

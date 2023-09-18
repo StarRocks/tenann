@@ -16,7 +16,8 @@
 # under the License.
 
 set(TENANN_TEST_SRC
-    test_base.cc
+    faiss_test_base.cc
+    builder/test_faiss_index_builder.cc
     builder/test_faiss_hnsw_index_builder.cc
     searcher/test_faiss_hnsw_ann_searcher.cc
     thirdparty/test_fmt.cc

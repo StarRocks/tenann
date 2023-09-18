@@ -104,6 +104,7 @@ struct TypedArraySeqView {
     T_DCHECK_NE(seq_view.elem_type, PrimitiveType::kUnknownType);
 
     data = reinterpret_cast<const T*>(seq_view.data);
+    dim = seq_view.dim;
     size = seq_view.size;
   }
 

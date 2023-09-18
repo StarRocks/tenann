@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include "gtest/gtest_prod.h"
 #include "tenann/builder/faiss_index_builder.h"
 
 namespace faiss {

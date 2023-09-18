@@ -89,7 +89,8 @@ IndexBuilder& FaissIndexBuilder::Add(const std::vector<SeqView>& input_columns,
     auto input_seq_type = input_columns[0].seq_view_type;
     T_CHECK(input_seq_type == SeqViewType::kArraySeqView ||
             input_seq_type == SeqViewType::kVlArraySeqView);
-    T_CHECK(input_columns[0].seq_view.array_seq_view.elem_type == PrimitiveType::kFloatType);
+    T_CHECK(input_columns[0].seq_view.array_seq_view.elem_type == PrimitiveType::kFloatType ||
+            input_columns[0].seq_view.vl_array_seq_view.elem_type == PrimitiveType::kFloatType);
 
     // add data to index
     AddImpl(input_columns, row_ids, null_map);
