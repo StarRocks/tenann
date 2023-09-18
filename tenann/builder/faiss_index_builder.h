@@ -60,18 +60,18 @@ class FaissIndexBuilder : public IndexBuilder {
   void AddImpl(const std::vector<SeqView>& input_columns, const int64_t* row_ids = nullptr,
                const uint8_t* null_flags = nullptr);
 
-  void AddRaw(const TypedArraySeqView<float>& input_column);
-  void AddRaw(const TypedVlArraySeqView<float>& input_column);
+  virtual void AddRaw(const TypedArraySeqView<float>& input_column);
+  virtual void AddRaw(const TypedVlArraySeqView<float>& input_column);
 
-  void AddWithRowIds(const TypedArraySeqView<float>& input_column, const int64_t* row_ids);
-  void AddWithRowIds(const TypedVlArraySeqView<float>& input_column, const int64_t* row_ids);
+  virtual void AddWithRowIds(const TypedArraySeqView<float>& input_column, const int64_t* row_ids);
+  virtual void AddWithRowIds(const TypedVlArraySeqView<float>& input_column, const int64_t* row_ids);
 
-  void AddWithNullFlags(const TypedArraySeqView<float>& input_column, const uint8_t* null_flags);
-  void AddWithNullFlags(const TypedVlArraySeqView<float>& input_column, const uint8_t* null_flags);
+  virtual void AddWithNullFlags(const TypedArraySeqView<float>& input_column, const uint8_t* null_flags);
+  virtual void AddWithNullFlags(const TypedVlArraySeqView<float>& input_column, const uint8_t* null_flags);
 
-  void AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
+  virtual void AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
                                  const int64_t* row_ids, const uint8_t* null_flags);
-  void AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,
+  virtual void AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,
                                  const int64_t* row_ids, const uint8_t* null_flags);
 
   static void CheckDimension(const TypedVlArraySeqView<float>& input_column, int dim);
@@ -88,6 +88,8 @@ class FaissIndexBuilder : public IndexBuilder {
   bool is_opened_ = false;
   bool is_closed_ = false;
   bool is_trained_ = false;
+
+  bool inputs_live_longer_than_this_ = false;
 
   RuntimeProfile::Counter* open_total_timer_ = nullptr;
   RuntimeProfile::Counter* add_total_timer_ = nullptr;

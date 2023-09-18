@@ -17,21 +17,29 @@
  * under the License.
  */
 
-#include "tenann/factory/ann_searcher_factory.h"
-#include "tenann/searcher/faiss_hnsw_ann_searcher.h"
-#include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
-#include "tenann/common/logging.h"
+#pragma once
+
+#include "tenann/searcher/ann_searcher.h"
 
 namespace tenann {
 
-std::unique_ptr<AnnSearcher> AnnSearcherFactory::CreateSearcherFromMeta(const IndexMeta& meta) {
-  if (meta.index_type() == IndexType::kFaissHnsw) {
-    return std::make_unique<FaissHnswAnnSearcher>(meta);
-  } else if(meta.index_type() == IndexType::kFaissIvfPq) {
-    return std::make_unique<FaissIvfPqAnnSearcher>(meta);
-  } else {
-    T_LOG(ERROR) << "Unsupported index type: " << static_cast<int>(meta.index_type());
-  }
-}
+class FaissIvfPqAnnSearcher : public AnnSearcher {
+ public:
+  using AnnSearcher::AnnSearcher;
+  virtual ~FaissIvfPqAnnSearcher() = default;
+  T_FORBID_MOVE(FaissIvfPqAnnSearcher);
+  T_FORBID_COPY_AND_ASSIGN(FaissIvfPqAnnSearcher);
+
+  /// ANN搜索接口，只返回k近邻的id
+  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) override;
+
+  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
+                 uint8_t* result_distances) override{};
+
+ protected:
+  void SearchParamItemChangeHook(const std::string& key, const json& value) override{};
+
+  void SearchParamsChangeHook(const json& value) override{};
+};
 
 }  // namespace tenann

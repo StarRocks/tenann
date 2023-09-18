@@ -26,6 +26,7 @@ void FaissTestBase::SetUp() {
   meta_.common_params()["metric_type"] = MetricType::kL2Distance;
 
   InitFaissHnswMeta();
+  InitFaissIvfPqMeta();
 
   ids_.resize(nb_);
   for (int i = 0; i < nb_; i++) {
@@ -64,6 +65,8 @@ void FaissTestBase::SetUp() {
   }
 
   faiss_hnsw_index_builder_ = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta_);
+  faiss_ivf_pq_index_builder_ = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta_);
+
   result_ids_.resize(nq_ * k_);
   accurate_query_result_ids_.resize(nq_ * k_);
 
@@ -81,6 +84,19 @@ void FaissTestBase::InitFaissHnswMeta() {
   faiss_hnsw_meta_.index_params()["M"] = 32;
   faiss_hnsw_meta_.search_params()["efSearch"] = 40;
   faiss_hnsw_meta_.extra_params()["comments"] = "my comments";
+}
+
+void FaissTestBase::InitFaissIvfPqMeta() {
+  faiss_ivf_pq_meta_.SetMetaVersion(0);
+  faiss_ivf_pq_meta_.SetIndexFamily(IndexFamily::kVectorIndex);
+  faiss_ivf_pq_meta_.SetIndexType(IndexType::kFaissIvfPq);
+  faiss_ivf_pq_meta_.common_params()["dim"] = 128;
+  faiss_ivf_pq_meta_.common_params()["is_vector_normed"] = false;
+  faiss_ivf_pq_meta_.common_params()["metric_type"] = MetricType::kL2Distance;
+  faiss_ivf_pq_meta_.index_params()["nlist"] = int(4 * sqrt(nb_));
+  faiss_ivf_pq_meta_.index_params()["nprobe"] = int(4 * sqrt(nb_));
+  faiss_ivf_pq_meta_.index_params()["M"] = 64;
+  faiss_ivf_pq_meta_.extra_params()["comments"] = "my comments";
 }
 
 std::vector<uint8_t> FaissTestBase::RandomBoolVectors(uint32_t n, int seed) {
@@ -150,6 +166,20 @@ void FaissTestBase::CreateAndWriteFaissHnswIndex() {
   meta_ = faiss_hnsw_meta_;
 }
 
+void FaissTestBase::CreateAndWriteFaissIvfPqIndex() {
+  index_writer_ = IndexFactory::CreateWriterFromMeta(faiss_ivf_pq_meta_);
+
+  faiss_ivf_pq_index_builder_->SetIndexWriter(index_writer_)
+      .SetIndexCache(IndexCache::GetGlobalInstance())
+      .EnableCustomRowId()
+      .Open(index_with_primary_key_path_)
+      .Add({base_view_}, ids_.data(), null_flags_.data())
+      .Flush(/*write_index_cache=*/true)
+      .Close();
+
+  meta_ = faiss_ivf_pq_meta_;
+}
+
 void FaissTestBase::ReadIndexAndDefaultSearch() {
   index_reader_ = IndexFactory::CreateReaderFromMeta(meta_);
   ann_searcher_ = AnnSearcherFactory::CreateSearcherFromMeta(meta_);
@@ -178,6 +208,26 @@ bool FaissTestBase::CheckResult() {
       }
     }
     printf("\n");
+  }
+  return true;
+}
+
+bool FaissTestBase::IVFPQCheckResult() {
+  for (int i = 0; i < nq_; i++) {
+    std::set<int> accurate_set;
+    for (int j = 0; j < k_; j++) {
+      accurate_set.insert(accurate_query_result_ids_[i * k_ + j]);
+    }
+    int hit = 0;
+    for (int j = 0; j < k_; j++) {
+      if (accurate_set.find(result_ids_[i * k_ + j]) != accurate_set.end()) {
+        hit++;
+      }
+    }
+    printf("query %d: recall rate:%f\n", i, hit * 1.0 / k_);
+    if (hit < k_ * 0.8) {
+      return false;
+    }
   }
   return true;
 }

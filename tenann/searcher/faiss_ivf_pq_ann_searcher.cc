@@ -17,21 +17,23 @@
  * under the License.
  */
 
-#include "tenann/factory/ann_searcher_factory.h"
-#include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 #include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
+
+#include "faiss/IndexIVFPQ.h"
 #include "tenann/common/logging.h"
 
 namespace tenann {
 
-std::unique_ptr<AnnSearcher> AnnSearcherFactory::CreateSearcherFromMeta(const IndexMeta& meta) {
-  if (meta.index_type() == IndexType::kFaissHnsw) {
-    return std::make_unique<FaissHnswAnnSearcher>(meta);
-  } else if(meta.index_type() == IndexType::kFaissIvfPq) {
-    return std::make_unique<FaissIvfPqAnnSearcher>(meta);
-  } else {
-    T_LOG(ERROR) << "Unsupported index type: " << static_cast<int>(meta.index_type());
-  }
+void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) {
+  T_CHECK_NOTNULL(index_ref_);
+
+  T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissIvfPq);
+  T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
+
+  auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
+  std::vector<float> distances(k);
+  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k, distances.data(),
+                      result_id);
 }
 
 }  // namespace tenann
