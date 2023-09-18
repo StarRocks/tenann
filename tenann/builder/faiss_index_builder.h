@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include "gtest/gtest_prod.h"
 #include "tenann/builder/index_builder.h"
 #include "tenann/common/typed_seq_view.h"
 
