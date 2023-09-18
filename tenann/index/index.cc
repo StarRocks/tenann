@@ -21,6 +21,7 @@
 
 #include "faiss/Index.h"
 #include "faiss/IndexHNSW.h"
+#include "faiss/IndexIVFPQ.h"
 #include "tenann/common/logging.h"
 
 namespace tenann {
@@ -54,6 +55,7 @@ size_t Index::EstimateMemoryUsage() {
   if (index_type_ == IndexType::kFaissHnsw) {
     auto* faiss_index = static_cast<faiss::Index*>(index_raw_);
     auto* index_hnsw = dynamic_cast<faiss::IndexHNSW*>(faiss_index);
+    // TODO: always is nullptr now
     if (index_hnsw == nullptr) {
       T_LOG(WARNING)
           << "estimating memory usage for unsupported index types would always get result 1";
@@ -73,9 +75,22 @@ size_t Index::EstimateMemoryUsage() {
     mem_usage += index_hnsw->storage->ntotal * index_hnsw->storage->d * sizeof(float);
 
     return mem_usage;
-  }
+  } else if (index_type_ == IndexType::kFaissIvfPq) {
+    auto* faiss_index = static_cast<faiss::Index*>(index_raw_);
+    auto* index_ivf_pq = dynamic_cast<faiss::IndexIVFPQ*>(faiss_index);
+    if (index_ivf_pq == nullptr) {
+      T_LOG(WARNING)
+          << "estimating memory usage for unsupported index types would always get result 1";
+      return 1;
+    }
 
-  T_LOG(ERROR) << "not implemented yet";
+    auto mem_usage = sizeof(index_ivf_pq);
+
+    // TODO: add mem_usage calc
+    return mem_usage;
+  } else {
+    T_LOG(ERROR) << "not implemented yet";
+  }
 }
 
 }  // namespace tenann

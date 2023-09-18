@@ -34,6 +34,8 @@
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/builder/faiss_hnsw_index_builder.h"
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
+#include "tenann/builder/faiss_ivf_pq_index_builder.h"
+#include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
 
 namespace tenann {
 
@@ -56,11 +58,13 @@ class FaissTestBase : public ::testing::Test {
 
   IndexMeta& meta() { return meta_; }
   IndexMeta& faiss_hnsw_meta() { return faiss_hnsw_meta_; }
+  IndexMeta& faiss_ivf_pq_meta() { return faiss_ivf_pq_meta_; }
   PrimitiveSeqView& id_view() { return id_view_; }
   ArraySeqView& base_view() { return base_view_; }
   VlArraySeqView& base_vl_view() { return base_vl_view_; }
   std::vector<PrimitiveSeqView>& query_view() { return query_view_; }
   std::unique_ptr<IndexBuilder>& faiss_hnsw_index_builder() { return faiss_hnsw_index_builder_; }
+  std::unique_ptr<IndexBuilder>& faiss_ivf_pq_index_builder() { return faiss_ivf_pq_index_builder_; }
   IndexWriterRef& index_writer() { return index_writer_; }
   IndexReaderRef& index_reader() { return index_reader_; }
   std::unique_ptr<AnnSearcher>& ann_searcher() { return ann_searcher_; }
@@ -71,15 +75,18 @@ class FaissTestBase : public ::testing::Test {
   void TearDown() override {}
 
   void InitFaissHnswMeta();
+  void InitFaissIvfPqMeta();
   std::vector<uint8_t> RandomBoolVectors(uint32_t n, int seed);
   std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0);
   float EuclideanDistance(const float* v1, const float* v2);
   void InitAccurateQueryResult();
   void CreateAndWriteFaissHnswIndex();
+  void CreateAndWriteFaissIvfPqIndex();
   void ReadIndexAndDefaultSearch();
 
   // log output: build_Release/Testing/Temporary/LastTest.log
   bool CheckResult();
+  bool IVFPQCheckResult();
 
  protected:
    // dimension of the vectors to index
@@ -104,11 +111,13 @@ class FaissTestBase : public ::testing::Test {
 
   IndexMeta meta_;
   IndexMeta faiss_hnsw_meta_;
+  IndexMeta faiss_ivf_pq_meta_;
   PrimitiveSeqView id_view_;
   ArraySeqView base_view_;
   VlArraySeqView base_vl_view_;
   std::vector<PrimitiveSeqView> query_view_;
   std::unique_ptr<IndexBuilder> faiss_hnsw_index_builder_;
+  std::unique_ptr<IndexBuilder> faiss_ivf_pq_index_builder_;
   IndexWriterRef index_writer_;
   IndexReaderRef index_reader_;
   std::unique_ptr<AnnSearcher> ann_searcher_;

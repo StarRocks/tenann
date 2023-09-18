@@ -17,21 +17,26 @@
  * under the License.
  */
 
-#include "tenann/factory/ann_searcher_factory.h"
-#include "tenann/searcher/faiss_hnsw_ann_searcher.h"
-#include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
-#include "tenann/common/logging.h"
+#pragma once
+
+#include "tenann/builder/faiss_index_builder_with_buffer.h"
+
+namespace faiss {
+class IndexIVFPQ;
+}
 
 namespace tenann {
 
-std::unique_ptr<AnnSearcher> AnnSearcherFactory::CreateSearcherFromMeta(const IndexMeta& meta) {
-  if (meta.index_type() == IndexType::kFaissHnsw) {
-    return std::make_unique<FaissHnswAnnSearcher>(meta);
-  } else if(meta.index_type() == IndexType::kFaissIvfPq) {
-    return std::make_unique<FaissIvfPqAnnSearcher>(meta);
-  } else {
-    T_LOG(ERROR) << "Unsupported index type: " << static_cast<int>(meta.index_type());
-  }
-}
+class FaissIvfPqIndexBuilder final : public FaissIndexBuilderWithBuffer {
+ public:
+  using FaissIndexBuilderWithBuffer::FaissIndexBuilderWithBuffer;
+  virtual ~FaissIvfPqIndexBuilder();
+
+  T_FORBID_COPY_AND_ASSIGN(FaissIvfPqIndexBuilder);
+  T_FORBID_MOVE(FaissIvfPqIndexBuilder);
+
+ protected:
+  IndexRef InitIndex() override;
+};
 
 }  // namespace tenann

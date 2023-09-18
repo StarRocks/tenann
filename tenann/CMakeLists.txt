@@ -21,6 +21,7 @@ set(TENANN_SRC
     builder/faiss_index_builder.cc
     builder/faiss_index_builder_with_buffer.cc
     builder/faiss_hnsw_index_builder.cc
+    builder/faiss_ivf_pq_index_builder.cc
     common/logging.cc
     factory/index_factory.cc
     factory/ann_searcher_factory.cc
@@ -32,6 +33,7 @@ set(TENANN_SRC
     index/faiss_index_writer.cc
     searcher/searcher.cc
     searcher/faiss_hnsw_ann_searcher.cc
+    searcher/faiss_ivf_pq_ann_searcher.cc
     store/index_meta.cc
     store/lru_cache.cc
     util/runtime_profile.cc
