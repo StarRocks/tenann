@@ -36,4 +36,17 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
                       result_id);
 }
 
+void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
+                                     uint8_t* result_distances) {
+  T_CHECK_NOTNULL(index_ref_);
+
+  T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
+  T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
+
+  auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
+  std::vector<float> distances(k);
+  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k,
+                      reinterpret_cast<float*>(result_distances), result_ids);
+};
+
 }  // namespace tenann

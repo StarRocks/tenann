@@ -34,7 +34,7 @@ class FaissHnswAnnSearcher : public AnnSearcher {
   void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) override;
 
   void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                 uint8_t* result_distances) override{};
+                 uint8_t* result_distances) override;
 
  protected:
   void SearchParamItemChangeHook(const std::string& key, const json& value) override{};
