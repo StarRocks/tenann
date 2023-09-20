@@ -43,6 +43,11 @@ set(TENANN_SRC
 # TenANN library target
 add_library(tenann STATIC ${TENANN_SRC})
 
+add_library(tenann_avx2 STATIC ${TENANN_SRC})
+if(NOT SUPPORT_AVX2 STREQUAL "ON")
+  set_target_properties(tenann_avx2 PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
 ########################################################
 # Thrid-party dependicies
 ########################################################
@@ -53,9 +58,12 @@ set_target_properties(fmt PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/inst
 
 # faiss
 find_package(faiss REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
+set(FAISS_LIBRARIES faiss)
 
 # faiss_avx2
-find_package(faiss_avx2 REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
+if(SUPPORT_AVX2 STREQUAL "ON")
+    find_package(faiss_avx2 REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
+endif()
 
 # lapack
 find_package(LAPACK REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/lapack")
@@ -68,17 +76,22 @@ set(WL_END_GROUP "-Wl,--end-group")
 
 # TenANN link options
 set(TENANN_LINK_LIBS
-    ${WL_START_GROUP}
     fmt
-    faiss
-    # faiss_avx2 # temporaly disable avx2 version
+    ${FAISS_LIBRARIES}
     ${LAPACK_LIBRARIES}
     OpenMP::OpenMP_CXX
     -l:libgfortran.a
     -l:libquadmath.a
     -lm
-    ${WL_END_GROUP}
 )
 
 target_link_libraries(tenann
-    ${TENANN_LINK_LIBS})
+    ${WL_START_GROUP}
+    ${TENANN_LINK_LIBS}
+    ${WL_END_GROUP})
+
+target_link_libraries(tenann_avx2
+    ${WL_START_GROUP}
+    faiss_avx2
+    ${TENANN_LINK_LIBS}
+    ${WL_END_GROUP})
