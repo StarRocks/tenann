@@ -39,6 +39,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++ -static-libgcc -gdwarf
 # Build options
 option(WITH_TESTS "ON for build unit test or OFF for not" ON)
 option(WITH_EXAMPLES "ON for build examples or OFF for not" ON)
+option(SUPPORT_AVX2 "ON for build tenann with avx2 support" OFF)
 
 if (WITH_TESTS STREQUAL "ON")
     # Open code coverage before add_subdirectory(tenann)
@@ -67,6 +68,13 @@ install(TARGETS tenann
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin)
+
+if(SUPPORT_AVX2 STREQUAL "ON")
+    install(TARGETS tenann_avx2
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin)
+endif()
 
 install(DIRECTORY tenann
         DESTINATION include
