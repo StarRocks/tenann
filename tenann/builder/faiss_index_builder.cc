@@ -173,8 +173,7 @@ void FaissIndexBuilder::AddImpl(const std::vector<SeqView>& input_columns, const
   }
 
   if (row_ids == nullptr && null_flags != nullptr) {
-    is_vl_array ? AddWithNullFlags(vl_array_seq, null_flags)
-                : AddWithNullFlags(array_seq, null_flags);
+    T_LOG(ERROR) << "adding nullable data without rowids is not supported";
     return;
   }
 }
