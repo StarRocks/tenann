@@ -48,7 +48,7 @@ class FaissHnswAnnSearcher : public AnnSearcher {
   MetricType metric_type_ = MetricType::kL2Distance;
 
  private:
-  std::unique_ptr<faiss::SearchParametersHNSW> search_parameters_ = nullptr;
+  std::unique_ptr<faiss::SearchParametersHNSW> search_parameters_;
 };
 
 }  // namespace tenann

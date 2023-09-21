@@ -37,8 +37,8 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int6
 
   auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
 
-  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k,
-                      reinterpret_cast<float*>(result_distances), result_ids,
+  faiss_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data),
+                      k, reinterpret_cast<float*>(result_distances), result_ids,
                       search_parameters_.get());
 }
 

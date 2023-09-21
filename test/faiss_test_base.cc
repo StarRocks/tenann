@@ -76,7 +76,8 @@ void FaissTestBase::InitFaissHnswMeta() {
   faiss_hnsw_meta_.common_params()["metric_type"] = MetricType::kL2Distance;
   faiss_hnsw_meta_.index_params()["efConstruction"] = 40;
   faiss_hnsw_meta_.index_params()["M"] = 32;
-  faiss_hnsw_meta_.search_params()["efSearch"] = 40;
+  faiss_hnsw_meta_.search_params()["efSearch"] = 16;
+  faiss_hnsw_meta_.search_params()["check_relative_distance"] = true;
   faiss_hnsw_meta_.extra_params()["comments"] = "my comments";
 }
 
@@ -206,22 +207,7 @@ void FaissTestBase::ReadIndexAndDefaultSearch() {
   }
 }
 
-// log output: build_Release/Testing/Temporary/LastTest.log
-bool FaissTestBase::CheckResult() {
-  for (int i = 0; i < nq_; i++) {
-    printf("query %d:\n", i);
-    for (int j = 0; j < k_; j++) {
-      printf("%d vs %d\n", result_ids_[i * k_ + j], accurate_query_result_ids_[i * k_ + j]);
-      if (result_ids_[i * k_ + j] != accurate_query_result_ids_[i * k_ + j]) {
-        // return false;
-      }
-    }
-    printf("\n");
-  }
-  return true;
-}
-
-bool FaissTestBase::IVFPQCheckResult() {
+bool FaissTestBase::RecallCheckResult_80Percent() {
   for (int i = 0; i < nq_; i++) {
     std::set<int> accurate_set;
     for (int j = 0; j < k_; j++) {

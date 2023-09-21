@@ -43,30 +43,67 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
   T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
 
-  auto distances = reinterpret_cast<float*>(result_distances);
+  bool use_custom_row_id = false;
   auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
-  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k,
-                      reinterpret_cast<float*>(result_distances), result_ids,
-                      search_parameters_.get());
+  faiss::IndexHNSW* hnsw_index = dynamic_cast<faiss::IndexHNSW*>(faiss_index);
+  faiss::IndexIDMap* idmap_index = nullptr;
 
+  if (hnsw_index == nullptr) {
+    if (idmap_index = dynamic_cast<faiss::IndexIDMap*>(faiss_index)) {
+      hnsw_index = dynamic_cast<faiss::IndexHNSW*>(idmap_index->index);
+      use_custom_row_id = true;
+    } else {
+      throw Error(__FILE__, __LINE__, "IndexIDMap parsing error.");
+    }
+
+    if (hnsw_index == nullptr) {
+      throw Error(__FILE__, __LINE__, "IndexIDMap<IndexHNSW> parsing error.");
+    }
+  }
+
+  hnsw_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data), k,
+                     reinterpret_cast<float*>(result_distances), result_ids,
+                     search_parameters_.get());
+
+  if (use_custom_row_id && idmap_index != nullptr) {
+    int64_t* li = result_ids;
+#pragma omp parallel for
+    for (int64_t i = 0; i < ANN_SEARCHER_QUERY_COUNT * k; i++) {
+      li[i] = li[i] < 0 ? li[i] : idmap_index->id_map[li[i]];
+    }
+  }
+
+  auto distances = reinterpret_cast<float*>(result_distances);
   if (metric_type_ == MetricType::kCosineSimilarity) {
     for (int i = 0; i < k; i++) {
       distances[i] = 1 - distances[i] / 2;
     }
   }
-};
+}
 
 void FaissHnswAnnSearcher::SearchParamItemChangeHook(const std::string& key, const json& value) {
-  // TODO:
-  // 如果外层使用了 IndexIDMapTemplate，则不支持传入查询参数 faiss/IndexIDMap.cpp:82
-  // 1、考虑将use_custom_row_id_参数整合进 index_meta 用于指导 IndexHNSW* 的转换方式
-  // 2、考虑将 kFaissHnsw 扩展成 kFaissHnsw 和 kFaissIdMapHnsw、用于指导 IndexHNSW* 的转换方式
-  // 3、考虑直接修改 HNSW* 的查询参数默认值，绕过 IDMap<Index>对查询参数的检查
-  // 4、考虑引入IndexIDMap相关PR：https://github.com/facebookresearch/faiss/issues/2843，对三方库打补丁
-  return;
+  if (!search_parameters_) {
+    search_parameters_ = std::make_unique<faiss::SearchParametersHNSW>();
+  }
+
+  if (key == FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH) {
+    value.is_number_integer() && (search_parameters_->efSearch = value.get<int>());
+    T_LOG(INFO) << "here:: " << key;
+
+  } else if (key == FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE) {
+    value.is_boolean() && (search_parameters_->check_relative_distance = value.get<bool>());
+    T_LOG(INFO) << "here:: " << key;
+
+  } else {
+    T_LOG(ERROR) << "Unsupport search parameter: " << key;
+  }
 };
 
 void FaissHnswAnnSearcher::SearchParamsChangeHook(const json& value) {
+  if (search_parameters_) {
+    search_parameters_.reset();
+  }
+
   for (auto it = value.begin(); it != value.end(); ++it) {
     SearchParamItemChangeHook(it.key(), it.value());
   }

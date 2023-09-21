@@ -27,6 +27,8 @@
 
 namespace tenann {
 
+#define ANN_SEARCHER_QUERY_COUNT (1)
+
 class AnnSearcher : public Searcher<AnnSearcher> {
  public:
   explicit AnnSearcher(const IndexMeta& meta) : Searcher<AnnSearcher>(meta){};

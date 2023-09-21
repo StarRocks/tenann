@@ -79,13 +79,18 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_InvalidArgs) {
   }
 }
 
-TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_CheckIsWork) {
+TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
   // Training and building take a lot of time.
+  auto start = std::chrono::high_resolution_clock::now();
   CreateAndWriteFaissIvfPqIndex();
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  printf("IVFPQ创建索引执行时间:  %d 毫秒\n", duration.count());
+
   {
     // default search
     ReadIndexAndDefaultSearch();
-    EXPECT_TRUE(IVFPQCheckResult());
+    EXPECT_TRUE(RecallCheckResult_80Percent());
   }
 
   {
@@ -98,7 +103,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_CheckIsWork) {
     for (int i = 0; i < nq_; i++) {
       ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
     }
-    EXPECT_TRUE(IVFPQCheckResult());
+    EXPECT_TRUE(RecallCheckResult_80Percent());
   }
 
   {
@@ -114,7 +119,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_CheckIsWork) {
       ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
     }
 
-    EXPECT_TRUE(IVFPQCheckResult());
+    EXPECT_TRUE(RecallCheckResult_80Percent());
   }
 }
 

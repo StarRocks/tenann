@@ -85,8 +85,7 @@ class FaissTestBase : public ::testing::Test {
   void ReadIndexAndDefaultSearch();
 
   // log output: build_Release/Testing/Temporary/LastTest.log
-  bool CheckResult();
-  bool IVFPQCheckResult();
+  bool RecallCheckResult_80Percent();
 
  protected:
    // dimension of the vectors to index
