@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.5.1)
 set(TENANN_LANGUAGES CXX)
 
 project(tenann
-    VERSION 0.0.2
+    VERSION 0.2
     DESCRIPTION "A library for fast and flexible approximate nearest neighbor search."
     HOMEPAGE_URL "https://git.woa.com/petrizhang/tenann"
     LANGUAGES ${TENANN_LANGUAGES})
@@ -37,14 +37,15 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++ -static-libgcc -gdwarf-4")
 
 # Build options
+option(WITH_AVX2 "ON for build tenann with avx2 support" OFF)
 option(WITH_TESTS "ON for build unit test or OFF for not" ON)
 option(WITH_EXAMPLES "ON for build examples or OFF for not" ON)
-option(SUPPORT_AVX2 "ON for build tenann with avx2 support" OFF)
 
+set(FAISS_AVX2_CXX_FLAGS $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt>)
 if (WITH_TESTS STREQUAL "ON")
     # Open code coverage before add_subdirectory(tenann)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_USE_OWN_TR1_TUPLE=0 -fprofile-arcs -ftest-coverage")
-endif ()
+endif()
 
 include_directories(
     ${CMAKE_CURRENT_LIST_DIR}/
@@ -53,12 +54,12 @@ add_subdirectory(tenann)
 
 if (WITH_EXAMPLES STREQUAL "ON")
     add_subdirectory(examples)
-endif ()
+endif()
 
 if (WITH_TESTS STREQUAL "ON")
     include(CTest)
     add_subdirectory(test)
-endif ()
+endif()
 
 ########################################################
 # TenANN install
@@ -69,7 +70,7 @@ install(TARGETS tenann
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin)
 
-if(SUPPORT_AVX2 STREQUAL "ON")
+if(WITH_AVX2 STREQUAL "ON")
     install(TARGETS tenann_avx2
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib

@@ -44,6 +44,7 @@ cp ${TENANN_THIRDPARTY}/installed/lib/libblas.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/liblapack.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_OUTPUT}/lib/libtenann.a ${TENANN_OUTPUT}/tmp
+cp ${TENANN_OUTPUT}/lib/libtenann_avx2.a ${TENANN_OUTPUT}/tmp
 
 # Merge all static libraries into one
 cd ${TENANN_OUTPUT}/tmp
@@ -60,4 +61,22 @@ end" >libtenann-bundle.mri
 
 ar -M <libtenann-bundle.mri
 cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
+
+# Merge all static libraries into one
+cd ${TENANN_OUTPUT}/tmp
+echo "create libtenann-bundle-avx2.a
+addlib libtenann_avx2.a
+addlib libfaiss.a
+addlib liblapack.a
+addlib libblas.a
+addlib libgomp.a
+addlib libgfortran.a
+addlib libquadmath.a
+save
+end" >libtenann-bundle-avx2.mri
+
+ar -M <libtenann-bundle-avx2.mri
+cp ${TENANN_OUTPUT}/tmp/libtenann-bundle-avx2.a ${TENANN_OUTPUT}/lib
+
+# Clean temporary directory
 rm -rf ${TENANN_OUTPUT}/tmp
