@@ -68,12 +68,12 @@ Usage: $0 <options>
      --clean            clean and build target
      --with-examples    build tenann with examples
      --with-tests       build tenann with tests
-     --support-avx2     build tenann with avx2 support
+     --with-avx2     build tenann with avx2 support
      -j                 build Backend parallel
 
   Eg.
     $0                               build tenann
-    $0 --support-avx2                build tenann with avx2
+    $0 --with-avx2                build tenann with avx2
     $0 --clean                       clean and build tenann
     $0 --with-examples --with-tests  build tenann with examples and tests
     BUILD_TYPE=build_type $0         build tenann in different mode (build_type could be Release, Debug, or Asan. Default value is Release. To build Backend in Debug mode, you can execute: BUILD_TYPE=Debug ./build.sh --tenann)
@@ -87,7 +87,7 @@ OPTS=$(getopt \
     -o 'h' \
     -l 'with-examples' \
     -l 'with-tests' \
-    -l 'support-avx2' \
+    -l 'with-avx2' \
     -l 'tenann' \
     -l 'clean' \
     -o 'j:' \
@@ -104,9 +104,10 @@ BUILD_TENANN=
 CLEAN=
 WITH_EXAMPLES=
 WITH_TESTS=
-SUPPORT_AVX2=
+WITH_AVX2=
 MSG=""
 MSG_TENANN="libtenann.a"
+MSG_TENANN_AVX2="libtenann_avx2.a"
 
 HELP=0
 if [ $# == 1 ]; then
@@ -115,21 +116,21 @@ if [ $# == 1 ]; then
     CLEAN=0
     WITH_EXAMPLES=OFF
     WITH_TESTS=OFF
-    SUPPORT_AVX2=OFF
+    WITH_AVX2=OFF
 elif [[ $OPTS =~ "-j" ]] && [ $# == 3 ]; then
     # default
     BUILD_TENANN=1
     CLEAN=0
     WITH_EXAMPLES=OFF
     WITH_TESTS=OFF
-    SUPPORT_AVX2=OFF
+    WITH_AVX2=OFF
     PARALLEL=$2
 else
     BUILD_TENANN=1
     CLEAN=0
     WITH_EXAMPLES=OFF
     WITH_TESTS=OFF
-    SUPPORT_AVX2=OFF
+    WITH_AVX2=OFF
     while true; do
         case "$1" in
         --tenann)
@@ -148,8 +149,8 @@ else
             WITH_TESTS=ON
             shift
             ;;
-        --support-avx2)
-            SUPPORT_AVX2=ON
+        --with-avx2)
+            WITH_AVX2=ON
             shift
             ;;
         -h)
@@ -176,6 +177,13 @@ else
     done
 fi
 
+if [ -e /proc/cpuinfo ]; then
+    # detect cpuinfo
+    if [[ -z $(grep -o 'avx[^ ]*' /proc/cpuinfo) ]]; then
+        WITH_AVX2=OFF
+    fi
+fi
+
 if [[ ${HELP} -eq 1 ]]; then
     usage
     exit
@@ -192,7 +200,7 @@ echo "Get params:
     CLEAN               -- $CLEAN
     WITH_EXAMPLES       -- $WITH_EXAMPLES
     WITH_TESTS          -- $WITH_TESTS
-    SUPPORT_AVX2        -- $SUPPORT_AVX2
+    WITH_AVX2           -- $WITH_AVX2
     PARALLEL            -- $PARALLEL
 "
 if [ ${BUILD_TENANN} -eq 1 ]; then
@@ -229,7 +237,7 @@ if [ ${BUILD_TENANN} -eq 1 ]; then
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
         -DWITH_TESTS=${WITH_TESTS} \
         -DWITH_EXAMPLES=${WITH_EXAMPLES} \
-        -DSUPPORT_AVX2=${SUPPORT_AVX2} \
+        -DWITH_AVX2=${WITH_AVX2} \
         -DCMAKE_INSTALL_PREFIX=${TENANN_OUTPUT} \
         ..
     time ${BUILD_SYSTEM} -j${PARALLEL}
@@ -239,10 +247,14 @@ if [ ${BUILD_TENANN} -eq 1 ]; then
     ${BUILD_SYSTEM} install
 fi
 
-MSG="${MSG} √ ${MSG_TENANN}"
+echo "***************************************"
+echo "Successfully build TenANN - ${MSG} √ ${MSG_TENANN}"
+echo "***************************************"
 
-echo "***************************************"
-echo "Successfully build TenANN ${MSG}"
-echo "***************************************"
+if [ "$WITH_AVX2" == "ON" ]; then
+    echo "***************************************"
+    echo "Successfully build TenANN with AVX2 support - ${MSG} √ ${MSG_TENANN_AVX2}"
+    echo "***************************************"
+fi
 
 exit 0

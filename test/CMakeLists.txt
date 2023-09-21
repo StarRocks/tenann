@@ -28,6 +28,14 @@ set(TENANN_TEST_SRC
 
 add_executable(tenann_test ${TENANN_TEST_SRC})
 
+add_executable(tenann_test_avx2 ${TENANN_TEST_SRC})
+if(NOT WITH_AVX2 STREQUAL "ON")
+  set_target_properties(tenann_test_avx2 PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
+target_compile_options(tenann_test_avx2 PRIVATE ${FAISS_AVX2_CXX_FLAGS})
+target_link_libraries(tenann_test_avx2 tenann_avx2 GTest::gtest GTest::gtest_main ${TENANN_AVX2_LINK_LIBS})
+
 # add gtest lib
 set(GTest_DIR "${TENANN_THIRDPARTY}/installed/lib/cmake/GTest" CACHE PATH "gtest search path")
 find_package(GTest REQUIRED)
@@ -37,6 +45,9 @@ include(GoogleTest)
 
 # add tenann_test to ctest, log path: build_Release/Testing/Temporary/LastTest.log
 gtest_discover_tests(tenann_test)
+if(WITH_AVX2 STREQUAL "ON")
+  gtest_discover_tests(tenann_test_avx2 TEST_SUFFIX _avx2)
+endif()
 
 add_custom_target(coverage
   COMMAND lcov --capture --directory . --output-file coverage.info
@@ -46,5 +57,4 @@ add_custom_target(coverage
   COMMAND lcov --list coverage.info
   COMMAND genhtml coverage.info --output-directory coverage_html --rc genhtml_hi_limit=50 --rc genhtml_med_limit=30
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  COMMENT "Generating code coverage report"
-)
+  COMMENT "Generating code coverage report")
