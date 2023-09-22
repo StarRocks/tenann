@@ -30,9 +30,7 @@ namespace tenann {
 
 class FaissIvfPqIndexBuilderTest : public FaissTestBase {
  public:
-  FaissIvfPqIndexBuilderTest() : FaissTestBase() {
-    nb_ = 10000;
-  }
+  FaissIvfPqIndexBuilderTest() : FaissTestBase() { nb_ = 10000; }
 };
 
 TEST_F(FaissIvfPqIndexBuilderTest, Open) {
@@ -71,32 +69,46 @@ TEST_F(FaissIvfPqIndexBuilderTest, InitIndex) {
 TEST_F(FaissIvfPqIndexBuilderTest, Add) {
   // TypedArraySeqView
   // use_custom_row_id_(true), null_map(not null)
-  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->EnableCustomRowId().Open().
-    Add({base_view()}, ids().data(), null_flags().data());
+  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), null_flags().data());
   // use_custom_row_id_(true), null_map(is null)
-  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->EnableCustomRowId().Open().
-    Add({base_view()}, ids().data());
+  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data());
   // use_custom_row_id_(false), null_map(not null)
-  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->Open().
-    Add({base_view()},nullptr, null_flags().data());
+  EXPECT_THROW(std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+                   ->Open()
+                   .Add({base_view()}, nullptr, null_flags().data()),
+               Error);
   // use_custom_row_id_(false), null_map(is null)
   std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->Open().Add({base_view()});
 
   // TypedVlArraySeqView
   // invalid dimension
   auto pre = base_vl_view().offsets[1];
-  EXPECT_THROW(const_cast<uint32_t*>(base_vl_view().offsets)[1] = 0;
-               std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->Open().Add({base_vl_view()}), Error);
+  EXPECT_THROW(
+      const_cast<uint32_t*>(base_vl_view().offsets)[1] = 0;
+      std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->Open().Add({base_vl_view()}),
+      Error);
   const_cast<uint32_t*>(base_vl_view().offsets)[1] = pre;
   // use_custom_row_id_(true), null_map(not null)
-  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->EnableCustomRowId().Open().
-    Add({base_vl_view()}, ids().data(), null_flags().data());
+  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_vl_view()}, ids().data(), null_flags().data());
   // use_custom_row_id_(true), null_map(is null)
-  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->EnableCustomRowId().Open().
-    Add({base_vl_view()}, ids().data());
+  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_vl_view()}, ids().data());
   // use_custom_row_id_(false), null_map(not null)
-  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->Open().
-    Add({base_vl_view()}, nullptr, null_flags().data());
+  EXPECT_THROW(std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+                   ->Open()
+                   .Add({base_vl_view()}, nullptr, null_flags().data()),
+               Error);
   // use_custom_row_id_(false), null_map(is null)
   std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->Open().Add({base_vl_view()});
 }
