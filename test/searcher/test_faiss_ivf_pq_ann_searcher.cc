@@ -96,7 +96,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
   {
     // nprobe = 1, recall rate < 0.8
     faiss_ivf_pq_meta().search_params()["nprobe"] = size_t(4 * sqrt(nb_));
-    ann_searcher_->SetSearchParams(faiss_ivf_pq_meta().search_params());
+    ann_searcher_->SetDefaultSearchParams(faiss_ivf_pq_meta().search_params());
 
     // search index
     result_ids_.clear();
@@ -108,10 +108,12 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
 
   {
     // nprobe = 4 * sqrt(nb_), recall rate > 0.8
-    ann_searcher_->SetSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_NPROBE, size_t(4 * sqrt(nb_)));
-    ann_searcher_->SetSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_MAX_CODES, size_t(0));
-    ann_searcher_->SetSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_PQ_SCAN_TABLE_THRESHOLD, size_t(0));
-    ann_searcher_->SetSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_PQ_POLYSEMOUS_HT, int(0));
+    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_NPROBE,
+                                             size_t(4 * sqrt(nb_)));
+    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_MAX_CODES, size_t(0));
+    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_PQ_SCAN_TABLE_THRESHOLD,
+                                             size_t(0));
+    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_PQ_POLYSEMOUS_HT, int(0));
 
     // search index
     result_ids_.clear();

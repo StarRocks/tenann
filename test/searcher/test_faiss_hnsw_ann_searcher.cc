@@ -94,7 +94,7 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_IDMap_HNSW_IsWork) {
   {
     // efSearch = 1, recall rate < 0.8
     faiss_hnsw_meta().search_params()["efSearch"] = int(1);
-    ann_searcher_->SetSearchParams(faiss_hnsw_meta().search_params());
+    ann_searcher_->SetDefaultSearchParams(faiss_hnsw_meta().search_params());
 
     // search index
     result_ids_.clear();
@@ -107,8 +107,9 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_IDMap_HNSW_IsWork) {
   {
     // TODO: hnsw 暂未支持传入 searchParams, 预备 ut
     // efSearch = 40, recall rate > 0.8
-    ann_searcher_->SetSearchParamItem(FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH, int(40));
-    ann_searcher_->SetSearchParamItem(FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE, true);
+    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH, int(40));
+    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE,
+                                             true);
 
     // search index
     result_ids_.clear();
