@@ -19,7 +19,6 @@
 
 #include "tenann/index/index_cache.h"
 
-#include "index_cache.h"
 #include "tenann/common/logging.h"
 
 namespace tenann {

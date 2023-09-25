@@ -56,12 +56,21 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
       index_hnsw = static_cast<faiss::IndexHNSW*>(index.get());
     }
 
-    if (index_meta_.index_params().contains("efConstruction")) {
+    if (index_meta_.index_params()["efConstruction"].is_number_integer()) {
       index_hnsw->hnsw.efConstruction = index_meta_.index_params()["efConstruction"].get<int>();
     }
 
-    if (index_meta_.search_params().contains("efSearch")) {
-      index_hnsw->hnsw.efSearch = index_meta_.search_params()["efSearch"].get<int>();
+    // default search params
+    if (index_meta_.search_params()[FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH].is_number_integer()) {
+      index_hnsw->hnsw.efSearch =
+          index_meta_.search_params()[FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH].get<int>();
+    }
+
+    if (index_meta_.search_params()[FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE]
+            .is_boolean()) {
+      index_hnsw->hnsw.check_relative_distance =
+          index_meta_.search_params()[FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE]
+              .get<bool>();
     }
 
     return std::make_shared<Index>(index.release(),        //
