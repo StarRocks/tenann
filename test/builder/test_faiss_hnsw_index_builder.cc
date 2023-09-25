@@ -28,7 +28,13 @@
 
 namespace tenann {
 
-class FaissHnswIndexBuilderTest : public FaissTestBase {};
+class FaissHnswIndexBuilderTest : public FaissTestBase {
+ public:
+  FaissHnswIndexBuilderTest() : FaissTestBase() {
+    InitFaissHnswMeta();
+    faiss_hnsw_index_builder_ = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta_);
+  }
+};
 
 TEST_F(FaissHnswIndexBuilderTest, Open) {
   {

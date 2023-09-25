@@ -42,9 +42,6 @@ class FaissIndexBuilderWithBuffer : public FaissIndexBuilder {
   void AddWithRowIds(const TypedArraySeqView<float>& input_column, const int64_t* row_ids) override;
   void AddWithRowIds(const TypedVlArraySeqView<float>& input_column, const int64_t* row_ids) override;
 
-  void AddWithNullFlags(const TypedArraySeqView<float>& input_column, const uint8_t* null_flags) override;
-  void AddWithNullFlags(const TypedVlArraySeqView<float>& input_column, const uint8_t* null_flags) override;
-
   void AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
                                  const int64_t* row_ids, const uint8_t* null_flags) override;
   void AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,

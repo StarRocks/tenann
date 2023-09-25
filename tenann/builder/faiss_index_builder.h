@@ -66,9 +66,6 @@ class FaissIndexBuilder : public IndexBuilder {
   virtual void AddWithRowIds(const TypedArraySeqView<float>& input_column, const int64_t* row_ids);
   virtual void AddWithRowIds(const TypedVlArraySeqView<float>& input_column, const int64_t* row_ids);
 
-  virtual void AddWithNullFlags(const TypedArraySeqView<float>& input_column, const uint8_t* null_flags);
-  virtual void AddWithNullFlags(const TypedVlArraySeqView<float>& input_column, const uint8_t* null_flags);
-
   virtual void AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
                                  const int64_t* row_ids, const uint8_t* null_flags);
   virtual void AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,

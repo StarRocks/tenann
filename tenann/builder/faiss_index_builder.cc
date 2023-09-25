@@ -204,32 +204,6 @@ void FaissIndexBuilder::AddWithRowIds(const TypedVlArraySeqView<float>& input_co
   faiss_index->add_with_ids(input_column.size, input_column.data, row_ids);
 }
 
-void FaissIndexBuilder::AddWithNullFlags(const TypedArraySeqView<float>& input_column,
-                                         const uint8_t* null_flags) {
-  auto faiss_index = GetFaissIndex();
-  size_t i = 0;
-  for (auto slice : input_column) {
-    if (null_flags[i] == 0) {
-      faiss_index->add(1, slice.data);
-    }
-    i += 1;
-  }
-}
-
-void FaissIndexBuilder::AddWithNullFlags(const TypedVlArraySeqView<float>& input_column,
-                                         const uint8_t* null_flags) {
-  auto faiss_index = GetFaissIndex();
-  size_t i = 0;
-  for (auto slice : input_column) {
-    if (null_flags[i] == 0) {
-      T_LOG_IF(ERROR, slice.size != dim_)
-          << "invalid size for vector " << i << " : expected " << dim_ << " but got " << slice.size;
-      faiss_index->add(1, slice.data);
-    }
-  }
-  i += 1;
-}
-
 void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
                                                   const int64_t* row_ids,
                                                   const uint8_t* null_flags) {

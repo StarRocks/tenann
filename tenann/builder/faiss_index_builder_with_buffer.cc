@@ -46,8 +46,6 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush(bool write_index_cache, const c
     T_LOG_IF(ERROR, is_closed_) << "index builder has already been closed";
     T_LOG_IF(ERROR, index_ref_ == nullptr) << "index has not been built";
 
-    if (memory_only_) return *this;
-
     if (GetFaissIndex()->is_trained == false) {
       bool with_row_ids = row_id_ != nullptr || id_buffer_.size() > 0;
       if (id_buffer_.size()) {
@@ -77,6 +75,8 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush(bool write_index_cache, const c
         }
       }
     }
+
+    if (memory_only_) return *this;
 
     // write index file
     index_writer_->WriteIndex(index_ref_, index_save_path_);
@@ -164,6 +164,7 @@ void FaissIndexBuilderWithBuffer::AddRaw(const TypedArraySeqView<float>& input_c
 }
 
 void FaissIndexBuilderWithBuffer::AddRaw(const TypedVlArraySeqView<float>& input_column) {
+  is_vl_array_ = true;
   CheckDimension(input_column, dim_);
   auto faiss_index = GetFaissIndex();
   if (faiss_index->is_trained) {
@@ -185,6 +186,7 @@ void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedArraySeqView<float>& 
 
 void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
                                       const int64_t* row_ids) {
+  is_vl_array_ = true;
   CheckDimension(input_column, dim_);
   auto faiss_index = GetFaissIndex();
   if (faiss_index->is_trained) {
@@ -192,32 +194,6 @@ void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedVlArraySeqView<float>
   } else {
     Merge(input_column, row_ids);
   }
-}
-
-void FaissIndexBuilderWithBuffer::AddWithNullFlags(const TypedArraySeqView<float>& input_column,
-                                         const uint8_t* null_flags) {
-  auto faiss_index = GetFaissIndex();
-  size_t i = 0;
-  for (auto slice : input_column) {
-    if (null_flags[i] != 0) {
-      data_buffer_.insert(data_buffer_.end(), slice.data, slice.data + slice.size);
-    }
-    i += 1;
-  }
-}
-
-void FaissIndexBuilderWithBuffer::AddWithNullFlags(const TypedVlArraySeqView<float>& input_column,
-                                         const uint8_t* null_flags) {
-  auto faiss_index = GetFaissIndex();
-  size_t i = 0;
-  for (auto slice : input_column) {
-    if (null_flags[i] != 0) {
-      T_LOG_IF(ERROR, slice.size != dim_)
-          << "invalid size for vector " << i << " : expected " << dim_ << " but got " << slice.size;
-      data_buffer_.insert(data_buffer_.end(), slice.data, slice.data + slice.size);
-    }
-  }
-  i += 1;
 }
 
 void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
@@ -237,6 +213,7 @@ void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(const TypedArraySeqV
 void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,
                                                   const int64_t* row_ids,
                                                   const uint8_t* null_flags) {
+  is_vl_array_ = true;
   auto faiss_index = GetFaissIndex();
   size_t i = 0;
   for (auto slice : input_column) {

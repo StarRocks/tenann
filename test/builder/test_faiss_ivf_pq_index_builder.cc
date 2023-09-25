@@ -30,7 +30,10 @@ namespace tenann {
 
 class FaissIvfPqIndexBuilderTest : public FaissTestBase {
  public:
-  FaissIvfPqIndexBuilderTest() : FaissTestBase() { nb_ = 10000; }
+  FaissIvfPqIndexBuilderTest() : FaissTestBase() {
+    InitFaissIvfPqMeta();
+    faiss_ivf_pq_index_builder_ = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta_);
+  }
 };
 
 TEST_F(FaissIvfPqIndexBuilderTest, Open) {
@@ -78,6 +81,22 @@ TEST_F(FaissIvfPqIndexBuilderTest, Add) {
       ->EnableCustomRowId()
       .Open()
       .Add({base_view()}, ids().data());
+  // inputs_live_longer_than_this(true)
+  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), nullptr, true)
+      .Flush(/*write_index_cache=*/true)
+      .Close();
+  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), nullptr, true)
+      .Add({base_view()}, ids().data(), nullptr, true)
+      .Add({base_view()}, ids().data(), nullptr, true)
+      .Flush(/*write_index_cache=*/true)
+      .Add({base_view()}, ids().data(), nullptr, true)
+      .Close();
   // use_custom_row_id_(false), null_map(not null)
   EXPECT_THROW(std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
                    ->Open()
@@ -104,6 +123,22 @@ TEST_F(FaissIvfPqIndexBuilderTest, Add) {
       ->EnableCustomRowId()
       .Open()
       .Add({base_vl_view()}, ids().data());
+  // inputs_live_longer_than_this(true)
+  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_vl_view()}, ids().data(), nullptr, true)
+      .Flush(/*write_index_cache=*/true)
+      .Close();
+  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_vl_view()}, ids().data(), nullptr, true)
+      .Add({base_vl_view()}, ids().data(), nullptr, true)
+      .Add({base_vl_view()}, ids().data(), nullptr, true)
+      .Flush(/*write_index_cache=*/true)
+      .Add({base_vl_view()}, ids().data(), nullptr, true)
+      .Close();
   // use_custom_row_id_(false), null_map(not null)
   EXPECT_THROW(std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
                    ->Open()

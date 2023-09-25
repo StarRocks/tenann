@@ -42,6 +42,9 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
     if (index_meta_.index_params().contains("M")) {
       oss << index_meta_.index_params()["M"].get<int>();
     }
+    if (index_meta_.index_params().contains("nbits")) {
+      oss << "x" << index_meta_.index_params()["nbits"].get<int>();
+    }
 
     auto index = std::unique_ptr<faiss::Index>(
         faiss::index_factory(dim_, oss.str().c_str(), faiss::METRIC_L2));

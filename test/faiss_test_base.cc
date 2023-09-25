@@ -25,9 +25,6 @@ void FaissTestBase::SetUp() {
   meta_.common_params()["dim"] = 128;
   meta_.common_params()["metric_type"] = MetricType::kL2Distance;
 
-  InitFaissHnswMeta();
-  InitFaissIvfPqMeta();
-
   ids_.resize(nb_);
   for (int i = 0; i < nb_; i++) {
     ids_[i] = i;
@@ -64,9 +61,6 @@ void FaissTestBase::SetUp() {
     query_view_.push_back(query_view);
   }
 
-  faiss_hnsw_index_builder_ = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta_);
-  faiss_ivf_pq_index_builder_ = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta_);
-
   result_ids_.resize(nq_ * k_);
   accurate_query_result_ids_.resize(nq_ * k_);
 
@@ -87,15 +81,19 @@ void FaissTestBase::InitFaissHnswMeta() {
 }
 
 void FaissTestBase::InitFaissIvfPqMeta() {
+  int dim = 8;
+  nb() = 1000;
+  d() = dim;
   faiss_ivf_pq_meta_.SetMetaVersion(0);
   faiss_ivf_pq_meta_.SetIndexFamily(IndexFamily::kVectorIndex);
   faiss_ivf_pq_meta_.SetIndexType(IndexType::kFaissIvfPq);
-  faiss_ivf_pq_meta_.common_params()["dim"] = 128;
+  faiss_ivf_pq_meta_.common_params()["dim"] = dim;
   faiss_ivf_pq_meta_.common_params()["is_vector_normed"] = false;
   faiss_ivf_pq_meta_.common_params()["metric_type"] = MetricType::kL2Distance;
   faiss_ivf_pq_meta_.index_params()["nlist"] = int(4 * sqrt(nb_));
   faiss_ivf_pq_meta_.index_params()["nprobe"] = int(4 * sqrt(nb_));
-  faiss_ivf_pq_meta_.index_params()["M"] = 64;
+  faiss_ivf_pq_meta_.index_params()["M"] = 4;
+  faiss_ivf_pq_meta_.index_params()["nbits"] = 6;
   faiss_ivf_pq_meta_.extra_params()["comments"] = "my comments";
 }
 
