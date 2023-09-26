@@ -31,7 +31,7 @@ namespace tenann {
 template <typename T>
 struct TypedSlice {
   const T* data;
-  size_t size;
+  idx_t size;
 };
 
 template <typename T>
@@ -54,13 +54,13 @@ struct TypedVlArraySeqView {
   class iterator {
    public:
     // iterator traits
-    using difference_type = size_t;
+    using difference_type = idx_t;
     using value_type = TypedSlice<T>;
     using pointer = TypedSlice<T>*;
     using reference = TypedSlice<T>&;
     using iterator_category = std::forward_iterator_tag;
 
-    iterator(const TypedVlArraySeqView* typed_view, size_t i) : typed_view_(typed_view), i_(i) {}
+    iterator(const TypedVlArraySeqView* typed_view, idx_t i) : typed_view_(typed_view), i_(i) {}
 
     iterator& operator++() {
       i_ += 1;
@@ -83,7 +83,7 @@ struct TypedVlArraySeqView {
 
    private:
     const TypedVlArraySeqView* typed_view_;
-    size_t i_;
+    idx_t i_;
   };
 
   iterator begin() const { return iterator(this, 0); }
@@ -113,13 +113,13 @@ struct TypedArraySeqView {
   class iterator {
    public:
     // iterator traits
-    using difference_type = size_t;
+    using difference_type = idx_t;
     using value_type = TypedSlice<T>;
     using pointer = TypedSlice<T>*;
     using reference = TypedSlice<T>&;
     using iterator_category = std::forward_iterator_tag;
 
-    iterator(const TypedArraySeqView* typed_view, size_t i) : typed_view_(typed_view), i_(i) {}
+    iterator(const TypedArraySeqView* typed_view, idx_t i) : typed_view_(typed_view), i_(i) {}
 
     iterator& operator++() {
       i_ += 1;
@@ -142,7 +142,7 @@ struct TypedArraySeqView {
 
    private:
     const TypedArraySeqView* typed_view_;
-    size_t i_;
+    idx_t i_;
   };
 
   iterator begin() const { return iterator(this, 0); }
@@ -151,6 +151,93 @@ struct TypedArraySeqView {
   const T* data;
   uint32_t dim;
   uint32_t size;
+};
+
+template <typename T>
+class TypedSliceIterator {
+ public:
+  T_FORBID_DEFAULT_CTOR(TypedSliceIterator);
+
+  TypedSliceIterator(const ArraySeqView& view)
+      : view_{.array_seq_view = view}, is_vl_array_(false) {
+    constexpr const PrimitiveType expected_type = RuntimePrimitiveType<T>::primitive_type;
+    T_CHECK_EQ(view.elem_type, expected_type);
+    T_DCHECK_NE(view.elem_type, PrimitiveType::kUnknownType);
+  }
+
+  TypedSliceIterator(const VlArraySeqView& view)
+      : view_{.vl_array_seq_view = view}, is_vl_array_(true) {
+    constexpr const PrimitiveType expected_type = RuntimePrimitiveType<T>::primitive_type;
+    T_CHECK_EQ(view.elem_type, expected_type);
+    T_DCHECK_NE(view.elem_type, PrimitiveType::kUnknownType);
+  }
+
+  /**
+   * @brief Iterate over an ArraySeqView or VlArraySeqView.
+   *
+   * An example:
+   * @code
+   *   ArraySeqView view = ...;
+   *   auto iter = TypedSliceIterator<float>(view_);
+   *   iter.ForEach([](const float* slice_data, idx_t slice_length) {
+   *       ...
+   *   })
+   * @endcode
+   *
+   *
+   * @tparam F
+   * @param lambda A function of type `void f(const T*, idx_t)`.
+   */
+  template <typename F>
+  void ForEach(F&& lambda) const {
+    if (is_vl_array_) {
+      const T* data = reinterpret_cast<const T*>(view_.vl_array_seq_view.data);
+      const uint32_t* offsets = view_.vl_array_seq_view.offsets;
+      idx_t size = view_.vl_array_seq_view.size;
+
+      for (idx_t i = 0; i < size; i++) {
+        const T* slice_data = data + offsets[i];
+        idx_t slice_length = offsets[i + 1] - offsets[i];
+        lambda(i, slice_data, slice_length);
+      }
+    } else {
+      const T* data = reinterpret_cast<const T*>(view_.array_seq_view.data);
+      idx_t dim = view_.array_seq_view.dim;
+      idx_t size = view_.array_seq_view.size;
+      const T* end = data + size;
+
+      idx_t i = 0;
+      while (data < end) {
+        lambda(i, data, dim);
+        data += dim;
+        i += 1;
+      }
+    }
+  }
+
+  const T* data() const {
+    if (is_vl_array_) {
+      return reinterpret_cast<const T*>(view_.vl_array_seq_view.data);
+    } else {
+      return reinterpret_cast<const T*>(view_.array_seq_view.data);
+    }
+  }
+
+  idx_t size() const {
+    if (is_vl_array_) {
+      return static_cast<idx_t>(view_.vl_array_seq_view.size);
+    } else {
+      return static_cast<idx_t>(view_.array_seq_view.size);
+    }
+  }
+
+ private:
+  union {
+    ArraySeqView array_seq_view;
+    VlArraySeqView vl_array_seq_view;
+  } view_;
+  bool is_vl_array_;
+  bool is_null_;
 };
 
 }  // namespace tenann
