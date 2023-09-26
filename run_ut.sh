@@ -29,7 +29,7 @@ else
   BUILD_TYPE=${DIR_SUFFIX} sh build.sh --with-tests --with-avx2
 fi
 
-make -C ${LATEST_BUILD_DIR} test
+env CTEST_OUTPUT_ON_FAILURE=1 make -C ${LATEST_BUILD_DIR} test
 
 # make coverage report: MAKE_COVERAGE=1 sh run_ut.sh
 if [ $? == 0 ] && [ "$MAKE_COVERAGE" == "1" ]; then
