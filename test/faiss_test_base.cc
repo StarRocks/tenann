@@ -94,6 +94,9 @@ void FaissTestBase::InitFaissIvfPqMeta() {
   faiss_ivf_pq_meta_.index_params()["nprobe"] = int(4 * sqrt(nb_));
   faiss_ivf_pq_meta_.index_params()["M"] = 4;
   faiss_ivf_pq_meta_.index_params()["nbits"] = 6;
+  faiss_ivf_pq_meta_.search_params()["max_codes"] = size_t(0);
+  faiss_ivf_pq_meta_.search_params()["scan_table_threshold"] = size_t(0);
+  faiss_ivf_pq_meta_.search_params()["polysemous_ht"] = int(0);
   faiss_ivf_pq_meta_.extra_params()["comments"] = "my comments";
 }
 
@@ -125,7 +128,7 @@ float FaissTestBase::EuclideanDistance(const float* v1, const float* v2) {
     sum += diff * diff;
   }
 
-  //return std::sqrt(sum); faiss not sqrt
+  // return std::sqrt(sum); faiss not sqrt
   return sum;
 }
 
@@ -150,17 +153,25 @@ void FaissTestBase::InitAccurateQueryResult() {
   }
 }
 
-void FaissTestBase::CreateAndWriteFaissHnswIndex() {
+void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id) {
   index_writer_ = IndexFactory::CreateWriterFromMeta(faiss_hnsw_meta_);
 
-  faiss_hnsw_index_builder_->SetIndexWriter(index_writer_)
-      .SetIndexCache(IndexCache::GetGlobalInstance())
-      .EnableCustomRowId()
-      .Open(index_with_primary_key_path_)
-      .Add({base_view_}, ids_.data(), null_flags_.data())
-      .Flush(/*write_index_cache=*/true)
-      .Close();
-
+  if (use_custom_row_id) {
+    faiss_hnsw_index_builder_->SetIndexWriter(index_writer_)
+        .SetIndexCache(IndexCache::GetGlobalInstance())
+        .EnableCustomRowId()
+        .Open(index_with_primary_key_path_)
+        .Add({base_view_}, ids_.data(), null_flags_.data())
+        .Flush(/*write_index_cache=*/true)
+        .Close();
+  } else {
+    faiss_hnsw_index_builder_->SetIndexWriter(index_writer_)
+        .SetIndexCache(IndexCache::GetGlobalInstance())
+        .Open(index_with_primary_key_path_)
+        .Add({base_view_}, nullptr, nullptr)
+        .Flush(/*write_index_cache=*/true)
+        .Close();
+  }
   meta_ = faiss_hnsw_meta_;
 }
 
@@ -202,7 +213,7 @@ bool FaissTestBase::CheckResult() {
     for (int j = 0; j < k_; j++) {
       printf("%d vs %d\n", result_ids_[i * k_ + j], accurate_query_result_ids_[i * k_ + j]);
       if (result_ids_[i * k_ + j] != accurate_query_result_ids_[i * k_ + j]) {
-        //return false;
+        // return false;
       }
     }
     printf("\n");

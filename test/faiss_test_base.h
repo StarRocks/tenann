@@ -80,7 +80,7 @@ class FaissTestBase : public ::testing::Test {
   std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0);
   float EuclideanDistance(const float* v1, const float* v2);
   void InitAccurateQueryResult();
-  void CreateAndWriteFaissHnswIndex();
+  void CreateAndWriteFaissHnswIndex(bool use_custom_row_id = false);
   void CreateAndWriteFaissIvfPqIndex();
   void ReadIndexAndDefaultSearch();
 

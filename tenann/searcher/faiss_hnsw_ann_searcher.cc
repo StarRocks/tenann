@@ -19,8 +19,7 @@
 
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 
-#include "faiss/IndexHNSW.h"
-#include "faiss_hnsw_ann_searcher.h"
+#include "faiss/IndexIDMap.h"
 #include "tenann/common/logging.h"
 
 namespace tenann {
@@ -33,15 +32,8 @@ FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(
 }
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) {
-  T_CHECK_NOTNULL(index_ref_);
-
-  T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
-  T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
-
-  auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
   std::vector<float> distances(k);
-  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k, distances.data(),
-                      result_id);
+  AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()));
 }
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
@@ -53,14 +45,30 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
 
   auto distances = reinterpret_cast<float*>(result_distances);
   auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
-  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k, distances,
-                      result_ids);
+  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k,
+                      reinterpret_cast<float*>(result_distances), result_ids,
+                      search_parameters_.get());
 
   if (metric_type_ == MetricType::kCosineSimilarity) {
     for (int i = 0; i < k; i++) {
       distances[i] = 1 - distances[i] / 2;
     }
   }
-}
+};
 
+void FaissHnswAnnSearcher::SearchParamItemChangeHook(const std::string& key, const json& value) {
+  // TODO:
+  // 如果外层使用了 IndexIDMapTemplate，则不支持传入查询参数 faiss/IndexIDMap.cpp:82
+  // 1、考虑将use_custom_row_id_参数整合进 index_meta 用于指导 IndexHNSW* 的转换方式
+  // 2、考虑将 kFaissHnsw 扩展成 kFaissHnsw 和 kFaissIdMapHnsw、用于指导 IndexHNSW* 的转换方式
+  // 3、考虑直接修改 HNSW* 的查询参数默认值，绕过 IDMap<Index>对查询参数的检查
+  // 4、考虑引入IndexIDMap相关PR：https://github.com/facebookresearch/faiss/issues/2843，对三方库打补丁
+  return;
+};
+
+void FaissHnswAnnSearcher::SearchParamsChangeHook(const json& value) {
+  for (auto it = value.begin(); it != value.end(); ++it) {
+    SearchParamItemChangeHook(it.key(), it.value());
+  }
+}
 }  // namespace tenann

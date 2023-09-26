@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "faiss/IndexHNSW.h"
 #include "tenann/searcher/ann_searcher.h"
 
 namespace tenann {
@@ -38,13 +39,16 @@ class FaissHnswAnnSearcher : public AnnSearcher {
                  uint8_t* result_distances) override;
 
  protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override{};
+  void SearchParamItemChangeHook(const std::string& key, const json& value) override;
 
-  void SearchParamsChangeHook(const json& value) override{};
+  void SearchParamsChangeHook(const json& value) override;
 
  protected:
   bool is_vector_normed_ = false;
   MetricType metric_type_ = MetricType::kL2Distance;
+
+ private:
+  std::unique_ptr<faiss::SearchParametersHNSW> search_parameters_ = nullptr;
 };
 
 }  // namespace tenann

@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "faiss/IndexIVFPQ.h"
 #include "tenann/searcher/ann_searcher.h"
 
 namespace tenann {
@@ -34,12 +35,14 @@ class FaissIvfPqAnnSearcher : public AnnSearcher {
   void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) override;
 
   void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                 uint8_t* result_distances) override{};
+                 uint8_t* result_distances) override;
 
  protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override{};
+  void SearchParamItemChangeHook(const std::string& key, const json& value) override;
+  void SearchParamsChangeHook(const json& value) override;
 
-  void SearchParamsChangeHook(const json& value) override{};
+ private:
+  std::unique_ptr<faiss::IVFPQSearchParameters> search_parameters_;
 };
 
 }  // namespace tenann

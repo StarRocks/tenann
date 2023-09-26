@@ -19,21 +19,55 @@
 
 #include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
 
-#include "faiss/IndexIVFPQ.h"
 #include "tenann/common/logging.h"
 
 namespace tenann {
 
 void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) {
+  std::vector<float> distances(k);
+  AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()));
+}
+
+void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
+                                      uint8_t* result_distances) {
   T_CHECK_NOTNULL(index_ref_);
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissIvfPq);
   T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
 
   auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
-  std::vector<float> distances(k);
-  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k, distances.data(),
-                      result_id);
+
+  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k,
+                      reinterpret_cast<float*>(result_distances), result_ids,
+                      search_parameters_.get());
+}
+
+void FaissIvfPqAnnSearcher::SearchParamItemChangeHook(const std::string& key, const json& value) {
+  if (!search_parameters_) {
+    search_parameters_ = std::make_unique<faiss::IVFPQSearchParameters>();
+  }
+
+  if (key == FAISS_SEARCHER_PARAMS_IVF_NPROBE) {
+    value.is_number_unsigned() && (search_parameters_->nprobe = value.get<size_t>());
+  } else if (key == FAISS_SEARCHER_PARAMS_IVF_MAX_CODES) {
+    value.is_number_unsigned() && (search_parameters_->max_codes = value.get<size_t>());
+  } else if (key == FAISS_SEARCHER_PARAMS_IVF_PQ_SCAN_TABLE_THRESHOLD) {
+    value.is_number_unsigned() && (search_parameters_->scan_table_threshold = value.get<size_t>());
+  } else if (key == FAISS_SEARCHER_PARAMS_IVF_PQ_POLYSEMOUS_HT) {
+    value.is_number_integer() && (search_parameters_->polysemous_ht = value.get<int>());
+  } else {
+    T_LOG(ERROR) << "Unsupport search parameter: " << key;
+  }
+};
+
+void FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher::SearchParamsChangeHook(const json& value) {
+  if (search_parameters_) {
+    search_parameters_.reset();
+  }
+
+  for (auto it = value.begin(); it != value.end(); ++it) {
+    SearchParamItemChangeHook(it.key(), it.value());
+  }
 }
 
 }  // namespace tenann

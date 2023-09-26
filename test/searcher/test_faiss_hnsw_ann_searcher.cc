@@ -44,12 +44,10 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
 
     // index path not exist
-    EXPECT_THROW(
-      ann_searcher->SetIndexReader(index_reader)
-          .SetIndexCache(IndexCache::GetGlobalInstance())
-          .ReadIndex("not_exist_path", /*read_index_cache=*/false),
-      Error
-    );
+    EXPECT_THROW(ann_searcher->SetIndexReader(index_reader)
+                     .SetIndexCache(IndexCache::GetGlobalInstance())
+                     .ReadIndex("not_exist_path", /*read_index_cache=*/false),
+                 Error);
 
     // because ReadIndex fail, index_ref_ is null
     EXPECT_THROW(ann_searcher->AnnSearch(query_view()[0], k(), result_ids().data()), Error);
@@ -58,22 +56,21 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
   {
     // index_type() != IndexType::kFaissHnsw
     EXPECT_THROW(
-      IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
-      auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
-      ann_searcher->SetIndexReader(index_reader)
-          .SetIndexCache(IndexCache::GetGlobalInstance())
-          .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
-      ann_searcher->index_ref()->SetIndexType(IndexType::kFaissIvfPq);
-      ann_searcher->AnnSearch(query_view()[0], k(), result_ids().data()), Error
-    );
+        IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
+        auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
+        ann_searcher->SetIndexReader(index_reader)
+            .SetIndexCache(IndexCache::GetGlobalInstance())
+            .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
+        ann_searcher->index_ref()->SetIndexType(IndexType::kFaissIvfPq);
+        ann_searcher->AnnSearch(query_view()[0], k(), result_ids().data()), Error);
   }
 
   {
     // query_vector.elem_type != PrimitiveType::kFloatType
     auto double_type_query_view =
-      PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_data().data()),
-                       .size = d(),
-                       .elem_type = PrimitiveType::kDoubleType};
+        PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_data().data()),
+                         .size = d(),
+                         .elem_type = PrimitiveType::kDoubleType};
 
     IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
@@ -86,8 +83,40 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
 
 TEST_F(FaissHnswAnnSearcherTest, AnnSearch_CheckIsWork) {
   CreateAndWriteFaissHnswIndex();
-  ReadIndexAndDefaultSearch();
-  EXPECT_TRUE(CheckResult());
+
+  {
+    // default search
+    ReadIndexAndDefaultSearch();
+    EXPECT_TRUE(CheckResult());
+  }
+
+  {
+    // TODO: hnsw 暂未支持传入 searchParams, 预备 ut
+    // efSearch = 1, recall rate < 0.8
+    faiss_hnsw_meta().search_params()["efSearch"] = int(1);
+    ann_searcher_->SetSearchParams(faiss_hnsw_meta().search_params());
+
+    // search index
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
+    }
+    EXPECT_TRUE(CheckResult());
+  }
+
+  {
+    // TODO: hnsw 暂未支持传入 searchParams, 预备 ut
+    // efSearch = 40, recall rate > 0.8
+    ann_searcher_->SetSearchParamItem(FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH, int(40));
+    ann_searcher_->SetSearchParamItem(FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE, true);
+
+    // search index
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
+    }
+    EXPECT_TRUE(CheckResult());
+  }
 }
 
 }  // namespace tenann

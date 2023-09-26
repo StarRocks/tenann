@@ -22,6 +22,7 @@
 #include <memory>
 
 #include "tenann/common/seq_view.h"
+#include "tenann/searcher/search_parameters.h"
 #include "tenann/searcher/searcher.h"
 
 namespace tenann {
