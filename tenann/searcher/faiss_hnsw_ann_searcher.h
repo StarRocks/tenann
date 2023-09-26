@@ -25,8 +25,9 @@ namespace tenann {
 
 class FaissHnswAnnSearcher : public AnnSearcher {
  public:
-  using AnnSearcher::AnnSearcher;
+  explicit FaissHnswAnnSearcher(const IndexMeta& meta);
   virtual ~FaissHnswAnnSearcher() = default;
+
   T_FORBID_MOVE(FaissHnswAnnSearcher);
   T_FORBID_COPY_AND_ASSIGN(FaissHnswAnnSearcher);
 
@@ -40,6 +41,10 @@ class FaissHnswAnnSearcher : public AnnSearcher {
   void SearchParamItemChangeHook(const std::string& key, const json& value) override{};
 
   void SearchParamsChangeHook(const json& value) override{};
+
+ protected:
+  bool is_vector_normed_ = false;
+  MetricType metric_type_ = MetricType::kL2Distance;
 };
 
 }  // namespace tenann

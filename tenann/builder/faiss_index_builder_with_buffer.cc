@@ -35,10 +35,13 @@
 
 namespace tenann {
 
-FaissIndexBuilderWithBuffer::FaissIndexBuilderWithBuffer(const IndexMeta& meta) : FaissIndexBuilder(meta) {
-}
+FaissIndexBuilderWithBuffer::FaissIndexBuilderWithBuffer(const IndexMeta& meta)
+    : FaissIndexBuilder(meta) {}
 
-IndexBuilder& FaissIndexBuilderWithBuffer::Flush(bool write_index_cache, const char* custom_cache_key) {
+FaissIndexBuilderWithBuffer::~FaissIndexBuilderWithBuffer(){};
+
+IndexBuilder& FaissIndexBuilderWithBuffer::Flush(bool write_index_cache,
+                                                 const char* custom_cache_key) {
   try {
     T_SCOPED_TIMER(flush_total_timer_);
 
@@ -93,9 +96,11 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush(bool write_index_cache, const c
   return *this;
 }
 
-void FaissIndexBuilderWithBuffer::Merge(const TypedArraySeqView<float>& input_column, const int64_t* row_ids) {
+void FaissIndexBuilderWithBuffer::Merge(const TypedArraySeqView<float>& input_column,
+                                        const int64_t* row_ids) {
   if (inputs_live_longer_than_this_ == false) {
-    data_buffer_.insert(data_buffer_.end(), input_column.data, input_column.data + input_column.size * input_column.dim);
+    data_buffer_.insert(data_buffer_.end(), input_column.data,
+                        input_column.data + input_column.size * input_column.dim);
     if (row_ids != nullptr) {
       id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
     }
@@ -109,13 +114,15 @@ void FaissIndexBuilderWithBuffer::Merge(const TypedArraySeqView<float>& input_co
       if (data_buffer_.size() == 0) {
         T_CHECK(array_seq_.dim == input_column.dim);
         data_buffer_.assign(array_seq_.data, array_seq_.data + array_seq_.size * array_seq_.dim);
-        data_buffer_.insert(data_buffer_.end(), input_column.data, input_column.data + input_column.size * input_column.dim);
+        data_buffer_.insert(data_buffer_.end(), input_column.data,
+                            input_column.data + input_column.size * input_column.dim);
         if (row_ids != nullptr) {
           id_buffer_.assign(row_id_, row_id_ + array_seq_.size);
           id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
         }
       } else {
-        data_buffer_.insert(data_buffer_.end(), input_column.data, input_column.data + input_column.size * input_column.dim);
+        data_buffer_.insert(data_buffer_.end(), input_column.data,
+                            input_column.data + input_column.size * input_column.dim);
         if (row_ids != nullptr) {
           id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
         }
@@ -124,9 +131,11 @@ void FaissIndexBuilderWithBuffer::Merge(const TypedArraySeqView<float>& input_co
   }
 }
 
-void FaissIndexBuilderWithBuffer::Merge(const TypedVlArraySeqView<float>& input_column, const int64_t* row_ids) {
+void FaissIndexBuilderWithBuffer::Merge(const TypedVlArraySeqView<float>& input_column,
+                                        const int64_t* row_ids) {
   if (inputs_live_longer_than_this_ == false) {
-    data_buffer_.insert(data_buffer_.end(), input_column.data, input_column.data + input_column.size * dim_);
+    data_buffer_.insert(data_buffer_.end(), input_column.data,
+                        input_column.data + input_column.size * dim_);
     if (row_ids != nullptr) {
       id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
     }
@@ -139,13 +148,15 @@ void FaissIndexBuilderWithBuffer::Merge(const TypedVlArraySeqView<float>& input_
     } else {
       if (data_buffer_.size() == 0) {
         data_buffer_.assign(vl_array_seq_.data, vl_array_seq_.data + vl_array_seq_.size * dim_);
-        data_buffer_.insert(data_buffer_.end(), input_column.data, input_column.data + input_column.size * dim_);
+        data_buffer_.insert(data_buffer_.end(), input_column.data,
+                            input_column.data + input_column.size * dim_);
         if (row_ids != nullptr) {
           id_buffer_.assign(row_id_, row_id_ + vl_array_seq_.size);
           id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
         }
       } else {
-        data_buffer_.insert(data_buffer_.end(), input_column.data, input_column.data + input_column.size * dim_);
+        data_buffer_.insert(data_buffer_.end(), input_column.data,
+                            input_column.data + input_column.size * dim_);
         if (row_ids != nullptr) {
           id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
         }
@@ -175,7 +186,7 @@ void FaissIndexBuilderWithBuffer::AddRaw(const TypedVlArraySeqView<float>& input
 }
 
 void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedArraySeqView<float>& input_column,
-                                      const int64_t* row_ids) {
+                                                const int64_t* row_ids) {
   auto faiss_index = GetFaissIndex();
   if (faiss_index->is_trained) {
     faiss_index->add_with_ids(input_column.size, input_column.data, row_ids);

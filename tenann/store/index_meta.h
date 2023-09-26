@@ -21,6 +21,7 @@
 
 #include <cstdint>
 
+#include "fmt/format.h"
 #include "tenann/common/json.h"
 #include "tenann/store/index_type.h"
 
@@ -83,6 +84,13 @@ class IndexMeta {
                                 name);                                                           \
   } else {                                                                                       \
     result = (meta).section##_params()[name].get<type>();                                        \
+  }
+
+#define GET_META_OR_DEFAULT(meta, section, name, type, result, default_value) \
+  if (!(meta).section##_params().contains(name)) {                            \
+    result = default_value;                                                   \
+  } else {                                                                    \
+    result = (meta).section##_params()[name].get<type>();                     \
   }
 
 }  // namespace tenann

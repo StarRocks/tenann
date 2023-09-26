@@ -19,19 +19,22 @@
 
 #pragma once
 
+#include <memory>
+
 #include "tenann/builder/index_builder.h"
 #include "tenann/common/typed_seq_view.h"
 
 namespace faiss {
 class Index;
-}
+class NormalizationTransform;
+}  // namespace faiss
 
 namespace tenann {
 
 class FaissIndexBuilder : public IndexBuilder {
  public:
   explicit FaissIndexBuilder(const IndexMeta& meta);
-  virtual ~FaissIndexBuilder() = default;
+  virtual ~FaissIndexBuilder();
 
   T_FORBID_COPY_AND_ASSIGN(FaissIndexBuilder);
   T_FORBID_MOVE(FaissIndexBuilder);
@@ -64,12 +67,20 @@ class FaissIndexBuilder : public IndexBuilder {
   virtual void AddRaw(const TypedVlArraySeqView<float>& input_column);
 
   virtual void AddWithRowIds(const TypedArraySeqView<float>& input_column, const int64_t* row_ids);
-  virtual void AddWithRowIds(const TypedVlArraySeqView<float>& input_column, const int64_t* row_ids);
+  virtual void AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
+                             const int64_t* row_ids);
 
   virtual void AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
-                                 const int64_t* row_ids, const uint8_t* null_flags);
+                                         const int64_t* row_ids, const uint8_t* null_flags);
   virtual void AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,
-                                 const int64_t* row_ids, const uint8_t* null_flags);
+                                         const int64_t* row_ids, const uint8_t* null_flags);
+
+  void FaissIndexAddBatch(faiss::Index* index, size_t num_rows, const float* data,
+                          const int64_t* rowids = nullptr);
+  void FaissIndexAddSingle(faiss ::Index* index, const float* data, const int64_t* rowid = nullptr);
+
+  std::vector<float> TransformBatch(size_t num_rows, const float* data);
+  std::vector<float> TransformSingle(const float* data);
 
   static void CheckDimension(const TypedVlArraySeqView<float>& input_column, int dim);
 
@@ -77,9 +88,11 @@ class FaissIndexBuilder : public IndexBuilder {
 
   void SetOpenState();
   void SetCloseState();
+
  protected:
   int dim_ = -1;
-  MetricType metric_type_;
+  MetricType metric_type_ = MetricType::kL2Distance;
+  bool is_vector_normed_ = false;
 
   bool memory_only_ = false;
   bool is_opened_ = false;
@@ -92,6 +105,8 @@ class FaissIndexBuilder : public IndexBuilder {
   RuntimeProfile::Counter* add_total_timer_ = nullptr;
   RuntimeProfile::Counter* flush_total_timer_ = nullptr;
   RuntimeProfile::Counter* close_total_timer_ = nullptr;
+
+  std::unique_ptr<faiss::NormalizationTransform> transform_;
 };
 
 }  // namespace tenann

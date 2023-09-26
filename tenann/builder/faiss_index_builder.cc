@@ -23,6 +23,7 @@
 
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/VectorTransform.h"
 #include "faiss/index_factory.h"
 #include "faiss_hnsw_index_builder.h"
 #include "fmt/format.h"
@@ -35,14 +36,38 @@
 
 namespace tenann {
 
-FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta) : IndexBuilder(meta) {
+FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta)
+    : IndexBuilder(meta), transform_(nullptr) {
   CHECK_AND_GET_META(index_meta_, common, "dim", int, dim_);
+
+  bool is_vector_normed = false;
+  GET_META_OR_DEFAULT(index_meta_, common, "is_vector_normed", bool, is_vector_normed, false);
 
   int metric_type_value;
   CHECK_AND_GET_META(index_meta_, common, "metric_type", int, metric_type_value);
   metric_type_ = static_cast<MetricType>(metric_type_value);
-  T_CHECK(metric_type_ == MetricType::kL2Distance) << "only l2_distance is supported now";
+
+  auto index_type = meta.index_type();
+
+  if (index_type == IndexType::kFaissHnsw) {
+    T_CHECK(metric_type_ == MetricType::kL2Distance ||
+            metric_type_ == MetricType::kCosineSimilarity)
+        << "only l2_distance and cosine_similarity are permitted as distance measures for faiss "
+           "hnsw";
+
+    if (metric_type_ == MetricType::kCosineSimilarity) {
+      GET_META_OR_DEFAULT(index_meta_, common, "is_vector_normed", bool, is_vector_normed_, false);
+      if (!is_vector_normed_) {
+        transform_ = std::make_unique<faiss::NormalizationTransform>(dim_);
+      }
+    }
+  } else {
+    T_CHECK(metric_type_ == MetricType::kL2Distance)
+        << "only l2_distance is supported for this type of index";
+  }
 }
+
+FaissIndexBuilder::~FaissIndexBuilder(){};
 
 IndexBuilder& FaissIndexBuilder::Open() {
   T_SCOPED_TIMER(open_total_timer_);
@@ -71,7 +96,7 @@ IndexBuilder& FaissIndexBuilder::Open(const std::string& path) {
 }
 
 IndexBuilder& FaissIndexBuilder::Add(const std::vector<SeqView>& input_columns,
-                                     const int64_t* row_ids, const uint8_t* null_map,
+                                     const int64_t* row_ids, const uint8_t* null_flags,
                                      bool inputs_live_longer_than_this) {
   try {
     T_SCOPED_TIMER(add_total_timer_);
@@ -83,6 +108,8 @@ IndexBuilder& FaissIndexBuilder::Add(const std::vector<SeqView>& input_columns,
         << "custom rowid is enabled, please add data with rowids";
     T_LOG_IF(ERROR, !this->use_custom_row_id_ && (row_ids != nullptr))
         << "custom rowid is disabled, adding data with rowids is not supported";
+    T_LOG_IF(ERROR, !this->use_custom_row_id_ && (null_flags != nullptr))
+        << "custom rowid is disabled, adding data with null flags is not supported";
 
     // check input parameters
     T_CHECK(input_columns.size() == 1);
@@ -95,7 +122,7 @@ IndexBuilder& FaissIndexBuilder::Add(const std::vector<SeqView>& input_columns,
     inputs_live_longer_than_this_ = inputs_live_longer_than_this;
 
     // add data to index
-    AddImpl(input_columns, row_ids, null_map);
+    AddImpl(input_columns, row_ids, null_flags);
   }
   CATCH_FAISS_ERROR;
 
@@ -194,14 +221,14 @@ void FaissIndexBuilder::AddRaw(const TypedVlArraySeqView<float>& input_column) {
 void FaissIndexBuilder::AddWithRowIds(const TypedArraySeqView<float>& input_column,
                                       const int64_t* row_ids) {
   auto faiss_index = GetFaissIndex();
-  faiss_index->add_with_ids(input_column.size, input_column.data, row_ids);
+  FaissIndexAddBatch(faiss_index, input_column.size, input_column.data, row_ids);
 }
 
 void FaissIndexBuilder::AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
                                       const int64_t* row_ids) {
   CheckDimension(input_column, dim_);
   auto faiss_index = GetFaissIndex();
-  faiss_index->add_with_ids(input_column.size, input_column.data, row_ids);
+  FaissIndexAddBatch(faiss_index, input_column.size, input_column.data, row_ids);
 }
 
 void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
@@ -211,7 +238,7 @@ void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>
   size_t i = 0;
   for (auto slice : input_column) {
     if (null_flags[i] == 0) {
-      faiss_index->add_with_ids(1, slice.data, row_ids + i);
+      FaissIndexAddSingle(faiss_index, slice.data, row_ids + i);
     }
     i += 1;
   }
@@ -226,10 +253,52 @@ void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<floa
     if (null_flags[i] == 0) {
       T_LOG_IF(ERROR, slice.size != dim_)
           << "invalid size for vector " << i << " : expected " << dim_ << " but got " << slice.size;
-      faiss_index->add_with_ids(1, slice.data, row_ids + i);
+      FaissIndexAddSingle(faiss_index, slice.data, row_ids + i);
     }
     i += 1;
   }
+}
+
+void FaissIndexBuilder::FaissIndexAddBatch(faiss::Index* index, size_t num_rows, const float* data,
+                                           const int64_t* rowids) {
+  const float* transformed_data = data;
+  if (transform_ != nullptr) {
+    auto tranformed_buffer = TransformBatch(num_rows, data);
+    transformed_data = tranformed_buffer.data();
+  }
+
+  if (rowids != nullptr) {
+    index->add_with_ids(num_rows, transformed_data, rowids);
+  } else {
+    index->add(num_rows, transformed_data);
+  }
+}
+
+void FaissIndexBuilder::FaissIndexAddSingle(faiss::Index* index, const float* data,
+                                            const int64_t* rowid) {
+  const float* transformed_data = data;
+  if (transform_ != nullptr) {
+    auto tranformed_buffer = TransformSingle(data);
+    transformed_data = tranformed_buffer.data();
+  }
+
+  if (rowid != nullptr) {
+    index->add_with_ids(1, transformed_data, rowid);
+  } else {
+    index->add(1, transformed_data);
+  }
+}
+
+std::vector<float> FaissIndexBuilder::TransformBatch(size_t num_rows, const float* data) {
+  std::vector<float> transform_buffer(num_rows * dim_);
+  transform_->apply_noalloc(num_rows, data, transform_buffer.data());
+  return transform_buffer;
+}
+
+std::vector<float> FaissIndexBuilder::TransformSingle(const float* data) {
+  std::vector<float> transform_buffer(dim_);
+  transform_->apply_noalloc(1, data, transform_buffer.data());
+  return transform_buffer;
 }
 
 void FaissIndexBuilder::CheckDimension(const TypedVlArraySeqView<float>& input_column, int dim) {

@@ -53,7 +53,7 @@ TEST_F(FaissIndexBuilderTest, ConstructorArgsError) {
                auto faiss_index_builder = std::make_unique<TmpFassIndexBuilder>(new_meta), Error);
 
   // metric_type is invalid
-  EXPECT_THROW(auto new_meta = meta(); new_meta.common_params()["metric_type"] = MetricType::kCosineSimilarity;
+  EXPECT_THROW(auto new_meta = meta(); new_meta.common_params()["metric_type"] = MetricType::kCosineDistance;
                auto faiss_index_builder = std::make_unique<TmpFassIndexBuilder>(new_meta), Error);
 }
 

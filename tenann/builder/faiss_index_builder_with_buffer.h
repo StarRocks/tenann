@@ -25,7 +25,7 @@ namespace tenann {
 class FaissIndexBuilderWithBuffer : public FaissIndexBuilder {
  public:
   explicit FaissIndexBuilderWithBuffer(const IndexMeta& meta);
-  virtual ~FaissIndexBuilderWithBuffer() = default;
+  virtual ~FaissIndexBuilderWithBuffer();
 
   T_FORBID_COPY_AND_ASSIGN(FaissIndexBuilderWithBuffer);
   T_FORBID_MOVE(FaissIndexBuilderWithBuffer);

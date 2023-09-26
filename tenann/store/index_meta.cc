@@ -35,9 +35,26 @@ void IndexMeta::SetMetaVersion(int version) { meta_json_["meta_version"] = versi
 void IndexMeta::SetIndexFamily(tenann::IndexFamily family) { meta_json_["family"] = family; }
 void IndexMeta::SetIndexType(tenann::IndexType type) { meta_json_["type"] = type; }
 
-int IndexMeta::meta_version() const { return meta_json_["meta_version"].template get<int>(); }
-int IndexMeta::index_family() const { return meta_json_["family"].template get<int>(); }
-int IndexMeta::index_type() const { return meta_json_["type"].template get<int>(); }
+int IndexMeta::meta_version() const {
+  if (!meta_json_.contains("meta_version")) {
+    T_LOG(ERROR) << "meta_version (`meta_versoin`) not set in index meta";
+  }
+  return meta_json_["meta_version"].template get<int>();
+}
+
+int IndexMeta::index_family() const {
+  if (!meta_json_.contains("family")) {
+    T_LOG(ERROR) << "index faimily not set in index meta";
+  }
+  return meta_json_["family"].template get<int>();
+}
+
+int IndexMeta::index_type() const {
+  if (!meta_json_.contains("type")) {
+    T_LOG(ERROR) << "index type not set in index meta";
+  }
+  return meta_json_["type"].template get<int>();
+}
 
 json& IndexMeta::common_params() { return meta_json_["common"]; }
 json& IndexMeta::index_params() { return meta_json_["index"]; }

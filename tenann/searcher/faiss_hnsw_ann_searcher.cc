@@ -20,9 +20,17 @@
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 
 #include "faiss/IndexHNSW.h"
+#include "faiss_hnsw_ann_searcher.h"
 #include "tenann/common/logging.h"
 
 namespace tenann {
+FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {
+  GET_META_OR_DEFAULT(index_meta_, common, "is_vector_normed", bool, is_vector_normed_, false);
+
+  int metric_type_value;
+  CHECK_AND_GET_META(index_meta_, common, "metric_type", int, metric_type_value);
+  metric_type_ = static_cast<MetricType>(metric_type_value);
+}
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) {
   T_CHECK_NOTNULL(index_ref_);
@@ -43,10 +51,16 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
   T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
 
+  auto distances = reinterpret_cast<float*>(result_distances);
   auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
-  std::vector<float> distances(k);
-  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k,
-                      reinterpret_cast<float*>(result_distances), result_ids);
-};
+  faiss_index->search(1, reinterpret_cast<const float*>(query_vector.data), k, distances,
+                      result_ids);
+
+  if (metric_type_ == MetricType::kCosineSimilarity) {
+    for (int i = 0; i < k; i++) {
+      distances[i] = 1 - distances[i] / 2;
+    }
+  }
+}
 
 }  // namespace tenann
