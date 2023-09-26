@@ -37,7 +37,7 @@ class FaissHnswAnnSearcherTest : public FaissTestBase {
 };
 
 TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
-  // CreateAndWriteFaissHnswIndex();
+  CreateAndWriteFaissHnswIndex();
 
   {
     IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
