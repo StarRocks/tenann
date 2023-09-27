@@ -21,37 +21,43 @@
 
 #include <stddef.h>
 
-#define DEFINE_PARAM(type, key, default_value)                 \
-  using key##_type = type;                                     \
-  static constexpr const char* key##_key = #key;               \
-  static constexpr const type key##_default = (default_value); \
+#define DEFINE_PARAM(type, key, default_value)                                  \
+  using key##_type = type;                                                      \
+  static constexpr const char* key##_key = #key;                                \
+  static constexpr const type key##_default = static_cast<type>(default_value); \
   type key = (default_value);
 
-#define DEFINE_SEARCH_PARAM(type, key, default_value)     \
-  using search_##key##_type = type;                       \
-  static constexpr const char* search_##key##_key = #key; \
-  static constexpr const type search_##key##_default = (default_value);
+/// These two macros serve as document purposes to help users and developers understand a parameter
+/// is required or not. They share the exactly same implementation,
+#define DEFINE_OPTIONAL_PARAM(type, key, default_value) DEFINE_PARAM(type, key, default_value)
+#define DEFINE_REQUIRED_PRARM(type, key, default_value) DEFINE_PARAM(type, key, default_value)
 
 namespace tenann {
 
-struct IndexParamsFaissIvfPq {
-  DEFINE_PARAM(size_t, nlists, 16);
-  DEFINE_PARAM(size_t, M, 2);
-  DEFINE_PARAM(size_t, nbits, 8);
+struct VectorIndexCommonParams {
+  DEFINE_REQUIRED_PRARM(int, dim, 0);
+  DEFINE_REQUIRED_PRARM(int, metric_type, 0);
+  DEFINE_OPTIONAL_PARAM(bool, is_vector_normed, false);
 };
 
-struct SearchParamsFaissInvfPq {
-  DEFINE_PARAM(size_t, nprobe, 1);
+struct FaissIvfPqIndexParams {
+  DEFINE_OPTIONAL_PARAM(size_t, nlists, 16);
+  DEFINE_OPTIONAL_PARAM(size_t, M, 2);
+  DEFINE_OPTIONAL_PARAM(size_t, nbits, 8);
 };
 
-struct IndexParamsFaissHnsw {
-  DEFINE_PARAM(int, M, 16);
-  DEFINE_PARAM(int, efConstruction, 40);
+struct FaissIvfPqSearchParams {
+  DEFINE_OPTIONAL_PARAM(size_t, nprobe, 1);
 };
 
-struct SearchParamsFaissHnsw {
-  DEFINE_PARAM(int, efSearch, 1);
-  DEFINE_PARAM(bool, check_relative_distance, true);
+struct FaissHnswIndexParams {
+  DEFINE_OPTIONAL_PARAM(int, M, 16);
+  DEFINE_OPTIONAL_PARAM(int, efConstruction, 40);
+};
+
+struct FaissHnswSearchParams {
+  DEFINE_OPTIONAL_PARAM(int, efSearch, 1);
+  DEFINE_OPTIONAL_PARAM(bool, check_relative_distance, true);
 };
 
 }  // namespace tenann

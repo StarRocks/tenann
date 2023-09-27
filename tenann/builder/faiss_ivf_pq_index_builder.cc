@@ -47,7 +47,7 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
     }
 
     auto index = std::unique_ptr<faiss::Index>(
-        faiss::index_factory(dim_, oss.str().c_str(), faiss::METRIC_L2));
+        faiss::index_factory(common_params_.dim, oss.str().c_str(), faiss::METRIC_L2));
     faiss::IndexIVFPQ* index_ivf_pq = nullptr;
     index_ivf_pq = static_cast<faiss::IndexIVFPQ*>(index.get());
 

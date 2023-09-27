@@ -38,31 +38,25 @@ namespace tenann {
 
 FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta)
     : IndexBuilder(meta), transform_(nullptr) {
-  CHECK_AND_GET_META(index_meta_, common, "dim", int, dim_);
-
-  bool is_vector_normed = false;
-  GET_META_OR_DEFAULT(index_meta_, common, "is_vector_normed", bool, is_vector_normed, false);
-
-  int metric_type_value;
-  CHECK_AND_GET_META(index_meta_, common, "metric_type", int, metric_type_value);
-  metric_type_ = static_cast<MetricType>(metric_type_value);
+  GET_REQUIRED_COMMON_PARAM_TO(index_meta_, common_params_, dim);
+  GET_REQUIRED_COMMON_PARAM_TO(index_meta_, common_params_, metric_type);
+  GET_OPTIONAL_COMMON_PARAM_TO(index_meta_, common_params_, is_vector_normed);
 
   auto index_type = meta.index_type();
 
   if (index_type == IndexType::kFaissHnsw) {
-    T_CHECK(metric_type_ == MetricType::kL2Distance ||
-            metric_type_ == MetricType::kCosineSimilarity)
+    T_CHECK(common_params_.metric_type == MetricType::kL2Distance ||
+            common_params_.metric_type == MetricType::kCosineSimilarity)
         << "only l2_distance and cosine_similarity are permitted as distance measures for faiss "
            "hnsw";
 
-    if (metric_type_ == MetricType::kCosineSimilarity) {
-      GET_META_OR_DEFAULT(index_meta_, common, "is_vector_normed", bool, is_vector_normed_, false);
-      if (!is_vector_normed_) {
-        transform_ = std::make_unique<faiss::NormalizationTransform>(dim_);
+    if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+      if (!common_params_.is_vector_normed) {
+        transform_ = std::make_unique<faiss::NormalizationTransform>(common_params_.dim);
       }
     }
   } else {
-    T_CHECK(metric_type_ == MetricType::kL2Distance)
+    T_CHECK(common_params_.metric_type == MetricType::kL2Distance)
         << "only l2_distance is supported for this type of index";
   }
 }
@@ -211,7 +205,7 @@ void FaissIndexBuilder::AddRaw(const TypedArraySeqView<float>& input_column) {
 }
 
 void FaissIndexBuilder::AddRaw(const TypedVlArraySeqView<float>& input_column) {
-  CheckDimension(input_column, dim_);
+  CheckDimension(input_column, common_params_.dim);
   auto faiss_index = GetFaissIndex();
   faiss_index->add(input_column.size, input_column.data);
 }
@@ -223,8 +217,13 @@ void FaissIndexBuilder::AddWithRowIds(const TypedArraySeqView<float>& input_colu
 }
 
 void FaissIndexBuilder::AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
+<<<<<<< HEAD
                                       const idx_t* row_ids) {
   CheckDimension(input_column, dim_);
+=======
+                                      const int64_t* row_ids) {
+  CheckDimension(input_column, common_params_.dim);
+>>>>>>> db067fc ([Enhancement] Refactor management for meta and parameters.)
   auto faiss_index = GetFaissIndex();
   FaissIndexAddBatch(faiss_index, input_column.size, input_column.data, row_ids);
 }
@@ -247,8 +246,9 @@ void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<floa
   idx_t i = 0;
   for (auto slice : input_column) {
     if (null_flags[i] == 0) {
-      T_LOG_IF(ERROR, slice.size != dim_)
-          << "invalid size for vector " << i << " : expected " << dim_ << " but got " << slice.size;
+      T_LOG_IF(ERROR, slice.size != common_params_.dim)
+          << "invalid size for vector " << i << " : expected " << common_params_.dim << " but got "
+          << slice.size;
       FaissIndexAddSingle(faiss_index, slice.data, row_ids + i);
     }
     i += 1;
@@ -307,14 +307,14 @@ void FaissIndexBuilder::FaissIndexAddSingle(faiss::Index* index, const float* da
   }
 }
 
-std::vector<float> FaissIndexBuilder::TransformBatch(idx_t num_rows, const float* data) {
-  std::vector<float> transform_buffer(num_rows * dim_);
+std::vector<float> FaissIndexBuilder::TransformBatch(size_t num_rows, const float* data) {
+  std::vector<float> transform_buffer(num_rows * common_params_.dim);
   transform_->apply_noalloc(num_rows, data, transform_buffer.data());
   return transform_buffer;
 }
 
 std::vector<float> FaissIndexBuilder::TransformSingle(const float* data) {
-  std::vector<float> transform_buffer(dim_);
+  std::vector<float> transform_buffer(common_params_.dim);
   transform_->apply_noalloc(1, data, transform_buffer.data());
   return transform_buffer;
 }

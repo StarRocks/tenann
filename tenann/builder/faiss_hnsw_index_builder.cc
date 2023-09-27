@@ -36,49 +36,56 @@ FaissHnswIndexBuilder::~FaissHnswIndexBuilder() {}
 IndexRef FaissHnswIndexBuilder::InitIndex() {
   // TODO: add "M", "efConstruction", "efSearch" limit check
   try {
-    std::ostringstream oss;
-    if (use_custom_row_id_) {
-      oss << "IDMap,";
-    }
+    // init index and search parameters from meta
+    InitParameters(index_meta_);
+    // create faiss index factory string
+    auto factory_string = FactoryString();
 
-    oss << "HNSW";
-    if (index_meta_.index_params().contains("M")) {
-      oss << index_meta_.index_params()["M"].get<int>();
-    }
-
+    // create faiss index
     auto index = std::unique_ptr<faiss::Index>(
-        faiss::index_factory(dim_, oss.str().c_str(), faiss::METRIC_L2));
-    faiss::IndexHNSW* index_hnsw = nullptr;
-    if (use_custom_row_id_) {
-      index_hnsw =
-          static_cast<faiss::IndexHNSW*>(static_cast<faiss::IndexIDMap*>(index.get())->index);
-    } else {
-      index_hnsw = static_cast<faiss::IndexHNSW*>(index.get());
-    }
+        faiss::index_factory(common_params_.dim, factory_string.c_str(), faiss::METRIC_L2));
+    auto* index_hnsw = FetchHnsw(index.get());
 
-    if (index_meta_.index_params()["efConstruction"].is_number_integer()) {
-      index_hnsw->hnsw.efConstruction = index_meta_.index_params()["efConstruction"].get<int>();
-    }
+    // set index parameters
+    index_hnsw->hnsw.efConstruction = index_params_.efConstruction;
+    // set default search paremeters
+    index_hnsw->hnsw.efSearch = search_params_.efSearch;
+    index_hnsw->hnsw.check_relative_distance = search_params_.check_relative_distance;
 
-    // default search params
-    if (index_meta_.search_params()[FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH].is_number_integer()) {
-      index_hnsw->hnsw.efSearch =
-          index_meta_.search_params()[FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH].get<int>();
-    }
-
-    if (index_meta_.search_params()[FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE]
-            .is_boolean()) {
-      index_hnsw->hnsw.check_relative_distance =
-          index_meta_.search_params()[FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE]
-              .get<bool>();
-    }
-
+    // create shared index ref
     return std::make_shared<Index>(index.release(),        //
                                    IndexType::kFaissHnsw,  //
                                    [](void* index) { delete static_cast<faiss::Index*>(index); });
   }
   CATCH_FAISS_ERROR
   CATCH_JSON_ERROR
+}
+
+void FaissHnswIndexBuilder::InitParameters(const IndexMeta& meta) {
+  GET_OPTIONAL_INDEX_PARAM_TO(meta, index_params_, M);
+  GET_OPTIONAL_INDEX_PARAM_TO(meta, index_params_, efConstruction);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, search_params_, efSearch);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, search_params_, check_relative_distance);
+}
+
+std::string FaissHnswIndexBuilder::FactoryString() {
+  std::ostringstream oss;
+  if (use_custom_row_id_) {
+    oss << "IDMap,";
+  }
+  oss << "HNSW";
+  oss << index_params_.M;
+  return oss.str();
+}
+
+faiss::IndexHNSW* FaissHnswIndexBuilder::FetchHnsw(faiss::Index* index) {
+  faiss::IndexHNSW* index_hnsw = nullptr;
+  if (use_custom_row_id_) {
+    index_hnsw = static_cast<faiss::IndexHNSW*>(static_cast<faiss::IndexIDMap*>(index)->index);
+  } else {
+    index_hnsw = static_cast<faiss::IndexHNSW*>(index);
+  }
+  return index_hnsw;
 }
 
 }  // namespace tenann

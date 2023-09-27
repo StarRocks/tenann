@@ -104,9 +104,7 @@ class FaissIndexBuilder : public IndexBuilder {
   void SetCloseState();
 
  protected:
-  int dim_ = -1;
-  MetricType metric_type_ = MetricType::kL2Distance;
-  bool is_vector_normed_ = false;
+  VectorIndexCommonParams common_params_;
 
   bool memory_only_ = false;
   bool is_opened_ = false;

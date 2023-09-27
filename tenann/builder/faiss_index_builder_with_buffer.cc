@@ -92,11 +92,12 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush(bool write_index_cache,
       }
 
       if (data_buffer_.size()) {
-        GetFaissIndex()->train(data_buffer_.size() / dim_, data_buffer_.data());
+        GetFaissIndex()->train(data_buffer_.size() / common_params_.dim, data_buffer_.data());
         if (with_row_ids) {
-          GetFaissIndex()->add_with_ids(data_buffer_.size() / dim_, data_buffer_.data(), row_id_);
+          GetFaissIndex()->add_with_ids(data_buffer_.size() / common_params_.dim,
+                                        data_buffer_.data(), row_id_);
         } else {
-          GetFaissIndex()->add(data_buffer_.size() / dim_, data_buffer_.data());
+          GetFaissIndex()->add(data_buffer_.size() / common_params_.dim, data_buffer_.data());
         }
       } else if (is_vl_array_) {
         GetFaissIndex()->train(vl_array_seq_.size, vl_array_seq_.data);
@@ -171,7 +172,7 @@ void FaissIndexBuilderWithBuffer::Merge(const TypedVlArraySeqView<float>& input_
                                         const int64_t* row_ids) {
   if (inputs_live_longer_than_this_ == false) {
     data_buffer_.insert(data_buffer_.end(), input_column.data,
-                        input_column.data + input_column.size * dim_);
+                        input_column.data + input_column.size * common_params_.dim);
     if (row_ids != nullptr) {
       id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
     }
@@ -183,16 +184,17 @@ void FaissIndexBuilderWithBuffer::Merge(const TypedVlArraySeqView<float>& input_
       }
     } else {
       if (data_buffer_.size() == 0) {
-        data_buffer_.assign(vl_array_seq_.data, vl_array_seq_.data + vl_array_seq_.size * dim_);
+        data_buffer_.assign(vl_array_seq_.data,
+                            vl_array_seq_.data + vl_array_seq_.size * common_params_.dim);
         data_buffer_.insert(data_buffer_.end(), input_column.data,
-                            input_column.data + input_column.size * dim_);
+                            input_column.data + input_column.size * common_params_.dim);
         if (row_ids != nullptr) {
           id_buffer_.assign(row_id_, row_id_ + vl_array_seq_.size);
           id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
         }
       } else {
         data_buffer_.insert(data_buffer_.end(), input_column.data,
-                            input_column.data + input_column.size * dim_);
+                            input_column.data + input_column.size * common_params_.dim);
         if (row_ids != nullptr) {
           id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
         }
@@ -212,7 +214,7 @@ void FaissIndexBuilderWithBuffer::AddRaw(const TypedArraySeqView<float>& input_c
 
 void FaissIndexBuilderWithBuffer::AddRaw(const TypedVlArraySeqView<float>& input_column) {
   is_vl_array_ = true;
-  CheckDimension(input_column, dim_);
+  CheckDimension(input_column, common_params_.dim);
   auto faiss_index = GetFaissIndex();
   if (faiss_index->is_trained) {
     faiss_index->add(input_column.size, input_column.data);
@@ -234,7 +236,7 @@ void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedArraySeqView<float>& 
 void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
                                                 const int64_t* row_ids) {
   is_vl_array_ = true;
-  CheckDimension(input_column, dim_);
+  CheckDimension(input_column, common_params_.dim);
   auto faiss_index = GetFaissIndex();
   if (faiss_index->is_trained) {
     faiss_index->add_with_ids(input_column.size, input_column.data, row_ids);
@@ -265,8 +267,9 @@ void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(
   size_t i = 0;
   for (auto slice : input_column) {
     if (null_flags[i] != 0) {
-      T_LOG_IF(ERROR, slice.size != dim_)
-          << "invalid size for vector " << i << " : expected " << dim_ << " but got " << slice.size;
+      T_LOG_IF(ERROR, slice.size != common_params_.dim)
+          << "invalid size for vector " << i << " : expected " << common_params_.dim << " but got "
+          << slice.size;
       data_buffer_.insert(data_buffer_.end(), slice.data, slice.data + slice.size);
       id_buffer_.push_back(row_ids[i]);
     }
