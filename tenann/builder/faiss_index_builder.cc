@@ -174,7 +174,7 @@ void FaissIndexBuilder::AddImpl(const std::vector<SeqView>& input_columns, const
     input_row_iterator =
         std::make_unique<TypedSliceIterator<float>>(input_columns[0].seq_view.array_seq_view);
   } else if (input_seq_type == SeqViewType::kVlArraySeqView) {
-    CheckDimension(input_columns[0].seq_view.vl_array_seq_view, dim_);
+    CheckDimension(input_columns[0].seq_view.vl_array_seq_view, common_params_.dim);
     input_row_iterator =
         std::make_unique<TypedSliceIterator<float>>(input_columns[0].seq_view.vl_array_seq_view);
   }
@@ -217,13 +217,8 @@ void FaissIndexBuilder::AddWithRowIds(const TypedArraySeqView<float>& input_colu
 }
 
 void FaissIndexBuilder::AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
-<<<<<<< HEAD
-                                      const idx_t* row_ids) {
-  CheckDimension(input_column, dim_);
-=======
                                       const int64_t* row_ids) {
   CheckDimension(input_column, common_params_.dim);
->>>>>>> db067fc ([Enhancement] Refactor management for meta and parameters.)
   auto faiss_index = GetFaissIndex();
   FaissIndexAddBatch(faiss_index, input_column.size, input_column.data, row_ids);
 }
@@ -307,7 +302,7 @@ void FaissIndexBuilder::FaissIndexAddSingle(faiss::Index* index, const float* da
   }
 }
 
-std::vector<float> FaissIndexBuilder::TransformBatch(size_t num_rows, const float* data) {
+std::vector<float> FaissIndexBuilder::TransformBatch(idx_t num_rows, const float* data) {
   std::vector<float> transform_buffer(num_rows * common_params_.dim);
   transform_->apply_noalloc(num_rows, data, transform_buffer.data());
   return transform_buffer;

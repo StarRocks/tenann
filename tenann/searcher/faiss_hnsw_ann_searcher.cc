@@ -21,6 +21,7 @@
 
 #include "faiss/IndexIDMap.h"
 #include "tenann/common/logging.h"
+#include "tenann/store/index_meta.h"
 
 namespace tenann {
 FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {
