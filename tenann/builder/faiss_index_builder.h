@@ -61,8 +61,9 @@ class FaissIndexBuilder : public IndexBuilder {
 
   void PrepareProfile() override;
 
-  void AddImpl(const std::vector<SeqView>& input_columns, const int64_t* row_ids = nullptr,
-               const uint8_t* null_flags = nullptr);
+  virtual void AddImpl(const std::vector<SeqView>& input_columns,
+                                      const int64_t* row_ids = nullptr,
+                                      const uint8_t* null_flags = nullptr);
 
   [[deprecated]] virtual void AddRaw(const TypedArraySeqView<float>& input_column);
   [[deprecated]] virtual void AddRaw(const TypedVlArraySeqView<float>& input_column);

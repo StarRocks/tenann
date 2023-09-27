@@ -177,11 +177,14 @@ void FaissIndexBuilder::AddImpl(const std::vector<SeqView>& input_columns, const
 
   std::unique_ptr<TypedSliceIterator<float>> input_row_iterator = nullptr;
   if (input_seq_type == SeqViewType::kArraySeqView) {
+    input_row_iterator =
+        std::make_unique<TypedSliceIterator<float>>(input_columns[0].seq_view.array_seq_view);
   } else if (input_seq_type == SeqViewType::kVlArraySeqView) {
     CheckDimension(input_columns[0].seq_view.vl_array_seq_view, dim_);
     input_row_iterator =
         std::make_unique<TypedSliceIterator<float>>(input_columns[0].seq_view.vl_array_seq_view);
   }
+  T_DCHECK_NOTNULL(input_row_iterator);
 
   if (row_ids == nullptr && null_flags == nullptr) {
     AddRaw(input_row_iterator->data(), input_row_iterator->size());
@@ -266,7 +269,6 @@ void FaissIndexBuilder::AddWithRowIdsAndNullFlags(
     const TypedSliceIterator<float>& input_row_iterator, const int64_t* row_ids,
     const uint8_t* null_flags) {
   auto faiss_index = GetFaissIndex();
-  idx_t i = 0;
   input_row_iterator.ForEach([=](idx_t i, const float* slice_data, idx_t slice_length) {
     if (null_flags[i] == 0) {
       FaissIndexAddSingle(faiss_index, slice_data, row_ids + i);

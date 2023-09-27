@@ -40,6 +40,42 @@ FaissIndexBuilderWithBuffer::FaissIndexBuilderWithBuffer(const IndexMeta& meta)
 
 FaissIndexBuilderWithBuffer::~FaissIndexBuilderWithBuffer(){};
 
+void FaissIndexBuilderWithBuffer::AddImpl(const std::vector<SeqView>& input_columns,
+                                          const int64_t* row_ids, const uint8_t* null_flags) {
+  auto input_seq_type = input_columns[0].seq_view_type;
+  TypedArraySeqView<float> array_seq;
+  TypedVlArraySeqView<float> vl_array_seq;
+
+  bool is_vl_array = false;
+  if (input_seq_type == SeqViewType::kArraySeqView) {
+    array_seq = TypedArraySeqView<float>(input_columns[0].seq_view.array_seq_view);
+  } else if (input_seq_type == SeqViewType::kVlArraySeqView) {
+    vl_array_seq = TypedVlArraySeqView<float>(input_columns[0].seq_view.vl_array_seq_view);
+    is_vl_array = true;
+  }
+
+  if (row_ids == nullptr && null_flags == nullptr) {
+    is_vl_array ? AddRaw(vl_array_seq) : AddRaw(array_seq);
+    return;
+  }
+
+  if (row_ids != nullptr && null_flags != nullptr) {
+    is_vl_array ? AddWithRowIdsAndNullFlags(vl_array_seq, row_ids, null_flags)
+                : AddWithRowIdsAndNullFlags(array_seq, row_ids, null_flags);
+    return;
+  }
+
+  if (row_ids != nullptr && null_flags == nullptr) {
+    is_vl_array ? AddWithRowIds(vl_array_seq, row_ids) : AddWithRowIds(array_seq, row_ids);
+    return;
+  }
+
+  if (row_ids == nullptr && null_flags != nullptr) {
+    T_LOG(ERROR) << "adding nullable data without rowids is not supported";
+    return;
+  }
+}
+
 IndexBuilder& FaissIndexBuilderWithBuffer::Flush(bool write_index_cache,
                                                  const char* custom_cache_key) {
   try {
@@ -196,7 +232,7 @@ void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedArraySeqView<float>& 
 }
 
 void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
-                                      const int64_t* row_ids) {
+                                                const int64_t* row_ids) {
   is_vl_array_ = true;
   CheckDimension(input_column, dim_);
   auto faiss_index = GetFaissIndex();
@@ -207,9 +243,9 @@ void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedVlArraySeqView<float>
   }
 }
 
-void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
-                                                  const int64_t* row_ids,
-                                                  const uint8_t* null_flags) {
+void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(
+    const TypedArraySeqView<float>& input_column, const int64_t* row_ids,
+    const uint8_t* null_flags) {
   auto faiss_index = GetFaissIndex();
   size_t i = 0;
   for (auto slice : input_column) {
@@ -221,9 +257,9 @@ void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(const TypedArraySeqV
   }
 }
 
-void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,
-                                                  const int64_t* row_ids,
-                                                  const uint8_t* null_flags) {
+void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(
+    const TypedVlArraySeqView<float>& input_column, const int64_t* row_ids,
+    const uint8_t* null_flags) {
   is_vl_array_ = true;
   auto faiss_index = GetFaissIndex();
   size_t i = 0;
