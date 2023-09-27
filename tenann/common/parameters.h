@@ -25,7 +25,7 @@
   using key##_type = type;                                                      \
   static constexpr const char* key##_key = #key;                                \
   static constexpr const type key##_default = static_cast<type>(default_value); \
-  type key = (default_value);
+  type key = static_cast<type>(default_value);
 
 /// These two macros serve as document purposes to help users and developers understand a parameter
 /// is required or not. They share the exactly same implementation,
