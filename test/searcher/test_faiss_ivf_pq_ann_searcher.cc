@@ -90,7 +90,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
   {
     // default search
     ReadIndexAndDefaultSearch();
-    // @TODO: fix this
+    // @TODO: fix this test
     // EXPECT_TRUE(RecallCheckResult_80Percent());
   }
 

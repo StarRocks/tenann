@@ -204,7 +204,7 @@ class TypedSliceIterator {
       const T* data = reinterpret_cast<const T*>(view_.array_seq_view.data);
       idx_t dim = view_.array_seq_view.dim;
       idx_t size = view_.array_seq_view.size;
-      const T* end = data + size;
+      const T* end = data + size * dim;
 
       idx_t i = 0;
       while (data < end) {

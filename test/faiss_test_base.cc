@@ -162,7 +162,7 @@ void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id) {
         .SetIndexCache(IndexCache::GetGlobalInstance())
         .EnableCustomRowId()
         .Open(index_with_primary_key_path_)
-        .Add({base_view_}, ids_.data(), null_flags_.data())
+        .Add({base_view_}, ids_.data(), nullptr)
         .Flush(/*write_index_cache=*/true)
         .Close();
   } else {
@@ -211,7 +211,8 @@ bool FaissTestBase::RecallCheckResult_80Percent() {
   for (int i = 0; i < nq_; i++) {
     std::set<int> accurate_set;
     for (int j = 0; j < k_; j++) {
-      accurate_set.insert(accurate_query_result_ids_[i * k_ + j]);
+      auto accurate_id = accurate_query_result_ids_[i * k_ + j];
+      accurate_set.insert(accurate_id);
     }
     int hit = 0;
     for (int j = 0; j < k_; j++) {

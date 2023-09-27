@@ -67,7 +67,6 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
 
   if (use_custom_row_id && idmap_index != nullptr) {
     int64_t* li = result_ids;
-#pragma omp parallel for
     for (int64_t i = 0; i < ANN_SEARCHER_QUERY_COUNT * k; i++) {
       li[i] = li[i] < 0 ? li[i] : idmap_index->id_map[li[i]];
     }
