@@ -237,7 +237,6 @@ class TypedSliceIterator {
     VlArraySeqView vl_array_seq_view;
   } view_;
   bool is_vl_array_;
-  bool is_null_;
 };
 
 }  // namespace tenann
