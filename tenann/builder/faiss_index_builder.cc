@@ -96,7 +96,7 @@ IndexBuilder& FaissIndexBuilder::Open(const std::string& path) {
 }
 
 IndexBuilder& FaissIndexBuilder::Add(const std::vector<SeqView>& input_columns,
-                                     const int64_t* row_ids, const uint8_t* null_flags,
+                                     const idx_t* row_ids, const uint8_t* null_flags,
                                      bool inputs_live_longer_than_this) {
   try {
     T_SCOPED_TIMER(add_total_timer_);
@@ -171,7 +171,7 @@ void FaissIndexBuilder::PrepareProfile() {
   close_total_timer_ = T_ADD_TIMER(profile_, "CloseTotalTime");
 }
 
-void FaissIndexBuilder::AddImpl(const std::vector<SeqView>& input_columns, const int64_t* row_ids,
+void FaissIndexBuilder::AddImpl(const std::vector<SeqView>& input_columns, const idx_t* row_ids,
                                 const uint8_t* null_flags) {
   auto input_seq_type = input_columns[0].seq_view_type;
 
@@ -217,21 +217,20 @@ void FaissIndexBuilder::AddRaw(const TypedVlArraySeqView<float>& input_column) {
 }
 
 void FaissIndexBuilder::AddWithRowIds(const TypedArraySeqView<float>& input_column,
-                                      const int64_t* row_ids) {
+                                      const idx_t* row_ids) {
   auto faiss_index = GetFaissIndex();
   FaissIndexAddBatch(faiss_index, input_column.size, input_column.data, row_ids);
 }
 
 void FaissIndexBuilder::AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
-                                      const int64_t* row_ids) {
+                                      const idx_t* row_ids) {
   CheckDimension(input_column, dim_);
   auto faiss_index = GetFaissIndex();
   FaissIndexAddBatch(faiss_index, input_column.size, input_column.data, row_ids);
 }
 
 void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
-                                                  const int64_t* row_ids,
-                                                  const uint8_t* null_flags) {
+                                                  const idx_t* row_ids, const uint8_t* null_flags) {
   auto faiss_index = GetFaissIndex();
   idx_t i = 0;
   for (auto slice : input_column) {
@@ -243,8 +242,7 @@ void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>
 }
 
 void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,
-                                                  const int64_t* row_ids,
-                                                  const uint8_t* null_flags) {
+                                                  const idx_t* row_ids, const uint8_t* null_flags) {
   auto faiss_index = GetFaissIndex();
   idx_t i = 0;
   for (auto slice : input_column) {
@@ -257,16 +255,19 @@ void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<floa
   }
 }
 
-void FaissIndexBuilder::AddRaw(const float* base, int64_t num_rows) {}
+void FaissIndexBuilder::AddRaw(const float* data, idx_t num_rows) {
+  auto faiss_index = GetFaissIndex();
+  faiss_index->add(num_rows, data);
+}
 
 void FaissIndexBuilder::AddWithRowIds(const TypedSliceIterator<float>& input_row_iterator,
-                                      const int64_t* row_ids) {
+                                      const idx_t* row_ids) {
   auto faiss_index = GetFaissIndex();
   FaissIndexAddBatch(faiss_index, input_row_iterator.size(), input_row_iterator.data(), row_ids);
 }
 
 void FaissIndexBuilder::AddWithRowIdsAndNullFlags(
-    const TypedSliceIterator<float>& input_row_iterator, const int64_t* row_ids,
+    const TypedSliceIterator<float>& input_row_iterator, const idx_t* row_ids,
     const uint8_t* null_flags) {
   auto faiss_index = GetFaissIndex();
   input_row_iterator.ForEach([=](idx_t i, const float* slice_data, idx_t slice_length) {
@@ -277,7 +278,7 @@ void FaissIndexBuilder::AddWithRowIdsAndNullFlags(
 }
 
 void FaissIndexBuilder::FaissIndexAddBatch(faiss::Index* index, idx_t num_rows, const float* data,
-                                           const int64_t* rowids) {
+                                           const idx_t* rowids) {
   const float* transformed_data = data;
   if (transform_ != nullptr) {
     auto tranformed_buffer = TransformBatch(num_rows, data);
@@ -292,7 +293,7 @@ void FaissIndexBuilder::FaissIndexAddBatch(faiss::Index* index, idx_t num_rows, 
 }
 
 void FaissIndexBuilder::FaissIndexAddSingle(faiss::Index* index, const float* data,
-                                            const int64_t* rowid) {
+                                            const idx_t* rowid) {
   const float* transformed_data = data;
   if (transform_ != nullptr) {
     auto tranformed_buffer = TransformSingle(data);

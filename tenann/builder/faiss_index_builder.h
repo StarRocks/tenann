@@ -44,7 +44,7 @@ class FaissIndexBuilder : public IndexBuilder {
 
   IndexBuilder& Open(const std::string& index_save_path) override;
 
-  IndexBuilder& Add(const std::vector<SeqView>& input_columns, const int64_t* row_ids = nullptr,
+  IndexBuilder& Add(const std::vector<SeqView>& input_columns, const idx_t* row_ids = nullptr,
                     const uint8_t* null_flags = nullptr,
                     bool inputs_live_longer_than_this = false) override;
 
@@ -61,36 +61,35 @@ class FaissIndexBuilder : public IndexBuilder {
 
   void PrepareProfile() override;
 
-  virtual void AddImpl(const std::vector<SeqView>& input_columns,
-                                      const int64_t* row_ids = nullptr,
-                                      const uint8_t* null_flags = nullptr);
+  virtual void AddImpl(const std::vector<SeqView>& input_columns, const idx_t* row_ids = nullptr,
+                       const uint8_t* null_flags = nullptr);
 
   [[deprecated]] virtual void AddRaw(const TypedArraySeqView<float>& input_column);
   [[deprecated]] virtual void AddRaw(const TypedVlArraySeqView<float>& input_column);
 
   [[deprecated]] virtual void AddWithRowIds(const TypedArraySeqView<float>& input_column,
-                                            const int64_t* row_ids);
+                                            const idx_t* row_ids);
   [[deprecated]] virtual void AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
-                                            const int64_t* row_ids);
+                                            const idx_t* row_ids);
 
   [[deprecated]] virtual void AddWithRowIdsAndNullFlags(
-      const TypedArraySeqView<float>& input_column, const int64_t* row_ids,
+      const TypedArraySeqView<float>& input_column, const idx_t* row_ids,
       const uint8_t* null_flags);
   [[deprecated]] virtual void AddWithRowIdsAndNullFlags(
-      const TypedVlArraySeqView<float>& input_column, const int64_t* row_ids,
+      const TypedVlArraySeqView<float>& input_column, const idx_t* row_ids,
       const uint8_t* null_flags);
 
-  virtual void AddRaw(const float* base, int64_t num_rows);
+  virtual void AddRaw(const float* data, idx_t num_rows);
 
   virtual void AddWithRowIds(const TypedSliceIterator<float>& input_row_iterator,
-                             const int64_t* row_ids);
+                             const idx_t* row_ids);
 
   virtual void AddWithRowIdsAndNullFlags(const TypedSliceIterator<float>& input_row_iterator,
-                                         const int64_t* row_ids, const uint8_t* null_flags);
+                                         const idx_t* row_ids, const uint8_t* null_flags);
 
   void FaissIndexAddBatch(faiss::Index* index, idx_t num_rows, const float* data,
-                          const int64_t* rowids = nullptr);
-  void FaissIndexAddSingle(faiss ::Index* index, const float* data, const int64_t* rowid = nullptr);
+                          const idx_t* rowids = nullptr);
+  void FaissIndexAddSingle(faiss ::Index* index, const float* data, const idx_t* rowid = nullptr);
 
   std::vector<float> TransformBatch(idx_t num_rows, const float* data);
   std::vector<float> TransformSingle(const float* data);
