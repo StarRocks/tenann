@@ -21,6 +21,9 @@
 
 #include <stddef.h>
 
+#include "faiss/IndexHNSW.h"
+#include "faiss/IndexIVFPQ.h"
+
 #define DEFINE_PARAM(type, key, default_value)                                  \
   using key##_type = type;                                                      \
   static constexpr const char* key##_key = #key;                                \
@@ -40,6 +43,7 @@ struct VectorIndexCommonParams {
   DEFINE_OPTIONAL_PARAM(bool, is_vector_normed, false);
 };
 
+/** Parameters for Faiss IVF-PQ */
 struct FaissIvfPqIndexParams {
   DEFINE_OPTIONAL_PARAM(size_t, nlists, 16);
   DEFINE_OPTIONAL_PARAM(size_t, M, 2);
@@ -48,15 +52,19 @@ struct FaissIvfPqIndexParams {
 
 struct FaissIvfPqSearchParams {
   DEFINE_OPTIONAL_PARAM(size_t, nprobe, 1);
+  DEFINE_OPTIONAL_PARAM(size_t, max_codes, 0);
+  DEFINE_OPTIONAL_PARAM(size_t, scan_table_threshold, 0);
+  DEFINE_OPTIONAL_PARAM(int, polysemous_ht, 0);
 };
 
+/** Parameters for faiss HSNW */
 struct FaissHnswIndexParams {
   DEFINE_OPTIONAL_PARAM(int, M, 16);
   DEFINE_OPTIONAL_PARAM(int, efConstruction, 40);
 };
 
 struct FaissHnswSearchParams {
-  DEFINE_OPTIONAL_PARAM(int, efSearch, 1);
+  DEFINE_OPTIONAL_PARAM(int, efSearch, 16);
   DEFINE_OPTIONAL_PARAM(bool, check_relative_distance, true);
 };
 

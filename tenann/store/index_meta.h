@@ -27,7 +27,6 @@
 #include "fmt/format.h"
 #include "tenann/common/error.h"
 #include "tenann/common/json.h"
-#include "tenann/common/parameters.h"
 #include "tenann/store/index_type.h"
 
 namespace tenann {
@@ -174,36 +173,4 @@ class IndexMeta {
   } else {                                                                    \
     result = (meta).section##_params()[name].get<type>();                     \
   }
-
-#define GET_OPTIONAL_PARAM_TO(meta, target, Section, parameter_name)                 \
-  if (auto parameter_name =                                                          \
-          meta.GetOptional##Section##Param<decltype(target)::parameter_name##_type>( \
-              decltype(target)::parameter_name##_key);                               \
-      parameter_name.has_value()) {                                                  \
-    target.parameter_name = parameter_name.value();                                  \
-  }
-
-#define GET_REQUIRED_PARAM_TO(meta, target, Section, parameter_name)             \
-  target.parameter_name =                                                        \
-      meta.GetRequired##Section##Param<decltype(target)::parameter_name##_type>( \
-          decltype(target)::parameter_name##_key);
-
-#define GET_OPTIONAL_COMMON_PARAM_TO(meta, target, parameter_name) \
-  GET_OPTIONAL_PARAM_TO(meta, target, Common, parameter_name)
-#define GET_OPTIONAL_INDEX_PARAM_TO(meta, target, parameter_name) \
-  GET_OPTIONAL_PARAM_TO(meta, target, Index, parameter_name)
-#define GET_OPTIONAL_SEARCH_PARAM_TO(meta, target, parameter_name) \
-  GET_OPTIONAL_PARAM_TO(meta, target, Search, parameter_name)
-#define GET_OPTIONAL_EXTRA_PARAM_TO(meta, target, parameter_name) \
-  GET_OPTIONAL_PARAM_TO(meta, target, Extra, parameter_name)
-
-#define GET_REQUIRED_COMMON_PARAM_TO(meta, target, parameter_name) \
-  GET_REQUIRED_PARAM_TO(meta, target, Common, parameter_name)
-#define GET_REQUIRED_INDEX_PARAM_TO(meta, target, parameter_name) \
-  GET_REQUIRED_PARAM_TO(meta, target, Index, parameter_name)
-#define GET_REQUIRED_SEARCH_PARAM_TO(meta, target, parameter_name) \
-  GET_REQUIRED_PARAM_TO(meta, target, Search, parameter_name)
-#define GET_REQUIRED_EXTRA_PARAM_TO(meta, target, parameter_name) \
-  GET_REQUIRED_PARAM_TO(meta, target, Extra, parameter_name)
-
 }  // namespace tenann

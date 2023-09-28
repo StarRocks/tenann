@@ -28,6 +28,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
+#include "tenann/index/parameter_serde.h"
 
 namespace tenann {
 
@@ -36,8 +37,10 @@ FaissHnswIndexBuilder::~FaissHnswIndexBuilder() {}
 IndexRef FaissHnswIndexBuilder::InitIndex() {
   // TODO: add "M", "efConstruction", "efSearch" limit check
   try {
-    // init index and search parameters from meta
-    InitParameters(index_meta_);
+    // init index/search parameters from meta
+    DeserializeParameters(index_meta_, &index_params_);
+    DeserializeParameters(index_meta_, &search_params_);
+
     // create faiss index factory string
     auto factory_string = FactoryString();
 
@@ -59,13 +62,6 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
   }
   CATCH_FAISS_ERROR
   CATCH_JSON_ERROR
-}
-
-void FaissHnswIndexBuilder::InitParameters(const IndexMeta& meta) {
-  GET_OPTIONAL_INDEX_PARAM_TO(meta, index_params_, M);
-  GET_OPTIONAL_INDEX_PARAM_TO(meta, index_params_, efConstruction);
-  GET_OPTIONAL_SEARCH_PARAM_TO(meta, search_params_, efSearch);
-  GET_OPTIONAL_SEARCH_PARAM_TO(meta, search_params_, check_relative_distance);
 }
 
 std::string FaissHnswIndexBuilder::FactoryString() {

@@ -20,7 +20,7 @@
 #pragma once
 
 #include "tenann/builder/faiss_index_builder.h"
-#include "tenann/common/parameters.h"
+#include "tenann/index/parameters.h"
 
 namespace faiss {
 class IndexHNSW;
@@ -40,7 +40,6 @@ class FaissHnswIndexBuilder final : public FaissIndexBuilder {
   IndexRef InitIndex() override;
 
  private:
-  void InitParameters(const IndexMeta& meta);
   std::string FactoryString();
   faiss::IndexHNSW* FetchHnsw(faiss::Index* index);
 

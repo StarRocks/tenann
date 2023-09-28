@@ -31,6 +31,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
+#include "tenann/index/parameter_serde.h"
 #include "tenann/util/runtime_profile.h"
 #include "tenann/util/runtime_profile_macros.h"
 
@@ -38,12 +39,9 @@ namespace tenann {
 
 FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta)
     : IndexBuilder(meta), transform_(nullptr) {
-  GET_REQUIRED_COMMON_PARAM_TO(index_meta_, common_params_, dim);
-  GET_REQUIRED_COMMON_PARAM_TO(index_meta_, common_params_, metric_type);
-  GET_OPTIONAL_COMMON_PARAM_TO(index_meta_, common_params_, is_vector_normed);
+  DeserializeParameters(meta, &common_params_);
 
   auto index_type = meta.index_type();
-
   if (index_type == IndexType::kFaissHnsw) {
     T_CHECK(common_params_.metric_type == MetricType::kL2Distance ||
             common_params_.metric_type == MetricType::kCosineSimilarity)
