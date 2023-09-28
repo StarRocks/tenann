@@ -75,7 +75,8 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
           index_meta_.search_params()[FAISS_SEARCHER_PARAMS_IVF_PQ_POLYSEMOUS_HT].get<int>();
     }
 
-    return std::make_shared<Index>(index.release(), IndexType::kFaissIvfPq,
+    return std::make_shared<Index>(index.release(),         //
+                                   IndexType::kFaissIvfPq,  //
                                    [](void* index) { delete static_cast<faiss::Index*>(index); });
   }
   CATCH_FAISS_ERROR

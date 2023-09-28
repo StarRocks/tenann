@@ -31,6 +31,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
+#include "tenann/index/internal/faiss_index_util.h"
 #include "tenann/index/parameter_serde.h"
 #include "tenann/util/runtime_profile.h"
 #include "tenann/util/runtime_profile_macros.h"

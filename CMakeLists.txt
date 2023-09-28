@@ -88,4 +88,5 @@ install(DIRECTORY tenann
         FILES_MATCHING
         PATTERN "*.h"
         PATTERN "*.hpp"
-        PATTERN "examples" EXCLUDE)
+        PATTERN "examples" EXCLUDE
+        PATTERN "internal" EXCLUDE)

@@ -28,6 +28,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
+#include "tenann/index/internal/faiss_index_util.h"
 #include "tenann/index/parameter_serde.h"
 
 namespace tenann {
@@ -42,12 +43,14 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
     DeserializeParameters(index_meta_, &search_params_);
 
     // create faiss index factory string
-    auto factory_string = FactoryString();
+    auto factory_string =
+        faiss_util::GetHnswRepr(common_params_, index_params_, use_custom_row_id_);
 
     // create faiss index
     auto index = std::unique_ptr<faiss::Index>(
         faiss::index_factory(common_params_.dim, factory_string.c_str(), faiss::METRIC_L2));
-    auto* index_hnsw = FetchHnsw(index.get());
+    auto* index_hnsw = faiss_util::UnpackHnswMutable(index.get(), common_params_, index_params_,
+                                                     use_custom_row_id_);
 
     // set index parameters
     index_hnsw->hnsw.efConstruction = index_params_.efConstruction;
@@ -62,26 +65,6 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
   }
   CATCH_FAISS_ERROR
   CATCH_JSON_ERROR
-}
-
-std::string FaissHnswIndexBuilder::FactoryString() {
-  std::ostringstream oss;
-  if (use_custom_row_id_) {
-    oss << "IDMap,";
-  }
-  oss << "HNSW";
-  oss << index_params_.M;
-  return oss.str();
-}
-
-faiss::IndexHNSW* FaissHnswIndexBuilder::FetchHnsw(faiss::Index* index) {
-  faiss::IndexHNSW* index_hnsw = nullptr;
-  if (use_custom_row_id_) {
-    index_hnsw = static_cast<faiss::IndexHNSW*>(static_cast<faiss::IndexIDMap*>(index)->index);
-  } else {
-    index_hnsw = static_cast<faiss::IndexHNSW*>(index);
-  }
-  return index_hnsw;
 }
 
 }  // namespace tenann

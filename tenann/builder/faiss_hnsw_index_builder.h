@@ -40,9 +40,6 @@ class FaissHnswIndexBuilder final : public FaissIndexBuilder {
   IndexRef InitIndex() override;
 
  private:
-  std::string FactoryString();
-  faiss::IndexHNSW* FetchHnsw(faiss::Index* index);
-
   FaissHnswIndexParams index_params_;
   FaissHnswSearchParams search_params_;
 };
