@@ -40,6 +40,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++ -static-libgcc -gdwarf
 option(WITH_AVX2 "ON for build tenann with avx2 support" OFF)
 option(WITH_TESTS "ON for build unit test or OFF for not" ON)
 option(WITH_EXAMPLES "ON for build examples or OFF for not" ON)
+option(WITH_PYTHON "ON for build python wrapper or OFF for not" ON)
 
 set(FAISS_AVX2_CXX_FLAGS $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt>)
 if (WITH_TESTS STREQUAL "ON")
@@ -59,6 +60,11 @@ endif()
 if (WITH_TESTS STREQUAL "ON")
     include(CTest)
     add_subdirectory(test)
+endif()
+
+if (WITH_PYTHON STREQUAL "ON")
+add_subdirectory(${TENANN_THIRDPARTY}/src/pybind11-release-2.11.1)
+    add_subdirectory(python_bindings)
 endif()
 
 ########################################################

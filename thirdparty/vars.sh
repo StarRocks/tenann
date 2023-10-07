@@ -107,5 +107,11 @@ GTEST_NAME=googletest-release-1.10.0.tar.gz
 GTEST_SOURCE=googletest-release-1.10.0
 GTEST_MD5SUM="ecd1fa65e7de707cd5c00bdac56022cd"
 
+# pybind11
+PYBIND11_DOWNLOAD="https://github.com/pybind/pybind11/archive/refs/tags/v2.11.1.tar.gz"
+PYBIND11_NAME=pybind11-release-2.11.1.tar.gz
+PYBIND11_SOURCE=pybind11-release-2.11.1
+PYBIND11_MD5SUM="49e92f92244021912a56935918c927d0"
+
 # all thirdparties which need to be downloaded is set in array TP_ARCHIVES
-TP_ARCHIVES="FMT FAISS LAPACK GTEST"
+TP_ARCHIVES="FMT FAISS LAPACK GTEST PYBIND11"

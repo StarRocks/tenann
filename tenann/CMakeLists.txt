@@ -75,10 +75,14 @@ set(TENANN_LINK_LIBS
     faiss
     ${LAPACK_LIBRARIES}
     OpenMP::OpenMP_CXX
-    -l:libgfortran.a
     -l:libquadmath.a
-    -lm
-    ${WL_END_GROUP})
+    -lm)
+
+if(WITH_PYTHON STREQUAL "ON")
+    list(APPEND TENANN_LINK_LIBS "-lgfortran" ${WL_END_GROUP})
+else()
+    list(APPEND TENANN_LINK_LIBS "-l:libgfortran.a" ${WL_END_GROUP})
+endif()
 
 target_link_libraries(tenann
     ${WL_START_GROUP}
@@ -102,17 +106,16 @@ set(TENANN_AVX2_LINK_LIBS
     faiss_avx2
     ${LAPACK_LIBRARIES}
     OpenMP::OpenMP_CXX
-    -l:libgfortran.a
     -l:libquadmath.a
-    -lm
-    ${WL_END_GROUP})
+    -lm)
+
+if(WITH_PYTHON STREQUAL "ON")
+    list(APPEND TENANN_AVX2_LINK_LIBS "-lgfortran" ${WL_END_GROUP})
+else()
+    list(APPEND TENANN_AVX2_LINK_LIBS "-l:libgfortran.a" ${WL_END_GROUP})
+endif()
 
 target_link_libraries(tenann_avx2
     ${WL_START_GROUP}
     ${TENANN_AVX2_LINK_LIBS}
     ${WL_END_GROUP})
-
-
-
-
-

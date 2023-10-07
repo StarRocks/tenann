@@ -167,6 +167,7 @@ build_lapack() {
         -DLAPACKE:BOOL=OFF \
         -DCBLAS:BOOL=OFF \
         -DCMAKE_Fortran_FLAGS:STRING="-fimplicit-none -frecursive" \
+        -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON \
         ..
 
     $CMAKE_CMD --build . -j --target install
@@ -216,6 +217,20 @@ build_gtest() {
     ${BUILD_SYSTEM} install
 }
 
+# pybind11
+build_pybind11() {
+    check_if_source_exist $PYBIND11_SOURCE
+
+    cd $TP_SOURCE_DIR/$PYBIND11_SOURCE
+    mkdir -p $BUILD_DIR
+    cd $BUILD_DIR
+    rm -rf CMakeCache.txt CMakeFiles/
+    $CMAKE_CMD -G "${CMAKE_GENERATOR}" -DCMAKE_INSTALL_PREFIX=$TP_INSTALL_DIR -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=On ../
+    ${BUILD_SYSTEM} -j$PARALLEL
+    ${BUILD_SYSTEM} install
+}
+
 # restore cxxflags/cppflags/cflags to default one
 restore_compile_flags() {
     # c preprocessor flags
@@ -247,6 +262,7 @@ build_fmt
 build_lapack # must before faiss
 build_faiss
 build_gtest
+build_pybind11
 
 # strip unnecessary debug symbol for binaries in thirdparty
 strip_binary
