@@ -20,6 +20,7 @@
 #pragma once
 
 #include "faiss/IndexIVFPQ.h"
+#include "tenann/index/parameters.h"
 #include "tenann/searcher/ann_searcher.h"
 
 namespace tenann {
@@ -43,7 +44,7 @@ class FaissIvfPqAnnSearcher : public AnnSearcher {
   void SearchParamsChangeHook(const json& value) override;
 
  private:
-  std::unique_ptr<faiss::IVFPQSearchParameters> search_parameters_;
+  FaissIvfPqSearchParams search_params_;
 };
 
 }  // namespace tenann

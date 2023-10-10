@@ -20,6 +20,7 @@
 #pragma once
 
 #include "tenann/builder/faiss_index_builder_with_buffer.h"
+#include "tenann/index/parameters.h"
 
 namespace faiss {
 class IndexIVFPQ;
@@ -29,7 +30,7 @@ namespace tenann {
 
 class FaissIvfPqIndexBuilder final : public FaissIndexBuilderWithBuffer {
  public:
-  using FaissIndexBuilderWithBuffer::FaissIndexBuilderWithBuffer;
+  explicit FaissIvfPqIndexBuilder(const IndexMeta& meta);
   virtual ~FaissIvfPqIndexBuilder();
 
   T_FORBID_COPY_AND_ASSIGN(FaissIvfPqIndexBuilder);
@@ -37,6 +38,9 @@ class FaissIvfPqIndexBuilder final : public FaissIndexBuilderWithBuffer {
 
  protected:
   IndexRef InitIndex() override;
+
+  FaissIvfPqIndexParams index_params_;
+  FaissIvfPqSearchParams search_params_;
 };
 
 }  // namespace tenann

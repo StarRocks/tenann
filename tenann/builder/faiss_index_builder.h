@@ -27,7 +27,6 @@
 
 namespace faiss {
 class Index;
-class NormalizationTransform;
 }  // namespace faiss
 
 namespace tenann {
@@ -91,9 +90,6 @@ class FaissIndexBuilder : public IndexBuilder {
                           const idx_t* rowids = nullptr);
   void FaissIndexAddSingle(faiss ::Index* index, const float* data, const idx_t* rowid = nullptr);
 
-  std::vector<float> TransformBatch(idx_t num_rows, const float* data);
-  std::vector<float> TransformSingle(const float* data);
-
   [[deprecated]] static void CheckDimension(const TypedVlArraySeqView<float>& input_column,
                                             int dim);
   static void CheckDimension(const TypedSliceIterator<float>& input_column, idx_t dim);
@@ -117,8 +113,6 @@ class FaissIndexBuilder : public IndexBuilder {
   RuntimeProfile::Counter* add_total_timer_ = nullptr;
   RuntimeProfile::Counter* flush_total_timer_ = nullptr;
   RuntimeProfile::Counter* close_total_timer_ = nullptr;
-
-  std::unique_ptr<faiss::NormalizationTransform> transform_;
 };
 
 }  // namespace tenann

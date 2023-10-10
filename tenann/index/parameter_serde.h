@@ -65,22 +65,30 @@ inline void FetchParameters(const IndexMeta& meta, VectorIndexCommonParams* out_
   GET_REQUIRED_COMMON_PARAM_TO(meta, *out_params, dim);
   GET_REQUIRED_COMMON_PARAM_TO(meta, *out_params, metric_type);
   GET_OPTIONAL_COMMON_PARAM_TO(meta, *out_params, is_vector_normed);
+
+  out_params->Validate();
 }
 
 inline void FetchParameters(const IndexMeta& meta, FaissHnswIndexParams* out_params) {
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, M);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, efConstruction);
+
+  out_params->Validate();
 }
 
 inline void FetchParameters(const IndexMeta& meta, FaissHnswSearchParams* out_params) {
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, efSearch);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, check_relative_distance);
+
+  out_params->Validate();
 }
 
 inline void FetchParameters(const IndexMeta& meta, FaissIvfPqIndexParams* out_params) {
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nlists);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, M);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nbits);
+
+  out_params->Validate();
 }
 
 inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_params) {
@@ -88,6 +96,8 @@ inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_p
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, max_codes);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, scan_table_threshold);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, polysemous_ht);
+
+  out_params->Validate();
 }
 
 }  // namespace tenann

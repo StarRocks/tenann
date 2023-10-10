@@ -65,7 +65,6 @@ TEST_F(FaissIvfPqIndexBuilderTest, InitIndex) {
   // new_meta.index_params()["M"] = 100000000; run failed in DevCloud machine(32GB RAM)
   EXPECT_THROW(auto new_meta = faiss_ivf_pq_meta(); new_meta.index_params()["M"] = -1;
                std::make_unique<FaissIvfPqIndexBuilder>(new_meta)->Open(), Error);
-
   // TODO: add "M", "efConstruction", "efSearch" limit UT
 }
 

@@ -251,7 +251,7 @@ void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(
   auto faiss_index = GetFaissIndex();
   size_t i = 0;
   for (auto slice : input_column) {
-    if (null_flags[i] != 0) {
+    if (null_flags[i] == 0) {
       data_buffer_.insert(data_buffer_.end(), slice.data, slice.data + slice.size);
       id_buffer_.push_back(row_ids[i]);
     }
@@ -266,7 +266,7 @@ void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(
   auto faiss_index = GetFaissIndex();
   size_t i = 0;
   for (auto slice : input_column) {
-    if (null_flags[i] != 0) {
+    if (null_flags[i] == 0) {
       T_LOG_IF(ERROR, slice.size != common_params_.dim)
           << "invalid size for vector " << i << " : expected " << common_params_.dim << " but got "
           << slice.size;

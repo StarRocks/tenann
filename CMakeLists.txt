@@ -34,7 +34,7 @@ else()
     set(TENANN_THIRDPARTY "${PROJECT_SOURCE_DIR}/thirdparty")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++ -static-libgcc -gdwarf-4")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++ -static-libgcc -gdwarf-4 -fPIC")
 
 # Build options
 option(WITH_AVX2 "ON for build tenann with avx2 support" OFF)

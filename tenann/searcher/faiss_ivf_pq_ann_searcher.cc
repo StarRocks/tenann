@@ -19,8 +19,10 @@
 
 #include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
 
+#include "faiss/IndexIVFPQ.h"
 #include "faiss_ivf_pq_ann_searcher.h"
 #include "tenann/common/logging.h"
+#include "tenann/index/parameters.h"
 #include "tenann/util/distance_util.h"
 
 namespace tenann {
@@ -43,39 +45,52 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int6
 
   auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
 
+  faiss::IVFPQSearchParameters faiss_search_parameters;
+  faiss_search_parameters.nprobe = search_params_.nprobe;
+  faiss_search_parameters.max_codes = search_params_.max_codes;
+  faiss_search_parameters.polysemous_ht = search_params_.polysemous_ht;
+  faiss_search_parameters.scan_table_threshold = search_params_.scan_table_threshold;
+
   faiss_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data),
                       k, reinterpret_cast<float*>(result_distances), result_ids,
-                      search_parameters_.get());
+                      &faiss_search_parameters);
 
-  auto distances = reinterpret_cast<float*>(result_distances);
   if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+    auto distances = reinterpret_cast<float*>(result_distances);
     L2DistanceToCosineSimilarity(distances, distances, k);
   }
 }
 
 void FaissIvfPqAnnSearcher::SearchParamItemChangeHook(const std::string& key, const json& value) {
-  if (!search_parameters_) {
-    search_parameters_ = std::make_unique<faiss::IVFPQSearchParameters>();
+  try {
+    if (key == FaissIvfPqSearchParams::nprobe_key) {
+      search_params_.nprobe = value.get<FaissIvfPqSearchParams::nprobe_type>();
+      return;
+    }
+
+    if (key == FaissIvfPqSearchParams::max_codes_key) {
+      search_params_.max_codes = value.get<FaissIvfPqSearchParams::max_codes_type>();
+      return;
+    }
+
+    if (key == FaissIvfPqSearchParams::scan_table_threshold_key) {
+      search_params_.scan_table_threshold =
+          value.get<FaissIvfPqSearchParams::scan_table_threshold_type>();
+      return;
+    }
+
+    if (key == FaissIvfPqSearchParams::polysemous_ht_key) {
+      search_params_.polysemous_ht = value.get<FaissIvfPqSearchParams::polysemous_ht_type>();
+      return;
+    }
+  } catch (json::exception& e) {
+    T_LOG(ERROR) << "failed to get search parameter from json: " << e.what();
   }
 
-  if (key == FAISS_SEARCHER_PARAMS_IVF_NPROBE) {
-    value.is_number_unsigned() && (search_parameters_->nprobe = value.get<size_t>());
-  } else if (key == FAISS_SEARCHER_PARAMS_IVF_MAX_CODES) {
-    value.is_number_unsigned() && (search_parameters_->max_codes = value.get<size_t>());
-  } else if (key == FAISS_SEARCHER_PARAMS_IVF_PQ_SCAN_TABLE_THRESHOLD) {
-    value.is_number_unsigned() && (search_parameters_->scan_table_threshold = value.get<size_t>());
-  } else if (key == FAISS_SEARCHER_PARAMS_IVF_PQ_POLYSEMOUS_HT) {
-    value.is_number_integer() && (search_parameters_->polysemous_ht = value.get<int>());
-  } else {
-    T_LOG(ERROR) << "Unsupport search parameter: " << key;
-  }
+  T_LOG(ERROR) << "unsupport search parameter: " << key;
 };
 
 void FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher::SearchParamsChangeHook(const json& value) {
-  if (search_parameters_) {
-    search_parameters_.reset();
-  }
-
   for (auto it = value.begin(); it != value.end(); ++it) {
     SearchParamItemChangeHook(it.key(), it.value());
   }

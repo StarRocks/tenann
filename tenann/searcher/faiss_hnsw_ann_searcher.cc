@@ -63,8 +63,8 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
     }
   }
 
-  auto distances = reinterpret_cast<float*>(result_distances);
   if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+    auto distances = reinterpret_cast<float*>(result_distances);
     L2DistanceToCosineSimilarity(distances, distances, k);
   }
 }

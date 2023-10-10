@@ -23,57 +23,35 @@
 
 #include "faiss/IndexIVFPQ.h"
 #include "faiss/index_factory.h"
+#include "faiss_ivf_pq_index_builder.h"
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
+#include "tenann/index/internal/faiss_index_util.h"
+#include "tenann/index/parameter_serde.h"
 
 namespace tenann {
+FaissIvfPqIndexBuilder::FaissIvfPqIndexBuilder(const IndexMeta& meta)
+    : FaissIndexBuilderWithBuffer(meta) {
+  FetchParameters(meta, &index_params_);
+  FetchParameters(meta, &search_params_);
+}
 
-FaissIvfPqIndexBuilder::~FaissIvfPqIndexBuilder() {}
+FaissIvfPqIndexBuilder::~FaissIvfPqIndexBuilder() = default;
 
 IndexRef FaissIvfPqIndexBuilder::InitIndex() {
   try {
-    std::ostringstream oss;
-    oss << "IVF";
-    if (index_meta_.index_params().contains("nlist")) {
-      oss << index_meta_.index_params()["nlist"].get<int>();
-    }
-    oss << ",PQ";
-    if (index_meta_.index_params().contains("M")) {
-      oss << index_meta_.index_params()["M"].get<int>();
-    }
-    if (index_meta_.index_params().contains("nbits")) {
-      oss << "x" << index_meta_.index_params()["nbits"].get<int>();
-    }
-
+    auto factory_string = faiss_util::GetIvfPqRepr(common_params_, index_params_);
     auto index = std::unique_ptr<faiss::Index>(
-        faiss::index_factory(common_params_.dim, oss.str().c_str(), faiss::METRIC_L2));
-    faiss::IndexIVFPQ* index_ivf_pq = nullptr;
-    index_ivf_pq = static_cast<faiss::IndexIVFPQ*>(index.get());
+        faiss::index_factory(common_params_.dim, factory_string.c_str(), faiss::METRIC_L2));
+
+    faiss::IndexIVFPQ* index_ivf_pq = static_cast<faiss::IndexIVFPQ*>(index.get());
 
     // default search params
-    if (index_meta_.search_params()[FAISS_SEARCHER_PARAMS_IVF_NPROBE].is_number_unsigned()) {
-      index_ivf_pq->nprobe =
-          index_meta_.search_params()[FAISS_SEARCHER_PARAMS_IVF_NPROBE].get<size_t>();
-    }
-
-    if (index_meta_.search_params()[FAISS_SEARCHER_PARAMS_IVF_MAX_CODES].is_number_unsigned()) {
-      index_ivf_pq->max_codes =
-          index_meta_.search_params()[FAISS_SEARCHER_PARAMS_IVF_MAX_CODES].get<size_t>();
-    }
-
-    if (index_meta_.search_params()[FAISS_SEARCHER_PARAMS_IVF_PQ_SCAN_TABLE_THRESHOLD]
-            .is_number_unsigned()) {
-      index_ivf_pq->scan_table_threshold =
-          index_meta_.search_params()[FAISS_SEARCHER_PARAMS_IVF_PQ_SCAN_TABLE_THRESHOLD]
-              .get<size_t>();
-    }
-
-    if (index_meta_.search_params()[FAISS_SEARCHER_PARAMS_IVF_PQ_POLYSEMOUS_HT]
-            .is_number_integer()) {
-      index_ivf_pq->polysemous_ht =
-          index_meta_.search_params()[FAISS_SEARCHER_PARAMS_IVF_PQ_POLYSEMOUS_HT].get<int>();
-    }
+    index_ivf_pq->nprobe = search_params_.nprobe;
+    index_ivf_pq->max_codes = search_params_.max_codes;
+    index_ivf_pq->scan_table_threshold = search_params_.scan_table_threshold;
+    index_ivf_pq->polysemous_ht = search_params_.polysemous_ht;
 
     return std::make_shared<Index>(index.release(),         //
                                    IndexType::kFaissIvfPq,  //

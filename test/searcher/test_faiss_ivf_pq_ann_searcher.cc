@@ -24,6 +24,7 @@
 #include <iostream>
 #include <random>
 
+#include "tenann/index/parameters.h"
 #include "test/faiss_test_base.h"
 
 namespace tenann {
@@ -109,12 +110,12 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
 
   {
     // nprobe = 4 * sqrt(nb_), recall rate > 0.8
-    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_NPROBE,
+    ann_searcher_->SetDefaultSearchParamItem(FaissIvfPqSearchParams::nprobe_key,
                                              size_t(4 * sqrt(nb_)));
-    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_MAX_CODES, size_t(0));
-    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_PQ_SCAN_TABLE_THRESHOLD,
+    ann_searcher_->SetDefaultSearchParamItem(FaissIvfPqSearchParams::max_codes_key, size_t(0));
+    ann_searcher_->SetDefaultSearchParamItem(FaissIvfPqSearchParams::scan_table_threshold_key,
                                              size_t(0));
-    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_IVF_PQ_POLYSEMOUS_HT, int(0));
+    ann_searcher_->SetDefaultSearchParamItem(FaissIvfPqSearchParams::polysemous_ht_key, int(0));
 
     // search index
     result_ids_.clear();

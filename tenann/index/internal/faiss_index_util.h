@@ -23,7 +23,9 @@
 #include <string>
 #include <utility>
 
+#include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/IndexIVFPQ.h"
 #include "faiss/IndexPreTransform.h"
 #include "tenann/common/error.h"
 #include "tenann/index/index.h"

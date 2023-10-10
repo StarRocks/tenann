@@ -206,11 +206,9 @@ class TypedSliceIterator {
       idx_t size = view_.array_seq_view.size;
       const T* end = data + size * dim;
 
-      idx_t i = 0;
-      while (data < end) {
-        lambda(i, data, dim);
-        data += dim;
-        i += 1;
+      for (idx_t i = 0; i < size; i++) {
+        auto data_i = data + dim * i;
+        lambda(i, data_i, dim);
       }
     }
   }

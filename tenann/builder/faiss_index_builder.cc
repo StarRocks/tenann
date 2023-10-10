@@ -23,7 +23,6 @@
 
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
-#include "faiss/VectorTransform.h"
 #include "faiss/index_factory.h"
 #include "faiss_hnsw_index_builder.h"
 #include "fmt/format.h"
@@ -38,26 +37,14 @@
 
 namespace tenann {
 
-FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta)
-    : IndexBuilder(meta), transform_(nullptr) {
+FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta) : IndexBuilder(meta) {
   FetchParameters(meta, &common_params_);
 
   auto index_type = meta.index_type();
-  if (index_type == IndexType::kFaissHnsw) {
-    T_CHECK(common_params_.metric_type == MetricType::kL2Distance ||
-            common_params_.metric_type == MetricType::kCosineSimilarity)
-        << "only l2_distance and cosine_similarity are permitted as distance measures for faiss "
-           "hnsw";
 
-    if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-      if (!common_params_.is_vector_normed) {
-        transform_ = std::make_unique<faiss::NormalizationTransform>(common_params_.dim);
-      }
-    }
-  } else {
-    T_CHECK(common_params_.metric_type == MetricType::kL2Distance)
-        << "only l2_distance is supported for this type of index";
-  }
+  T_CHECK(common_params_.metric_type == MetricType::kL2Distance ||
+          common_params_.metric_type == MetricType::kCosineSimilarity)
+      << "only l2_distance and cosine_similarity are supported";
 }
 
 FaissIndexBuilder::~FaissIndexBuilder(){};
@@ -273,44 +260,20 @@ void FaissIndexBuilder::AddWithRowIdsAndNullFlags(
 
 void FaissIndexBuilder::FaissIndexAddBatch(faiss::Index* index, idx_t num_rows, const float* data,
                                            const idx_t* rowids) {
-  const float* transformed_data = data;
-  if (transform_ != nullptr) {
-    auto tranformed_buffer = TransformBatch(num_rows, data);
-    transformed_data = tranformed_buffer.data();
-  }
-
   if (rowids != nullptr) {
-    index->add_with_ids(num_rows, transformed_data, rowids);
+    index->add_with_ids(num_rows, data, rowids);
   } else {
-    index->add(num_rows, transformed_data);
+    index->add(num_rows, data);
   }
 }
 
 void FaissIndexBuilder::FaissIndexAddSingle(faiss::Index* index, const float* data,
                                             const idx_t* rowid) {
-  const float* transformed_data = data;
-  if (transform_ != nullptr) {
-    auto tranformed_buffer = TransformSingle(data);
-    transformed_data = tranformed_buffer.data();
-  }
-
   if (rowid != nullptr) {
-    index->add_with_ids(1, transformed_data, rowid);
+    index->add_with_ids(1, data, rowid);
   } else {
-    index->add(1, transformed_data);
+    index->add(1, data);
   }
-}
-
-std::vector<float> FaissIndexBuilder::TransformBatch(idx_t num_rows, const float* data) {
-  std::vector<float> transform_buffer(num_rows * common_params_.dim);
-  transform_->apply_noalloc(num_rows, data, transform_buffer.data());
-  return transform_buffer;
-}
-
-std::vector<float> FaissIndexBuilder::TransformSingle(const float* data) {
-  std::vector<float> transform_buffer(common_params_.dim);
-  transform_->apply_noalloc(1, data, transform_buffer.data());
-  return transform_buffer;
 }
 
 void FaissIndexBuilder::CheckDimension(const TypedVlArraySeqView<float>& input_column, int dim) {

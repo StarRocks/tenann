@@ -24,20 +24,21 @@
 #include <iostream>
 #include <random>
 
+#include "tenann/index/parameters.h"
 #include "test/faiss_test_base.h"
 
 namespace tenann {
 
 class FaissHnswAnnSearcherTest : public FaissTestBase {
  public:
-    FaissHnswAnnSearcherTest() : FaissTestBase() {
-      InitFaissHnswMeta();
-      faiss_hnsw_index_builder_ = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta_);
-    }
+  FaissHnswAnnSearcherTest() : FaissTestBase() {
+    InitFaissHnswMeta();
+    faiss_hnsw_index_builder_ = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta_);
+  }
 };
 
 TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
-  CreateAndWriteFaissHnswIndex();
+  CreateAndWriteFaissHnswIndex(true);
 
   {
     IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
@@ -82,13 +83,10 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
 }
 
 TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_IDMap_HNSW_IsWork) {
-  CreateAndWriteFaissHnswIndex(true);
-
   {
-    // default search index, efSearch = 16, recall rate > 0.8
+    CreateAndWriteFaissHnswIndex(true);
     ReadIndexAndDefaultSearch();
-    // TODO: fix this test
-    // EXPECT_TRUE(RecallCheckResult_80Percent());
+    EXPECT_TRUE(RecallCheckResult_80Percent());
   }
 
   {
@@ -107,8 +105,8 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_IDMap_HNSW_IsWork) {
   {
     // TODO: hnsw 暂未支持传入 searchParams, 预备 ut
     // efSearch = 40, recall rate > 0.8
-    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH, int(40));
-    ann_searcher_->SetDefaultSearchParamItem(FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE,
+    ann_searcher_->SetDefaultSearchParamItem(FaissHnswSearchParams::efSearch_key, int(40));
+    ann_searcher_->SetDefaultSearchParamItem(FaissHnswSearchParams::check_relative_distance_key,
                                              true);
 
     // search index

@@ -26,15 +26,14 @@
 #include <iostream>
 #include <random>
 
-#include "gtest/gtest.h"
 #include "gmock/gmock.h"
-
-#include "tenann/common/error.h"
-#include "tenann/factory/index_factory.h"
-#include "tenann/factory/ann_searcher_factory.h"
+#include "gtest/gtest.h"
 #include "tenann/builder/faiss_hnsw_index_builder.h"
-#include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 #include "tenann/builder/faiss_ivf_pq_index_builder.h"
+#include "tenann/common/error.h"
+#include "tenann/factory/ann_searcher_factory.h"
+#include "tenann/factory/index_factory.h"
+#include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 #include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
 
 namespace tenann {
@@ -64,7 +63,9 @@ class FaissTestBase : public ::testing::Test {
   VlArraySeqView& base_vl_view() { return base_vl_view_; }
   std::vector<PrimitiveSeqView>& query_view() { return query_view_; }
   std::unique_ptr<IndexBuilder>& faiss_hnsw_index_builder() { return faiss_hnsw_index_builder_; }
-  std::unique_ptr<IndexBuilder>& faiss_ivf_pq_index_builder() { return faiss_ivf_pq_index_builder_; }
+  std::unique_ptr<IndexBuilder>& faiss_ivf_pq_index_builder() {
+    return faiss_ivf_pq_index_builder_;
+  }
   IndexWriterRef& index_writer() { return index_writer_; }
   IndexReaderRef& index_reader() { return index_reader_; }
   std::unique_ptr<AnnSearcher>& ann_searcher() { return ann_searcher_; }
@@ -87,8 +88,10 @@ class FaissTestBase : public ::testing::Test {
   // log output: build_Release/Testing/Temporary/LastTest.log
   bool RecallCheckResult_80Percent();
 
+ float ComputeRecall();
+
  protected:
-   // dimension of the vectors to index
+  // dimension of the vectors to index
   uint32_t d_ = 128;
   // size of the database we plan to index
   size_t nb_ = 200;

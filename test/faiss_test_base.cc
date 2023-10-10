@@ -19,6 +19,8 @@
 
 #include "test/faiss_test_base.h"
 
+#include "faiss_test_base.h"
+
 namespace tenann {
 
 void FaissTestBase::SetUp() {
@@ -75,8 +77,8 @@ void FaissTestBase::InitFaissHnswMeta() {
   faiss_hnsw_meta_.common_params()["is_vector_normed"] = false;
   faiss_hnsw_meta_.common_params()["metric_type"] = MetricType::kL2Distance;
   faiss_hnsw_meta_.index_params()["efConstruction"] = 40;
-  faiss_hnsw_meta_.index_params()["M"] = 32;
-  faiss_hnsw_meta_.search_params()["efSearch"] = 16;
+  faiss_hnsw_meta_.index_params()["M"] = 16;
+  faiss_hnsw_meta_.search_params()["efSearch"] = 40;
   faiss_hnsw_meta_.search_params()["check_relative_distance"] = true;
   faiss_hnsw_meta_.extra_params()["comments"] = "my comments";
 }
@@ -133,12 +135,15 @@ float FaissTestBase::EuclideanDistance(const float* v1, const float* v2) {
   return sum;
 }
 
+// Note: Do not share the same groud-truth set for all tests !!!
 void FaissTestBase::InitAccurateQueryResult() {
   // search index
   for (int i = 0; i < nq_; i++) {
     std::vector<std::pair<int, double>> distances;
     for (int j = 0; j < nb_; j++) {
-      if (null_flags_[j] != 0) {
+      // TODO: null_flags_ is invalid if we do not use custom rowid
+      // thus we shouldn't share the same groud-truth set for all tests !!!
+      if (null_flags_[j] == 0) {
         float distance = EuclideanDistance(query_.data() + i * d_, base_.data() + j * d_);
         distances.push_back(std::make_pair(j, distance));
       }
@@ -162,7 +167,7 @@ void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id) {
         .SetIndexCache(IndexCache::GetGlobalInstance())
         .EnableCustomRowId()
         .Open(index_with_primary_key_path_)
-        .Add({base_view_}, ids_.data(), nullptr)
+        .Add({base_view_}, ids_.data(), null_flags_.data())
         .Flush(/*write_index_cache=*/true)
         .Close();
   } else {
@@ -226,6 +231,27 @@ bool FaissTestBase::RecallCheckResult_80Percent() {
     }
   }
   return true;
+}
+
+float FaissTestBase::ComputeRecall() {
+  float recall_sum;
+  for (int i = 0; i < nq_; i++) {
+    std::set<int> accurate_set;
+    for (int j = 0; j < k_; j++) {
+      auto accurate_id = accurate_query_result_ids_[i * k_ + j];
+      accurate_set.insert(accurate_id);
+    }
+    int hit = 0;
+    for (int j = 0; j < k_; j++) {
+      if (accurate_set.find(result_ids_[i * k_ + j]) != accurate_set.end()) {
+        hit++;
+      }
+    }
+    float recall_i = hit * 1.0 / k_;
+    printf("query %d: recall rate:%f\n", i, recall_i);
+    recall_sum += recall_i;
+  }
+  return recall_sum / nq_;
 }
 
 }  // namespace tenann

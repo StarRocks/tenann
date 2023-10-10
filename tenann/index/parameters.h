@@ -19,13 +19,22 @@
 
 #pragma once
 
+#include <limits.h>
 #include <stddef.h>
+
+#include "tenann/common/error.h"
+#include "tenann/common/logging.h"
 
 #define DEFINE_PARAM(type, key, default_value)                                  \
   using key##_type = type;                                                      \
   static constexpr const char* key##_key = #key;                                \
   static constexpr const type key##_default = static_cast<type>(default_value); \
   type key = static_cast<type>(default_value);
+
+#define ASSERT_PARAM_IN_RANGE(param, min, max)                                      \
+  if ((param) < (min) || (param) > (max)) {                                         \
+    T_LOG(ERROR) << #param << " should in range [" << (min) << "," << (max) << "]"; \
+  }
 
 /// These two macros serve as document purposes to help users and developers understand a parameter
 /// is required or not. They share the exactly same implementation,
@@ -38,6 +47,11 @@ struct VectorIndexCommonParams {
   DEFINE_REQUIRED_PRARM(int, dim, 0);
   DEFINE_REQUIRED_PRARM(int, metric_type, 0);
   DEFINE_OPTIONAL_PARAM(bool, is_vector_normed, false);
+
+  void Validate() {
+    ASSERT_PARAM_IN_RANGE(dim, 1, 65536);
+    ASSERT_PARAM_IN_RANGE(metric_type, 0, 4);
+  }
 };
 
 /** Parameters for Faiss IVF-PQ */
@@ -45,6 +59,11 @@ struct FaissIvfPqIndexParams {
   DEFINE_OPTIONAL_PARAM(size_t, nlists, 16);
   DEFINE_OPTIONAL_PARAM(size_t, M, 2);
   DEFINE_OPTIONAL_PARAM(size_t, nbits, 8);
+
+  void Validate() {
+    ASSERT_PARAM_IN_RANGE(nlists, 1, INT_MAX);
+    ASSERT_PARAM_IN_RANGE(M, 1, INT_MAX);
+  }
 };
 
 struct FaissIvfPqSearchParams {
@@ -52,17 +71,26 @@ struct FaissIvfPqSearchParams {
   DEFINE_OPTIONAL_PARAM(size_t, max_codes, 0);
   DEFINE_OPTIONAL_PARAM(size_t, scan_table_threshold, 0);
   DEFINE_OPTIONAL_PARAM(int, polysemous_ht, 0);
+
+  void Validate() { ASSERT_PARAM_IN_RANGE(nprobe, 1, INT_MAX); }
 };
 
 /** Parameters for faiss HSNW */
 struct FaissHnswIndexParams {
   DEFINE_OPTIONAL_PARAM(int, M, 16);
   DEFINE_OPTIONAL_PARAM(int, efConstruction, 40);
+
+  void Validate() {
+    ASSERT_PARAM_IN_RANGE(M, 1, 65536);
+    ASSERT_PARAM_IN_RANGE(efConstruction, 1, 65536);
+  }
 };
 
 struct FaissHnswSearchParams {
   DEFINE_OPTIONAL_PARAM(int, efSearch, 16);
   DEFINE_OPTIONAL_PARAM(bool, check_relative_distance, true);
+
+  void Validate() { ASSERT_PARAM_IN_RANGE(efSearch, 1, INT_MAX); }
 };
 
 }  // namespace tenann
