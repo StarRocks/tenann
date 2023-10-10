@@ -1,3 +1,4 @@
+#include "ann_searcher.h"
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -17,33 +18,14 @@
  * under the License.
  */
 
-#pragma once
-
-#include "faiss/IndexIVFPQ.h"
-#include "tenann/searcher/ann_searcher.h"
+#include "tenann/index/parameter_serde.h"
 
 namespace tenann {
 
-class FaissIvfPqAnnSearcher : public AnnSearcher {
- public:
-  explicit FaissIvfPqAnnSearcher(const IndexMeta& meta);
-  virtual ~FaissIvfPqAnnSearcher();
+AnnSearcher::AnnSearcher(const IndexMeta& meta) : Searcher<AnnSearcher>(meta) {
+  FetchParameters(meta, &common_params_);
+}
 
-  T_FORBID_MOVE(FaissIvfPqAnnSearcher);
-  T_FORBID_COPY_AND_ASSIGN(FaissIvfPqAnnSearcher);
-
-  /// ANN搜索接口，只返回k近邻的id
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) override;
-
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                 uint8_t* result_distances) override;
-
- protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override;
-  void SearchParamsChangeHook(const json& value) override;
-
- private:
-  std::unique_ptr<faiss::IVFPQSearchParameters> search_parameters_;
-};
+AnnSearcher::~AnnSearcher() = default;
 
 }  // namespace tenann

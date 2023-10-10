@@ -17,34 +17,22 @@
  * under the License.
  */
 
-#pragma once
-
-
-#include "tenann/searcher/ann_searcher.h"
+#include "stddef.h"
 
 namespace tenann {
 
-class FaissHnswAnnSearcher : public AnnSearcher {
- public:
-  explicit FaissHnswAnnSearcher(const IndexMeta& meta);
-  virtual ~FaissHnswAnnSearcher();
-
-  T_FORBID_MOVE(FaissHnswAnnSearcher);
-  T_FORBID_COPY_AND_ASSIGN(FaissHnswAnnSearcher);
-
-  /// ANN搜索接口，只返回k近邻的id
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) override;
-
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                 uint8_t* result_distances) override;
-
- protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override;
-
-  void SearchParamsChangeHook(const json& value) override;
-
- private:
-  FaissHnswSearchParams search_params_;
-};
+/**
+ * @brief Convert l2 (euclidean square) distance to cosine simimarity.
+ * It only works if both the database and query vectors are nomalized.
+ *
+ * @param src Source
+ * @param dst Destination
+ * @param k   Size of inputs
+ */
+inline void L2DistanceToCosineSimilarity(const float* src, float* dst, size_t k) {
+  for (size_t i = 0; i < k; i++) {
+    dst[i] = 1 - src[i] / 2;
+  }
+}
 
 }  // namespace tenann

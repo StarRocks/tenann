@@ -19,9 +19,15 @@
 
 #include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
 
+#include "faiss_ivf_pq_ann_searcher.h"
 #include "tenann/common/logging.h"
+#include "tenann/util/distance_util.h"
 
 namespace tenann {
+
+FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {}
+
+FaissIvfPqAnnSearcher::~FaissIvfPqAnnSearcher() = default;
 
 void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) {
   std::vector<float> distances(k);
@@ -40,6 +46,11 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int6
   faiss_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data),
                       k, reinterpret_cast<float*>(result_distances), result_ids,
                       search_parameters_.get());
+
+  auto distances = reinterpret_cast<float*>(result_distances);
+  if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+    L2DistanceToCosineSimilarity(distances, distances, k);
+  }
 }
 
 void FaissIvfPqAnnSearcher::SearchParamItemChangeHook(const std::string& key, const json& value) {

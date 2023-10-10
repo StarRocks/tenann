@@ -61,29 +61,29 @@ namespace tenann {
 #define GET_REQUIRED_EXTRA_PARAM_TO(meta, target, parameter_name) \
   GET_REQUIRED_PARAM_TO(meta, target, Extra, parameter_name)
 
-inline void DeserializeParameters(const IndexMeta& meta, VectorIndexCommonParams* out_params) {
+inline void FetchParameters(const IndexMeta& meta, VectorIndexCommonParams* out_params) {
   GET_REQUIRED_COMMON_PARAM_TO(meta, *out_params, dim);
   GET_REQUIRED_COMMON_PARAM_TO(meta, *out_params, metric_type);
   GET_OPTIONAL_COMMON_PARAM_TO(meta, *out_params, is_vector_normed);
 }
 
-inline void DeserializeParameters(const IndexMeta& meta, FaissHnswIndexParams* out_params) {
+inline void FetchParameters(const IndexMeta& meta, FaissHnswIndexParams* out_params) {
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, M);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, efConstruction);
 }
 
-inline void DeserializeParameters(const IndexMeta& meta, FaissHnswSearchParams* out_params) {
+inline void FetchParameters(const IndexMeta& meta, FaissHnswSearchParams* out_params) {
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, efSearch);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, check_relative_distance);
 }
 
-inline void DeserializeParameters(const IndexMeta& meta, FaissIvfPqIndexParams* out_params) {
+inline void FetchParameters(const IndexMeta& meta, FaissIvfPqIndexParams* out_params) {
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nlists);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, M);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nbits);
 }
 
-inline void DeserializeParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_params) {
+inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_params) {
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nprobe);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, max_codes);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, scan_table_threshold);

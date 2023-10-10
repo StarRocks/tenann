@@ -40,7 +40,7 @@ namespace tenann {
 
 FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta)
     : IndexBuilder(meta), transform_(nullptr) {
-  DeserializeParameters(meta, &common_params_);
+  FetchParameters(meta, &common_params_);
 
   auto index_type = meta.index_type();
   if (index_type == IndexType::kFaissHnsw) {

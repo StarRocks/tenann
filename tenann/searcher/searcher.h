@@ -28,6 +28,11 @@
 
 namespace tenann {
 
+/**
+ * @brief Base class for all searchers. Not thread-safe.
+ * 
+ * @tparam ChildSearcher 
+ */
 template <typename ChildSearcher>
 class Searcher {
  public:
@@ -66,14 +71,12 @@ class Searcher {
 
   /// Set single search parameter.
   ChildSearcher& SetDefaultSearchParamItem(const std::string& key, const json& value) {
-    search_params_[key] = value;
     this->SearchParamItemChangeHook(key, value);
     return static_cast<ChildSearcher&>(*this);
   };
 
   /// Set all search parameters.
   ChildSearcher& SetDefaultSearchParams(const json& params) {
-    search_params_ = params;
     this->SearchParamsChangeHook(params);
     return static_cast<ChildSearcher&>(*this);
   }
@@ -115,7 +118,6 @@ class Searcher {
   IndexMeta index_meta_;
   IndexRef index_ref_;
   bool is_index_loaded_;
-  json search_params_;
 
   /* reader and cache */
   IndexReaderRef index_reader_;

@@ -19,18 +19,19 @@
 
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 
+#include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/impl/HNSW.h"
 #include "tenann/common/logging.h"
+#include "tenann/index/internal/faiss_index_util.h"
 #include "tenann/store/index_meta.h"
+#include "tenann/util/distance_util.h"
 
 namespace tenann {
-FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {
-  GET_META_OR_DEFAULT(index_meta_, common, "is_vector_normed", bool, is_vector_normed_, false);
 
-  int metric_type_value;
-  CHECK_AND_GET_META(index_meta_, common, "metric_type", int, metric_type_value);
-  metric_type_ = static_cast<MetricType>(metric_type_value);
-}
+FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {}
+
+FaissHnswAnnSearcher::~FaissHnswAnnSearcher() = default;
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) {
   std::vector<float> distances(k);
@@ -44,29 +45,18 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
   T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
 
-  bool use_custom_row_id = false;
   auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
-  faiss::IndexHNSW* hnsw_index = dynamic_cast<faiss::IndexHNSW*>(faiss_index);
-  faiss::IndexIDMap* idmap_index = nullptr;
+  auto [hnsw_index, idmap_index] = faiss_util::UnpackHnsw(faiss_index, common_params_);
 
-  if (hnsw_index == nullptr) {
-    if (idmap_index = dynamic_cast<faiss::IndexIDMap*>(faiss_index)) {
-      hnsw_index = dynamic_cast<faiss::IndexHNSW*>(idmap_index->index);
-      use_custom_row_id = true;
-    } else {
-      throw Error(__FILE__, __LINE__, "IndexIDMap parsing error.");
-    }
-
-    if (hnsw_index == nullptr) {
-      throw Error(__FILE__, __LINE__, "IndexIDMap<IndexHNSW> parsing error.");
-    }
-  }
+  faiss::SearchParametersHNSW faiss_search_parameters;
+  faiss_search_parameters.efSearch = search_params_.efSearch;
+  faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
 
   hnsw_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data), k,
                      reinterpret_cast<float*>(result_distances), result_ids,
-                     search_parameters_.get());
+                     &faiss_search_parameters);
 
-  if (use_custom_row_id && idmap_index != nullptr) {
+  if (idmap_index != nullptr) {
     int64_t* li = result_ids;
     for (int64_t i = 0; i < ANN_SEARCHER_QUERY_COUNT * k; i++) {
       li[i] = li[i] < 0 ? li[i] : idmap_index->id_map[li[i]];
@@ -74,36 +64,24 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   }
 
   auto distances = reinterpret_cast<float*>(result_distances);
-  if (metric_type_ == MetricType::kCosineSimilarity) {
-    for (int i = 0; i < k; i++) {
-      distances[i] = 1 - distances[i] / 2;
-    }
+  if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+    L2DistanceToCosineSimilarity(distances, distances, k);
   }
 }
 
 void FaissHnswAnnSearcher::SearchParamItemChangeHook(const std::string& key, const json& value) {
-  if (!search_parameters_) {
-    search_parameters_ = std::make_unique<faiss::SearchParametersHNSW>();
-  }
-
-  if (key == FAISS_SEARCHER_PARAMS_HNSW_EF_SEARCH) {
-    value.is_number_integer() && (search_parameters_->efSearch = value.get<int>());
+  if (key == FaissHnswSearchParams::efSearch_key) {
+    value.is_number_integer() && (search_params_.efSearch = value.get<int>());
     T_LOG(INFO) << "here:: " << key;
-
-  } else if (key == FAISS_SEARCHER_PARAMS_HNSW_CHECK_RELATIVE_DISTANCE) {
-    value.is_boolean() && (search_parameters_->check_relative_distance = value.get<bool>());
+  } else if (key == FaissHnswSearchParams::check_relative_distance_key) {
+    value.is_boolean() && (search_params_.check_relative_distance = value.get<bool>());
     T_LOG(INFO) << "here:: " << key;
-
   } else {
     T_LOG(ERROR) << "Unsupport search parameter: " << key;
   }
 };
 
 void FaissHnswAnnSearcher::SearchParamsChangeHook(const json& value) {
-  if (search_parameters_) {
-    search_parameters_.reset();
-  }
-
   for (auto it = value.begin(); it != value.end(); ++it) {
     SearchParamItemChangeHook(it.key(), it.value());
   }

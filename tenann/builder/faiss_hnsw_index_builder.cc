@@ -39,8 +39,8 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
   // TODO: add "M", "efConstruction", "efSearch" limit check
   try {
     // init index/search parameters from meta
-    DeserializeParameters(index_meta_, &index_params_);
-    DeserializeParameters(index_meta_, &search_params_);
+    FetchParameters(index_meta_, &index_params_);
+    FetchParameters(index_meta_, &search_params_);
 
     // create faiss index factory string
     auto factory_string =
@@ -49,8 +49,7 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
     // create faiss index
     auto index = std::unique_ptr<faiss::Index>(
         faiss::index_factory(common_params_.dim, factory_string.c_str(), faiss::METRIC_L2));
-    auto* index_hnsw = faiss_util::UnpackHnswMutable(index.get(), common_params_, index_params_,
-                                                     use_custom_row_id_);
+    auto [index_hnsw, _] = faiss_util::UnpackHnswMutable(index.get(), common_params_);
 
     // set index parameters
     index_hnsw->hnsw.efConstruction = index_params_.efConstruction;

@@ -21,6 +21,7 @@
 
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "faiss/IndexIDMap.h"
 #include "faiss/IndexPreTransform.h"
@@ -55,13 +56,13 @@ inline std::string GetHnswRepr(const VectorIndexCommonParams& common_params,
                                bool use_custom_rowid = false) {
   std::ostringstream oss;
 
+  if (use_custom_rowid) {
+    oss << "IDMap,";
+  }
+
   if (common_params.metric_type == MetricType::kCosineSimilarity &&
       !common_params.is_vector_normed) {
     oss << "L2Norm,";
-  }
-
-  if (use_custom_rowid) {
-    oss << "IDMap,";
   }
 
   oss << "HNSW";
@@ -69,11 +70,14 @@ inline std::string GetHnswRepr(const VectorIndexCommonParams& common_params,
   return oss.str();
 }
 
-inline const faiss::IndexHNSW* UnpackHnsw(const faiss::Index* index,
-                                          const VectorIndexCommonParams& common_params,
-                                          const FaissHnswIndexParams& index_params,
-                                          bool use_custom_rowid = false) {
+inline std::pair<const faiss::IndexHNSW*, const faiss::IndexIDMap*> UnpackHnsw(
+    const faiss::Index* index, const VectorIndexCommonParams& common_params) {
   const faiss::Index* sub_index = index;
+  const faiss::IndexIDMap* id_map = dynamic_cast<const faiss::IndexIDMap*>(index);
+
+  if (id_map != nullptr) {
+    sub_index = id_map->index;
+  }
 
   if (common_params.metric_type == MetricType::kCosineSimilarity &&
       !common_params.is_vector_normed) {
@@ -81,22 +85,16 @@ inline const faiss::IndexHNSW* UnpackHnsw(const faiss::Index* index,
     sub_index = target->index;
   }
 
-  if (use_custom_rowid) {
-    auto target = FAISS_DOWN_CAST(faiss::IndexIDMap, sub_index);
-    sub_index = target->index;
-  }
-
   auto hnsw = FAISS_DOWN_CAST(faiss::IndexHNSW, sub_index);
 
-  return hnsw;
+  return std::make_pair(hnsw, id_map);
 }
 
-inline faiss::IndexHNSW* UnpackHnswMutable(faiss::Index* index,
-                                           const VectorIndexCommonParams& common_params,
-                                           const FaissHnswIndexParams& index_params,
-                                           bool use_custom_rowid = false) {
-  return const_cast<faiss::IndexHNSW*>(
-      UnpackHnsw(index, common_params, index_params, use_custom_rowid));
+inline std::pair<faiss::IndexHNSW*, faiss::IndexIDMap*> UnpackHnswMutable(
+    faiss::Index* index, const VectorIndexCommonParams& common_params) {
+  auto [hnsw, id_map] = UnpackHnsw(index, common_params);
+  return std::make_pair(const_cast<faiss::IndexHNSW*>(hnsw),
+                        const_cast<faiss::IndexIDMap*>(id_map));
 }
 
 /************************************************************
@@ -118,8 +116,7 @@ inline std::string GetIvfPqRepr(const VectorIndexCommonParams& common_params,
 }
 
 inline const faiss::IndexIVFPQ* UnpackIvfPq(const faiss::Index* index,
-                                            const VectorIndexCommonParams& common_params,
-                                            const FaissIvfPqIndexParams& index_params) {
+                                            const VectorIndexCommonParams& common_params) {
   const faiss::Index* sub_index = index;
 
   if (common_params.metric_type == MetricType::kCosineSimilarity &&
@@ -134,9 +131,8 @@ inline const faiss::IndexIVFPQ* UnpackIvfPq(const faiss::Index* index,
 }
 
 inline faiss::IndexIVFPQ* UnpackIvfPqMutable(faiss::Index* index,
-                                             const VectorIndexCommonParams& common_params,
-                                             const FaissIvfPqIndexParams& index_params) {
-  return const_cast<faiss::IndexIVFPQ*>(UnpackIvfPq(index, common_params, index_params));
+                                             const VectorIndexCommonParams& common_params) {
+  return const_cast<faiss::IndexIVFPQ*>(UnpackIvfPq(index, common_params));
 }
 
 }  // namespace faiss_util
