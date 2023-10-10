@@ -70,13 +70,13 @@ class Searcher {
   };
 
   /// Set single search parameter.
-  ChildSearcher& SetDefaultSearchParamItem(const std::string& key, const json& value) {
+  ChildSearcher& SetSearchParamItem(const std::string& key, const json& value) {
     this->SearchParamItemChangeHook(key, value);
     return static_cast<ChildSearcher&>(*this);
   };
 
   /// Set all search parameters.
-  ChildSearcher& SetDefaultSearchParams(const json& params) {
+  ChildSearcher& SetSearchParams(const json& params) {
     this->SearchParamsChangeHook(params);
     return static_cast<ChildSearcher&>(*this);
   }
