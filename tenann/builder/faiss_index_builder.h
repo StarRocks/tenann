@@ -24,7 +24,6 @@
 #include "tenann/builder/index_builder.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/parameters.h"
-#include "tenann/searcher/search_parameters.h"
 
 namespace faiss {
 class Index;

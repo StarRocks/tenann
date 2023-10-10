@@ -21,9 +21,6 @@
 
 #include <stddef.h>
 
-#include "faiss/IndexHNSW.h"
-#include "faiss/IndexIVFPQ.h"
-
 #define DEFINE_PARAM(type, key, default_value)                                  \
   using key##_type = type;                                                      \
   static constexpr const char* key##_key = #key;                                \
