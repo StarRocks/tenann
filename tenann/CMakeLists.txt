@@ -51,13 +51,12 @@ add_library(tenann STATIC ${TENANN_SRC})
 add_library(fmt STATIC IMPORTED)
 set_target_properties(fmt PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib64/libfmt.a)
 
-# faiss
-find_package(faiss REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
+# Two targets (faiss and faiss_avx2) will be imported
+add_library(faiss STATIC IMPORTED)
+set_target_properties(faiss PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a)
 
-# faiss_avx2
-if(WITH_AVX2 STREQUAL "ON")
-    find_package(faiss_avx2 REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
-endif()
+add_library(faiss_avx2 STATIC IMPORTED)
+set_target_properties(faiss_avx2 PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss_avx2.a)
 
 # lapack
 find_package(LAPACK REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/lapack")
