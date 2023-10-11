@@ -49,7 +49,7 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
     // create faiss index
     auto index = std::unique_ptr<faiss::Index>(
         faiss::index_factory(common_params_.dim, factory_string.c_str(), faiss::METRIC_L2));
-    auto [index_hnsw, _] = faiss_util::UnpackHnswMutable(index.get(), common_params_);
+    auto [_, __, index_hnsw] = faiss_util::UnpackHnswMutable(index.get(), common_params_);
 
     // set index parameters
     index_hnsw->hnsw.efConstruction = index_params_.efConstruction;

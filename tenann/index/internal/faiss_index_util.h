@@ -72,10 +72,13 @@ inline std::string GetHnswRepr(const VectorIndexCommonParams& common_params,
   return oss.str();
 }
 
-inline std::pair<const faiss::IndexHNSW*, const faiss::IndexIDMap*> UnpackHnsw(
-    const faiss::Index* index, const VectorIndexCommonParams& common_params) {
+inline std::tuple<const faiss::IndexIDMap*, const faiss::IndexPreTransform*,
+                  const faiss::IndexHNSW*>
+UnpackHnsw(const faiss::Index* index, const VectorIndexCommonParams& common_params) {
   const faiss::Index* sub_index = index;
+
   const faiss::IndexIDMap* id_map = dynamic_cast<const faiss::IndexIDMap*>(index);
+  const faiss::IndexPreTransform* transform = nullptr;
 
   if (id_map != nullptr) {
     sub_index = id_map->index;
@@ -83,20 +86,21 @@ inline std::pair<const faiss::IndexHNSW*, const faiss::IndexIDMap*> UnpackHnsw(
 
   if (common_params.metric_type == MetricType::kCosineSimilarity &&
       !common_params.is_vector_normed) {
-    auto target = FAISS_DOWN_CAST(faiss::IndexPreTransform, sub_index);
-    sub_index = target->index;
+    transform = FAISS_DOWN_CAST(faiss::IndexPreTransform, sub_index);
+    sub_index = transform->index;
   }
 
   auto hnsw = FAISS_DOWN_CAST(faiss::IndexHNSW, sub_index);
 
-  return std::make_pair(hnsw, id_map);
+  return std::make_tuple(id_map, transform, hnsw);
 }
 
-inline std::pair<faiss::IndexHNSW*, faiss::IndexIDMap*> UnpackHnswMutable(
-    faiss::Index* index, const VectorIndexCommonParams& common_params) {
-  auto [hnsw, id_map] = UnpackHnsw(index, common_params);
-  return std::make_pair(const_cast<faiss::IndexHNSW*>(hnsw),
-                        const_cast<faiss::IndexIDMap*>(id_map));
+inline std::tuple<faiss::IndexIDMap*, faiss::IndexPreTransform*, faiss::IndexHNSW*>
+UnpackHnswMutable(faiss::Index* index, const VectorIndexCommonParams& common_params) {
+  auto [id_map, transform, hnsw] = UnpackHnsw(index, common_params);
+  return std::make_tuple(const_cast<faiss::IndexIDMap*>(id_map),
+                         const_cast<faiss::IndexPreTransform*>(transform),
+                         const_cast<faiss::IndexHNSW*>(hnsw));
 }
 
 /************************************************************

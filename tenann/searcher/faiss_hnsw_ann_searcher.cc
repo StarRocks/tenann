@@ -21,6 +21,7 @@
 
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/impl/FaissException.h"
 #include "faiss/impl/HNSW.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/internal/faiss_index_util.h"
@@ -46,15 +47,25 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
 
   auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
-  auto [hnsw_index, idmap_index] = faiss_util::UnpackHnsw(faiss_index, common_params_);
+  auto [idmap_index, transform, hnsw_index] = faiss_util::UnpackHnsw(faiss_index, common_params_);
 
   faiss::SearchParametersHNSW faiss_search_parameters;
   faiss_search_parameters.efSearch = search_params_.efSearch;
   faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
 
-  hnsw_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data), k,
-                     reinterpret_cast<float*>(result_distances), result_ids,
-                     &faiss_search_parameters);
+  const float* x = reinterpret_cast<const float*>(query_vector.data);
+
+  // transform the query vector first if a pre-transform is set
+  if (transform != nullptr) {
+    const float* xt = transform->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
+    faiss::ScopeDeleter<float> del(xt == x ? nullptr : xt);
+    // search through the transformed vector
+    hnsw_index->search(ANN_SEARCHER_QUERY_COUNT, xt, k, reinterpret_cast<float*>(result_distances),
+                       result_ids, &faiss_search_parameters);
+  } else {
+    hnsw_index->search(ANN_SEARCHER_QUERY_COUNT, x, k, reinterpret_cast<float*>(result_distances),
+                       result_ids, &faiss_search_parameters);
+  }
 
   if (idmap_index != nullptr) {
     int64_t* li = result_ids;
