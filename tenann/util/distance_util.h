@@ -17,6 +17,8 @@
  * under the License.
  */
 
+#pragma once
+
 #include "stddef.h"
 
 namespace tenann {

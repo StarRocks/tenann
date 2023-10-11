@@ -24,6 +24,7 @@ set(TENANN_TEST_SRC
     searcher/test_faiss_ivf_pq_ann_searcher.cc
     thirdparty/test_fmt.cc
     util/test_runtime_profile.cc
+    util/test_bruteforce_ann.cc
 )
 
 add_executable(tenann_test ${TENANN_TEST_SRC})

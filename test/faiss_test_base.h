@@ -35,6 +35,7 @@
 #include "tenann/factory/index_factory.h"
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 #include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
+#include "tenann/util/bruteforce_ann.h"
 
 namespace tenann {
 
@@ -88,7 +89,7 @@ class FaissTestBase : public ::testing::Test {
   // log output: build_Release/Testing/Temporary/LastTest.log
   bool RecallCheckResult_80Percent();
 
- float ComputeRecall();
+  float ComputeRecall();
 
  protected:
   // dimension of the vectors to index

@@ -179,14 +179,14 @@ class TypedSliceIterator {
    * @code
    *   ArraySeqView view = ...;
    *   auto iter = TypedSliceIterator<float>(view_);
-   *   iter.ForEach([](const float* slice_data, idx_t slice_length) {
+   *   iter.ForEach([](idx_t i, const float* slice_data, idx_t slice_length) {
    *       ...
    *   })
    * @endcode
    *
    *
    * @tparam F
-   * @param lambda A function of type `void f(const T*, idx_t)`.
+   * @param lambda A function of type `void f(idx_t i, const T* slice_data, idx_t slice_length)`.
    */
   template <typename F>
   void ForEach(F&& lambda) const {
