@@ -40,8 +40,8 @@ class FaissIvfPqAnnSearcher : public AnnSearcher {
                  uint8_t* result_distances) override;
 
  protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override;
-  void SearchParamsChangeHook(const json& value) override;
+  void OnSearchParamItemChange(const std::string& key, const json& value) override;
+  void OnSearchParamsChange(const json& value) override;
 
  private:
   FaissIvfPqSearchParams search_params_;

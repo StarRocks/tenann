@@ -46,31 +46,31 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
   T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
 
-  auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
-  auto [idmap_index, transform, hnsw_index] = faiss_util::UnpackHnsw(faiss_index, common_params_);
-
   faiss::SearchParametersHNSW faiss_search_parameters;
   faiss_search_parameters.efSearch = search_params_.efSearch;
   faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
 
-  const float* x = reinterpret_cast<const float*>(query_vector.data);
-
   // transform the query vector first if a pre-transform is set
-  if (transform != nullptr) {
-    const float* xt = transform->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
+  const float* x = reinterpret_cast<const float*>(query_vector.data);
+  if (faiss_transform_ != nullptr) {
+    const float* xt = reinterpret_cast<const faiss::IndexPreTransform*>(faiss_transform_)
+                          ->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
     faiss::ScopeDeleter<float> del(xt == x ? nullptr : xt);
     // search through the transformed vector
-    hnsw_index->search(ANN_SEARCHER_QUERY_COUNT, xt, k, reinterpret_cast<float*>(result_distances),
-                       result_ids, &faiss_search_parameters);
+    reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_)
+        ->search(ANN_SEARCHER_QUERY_COUNT, xt, k, reinterpret_cast<float*>(result_distances),
+                 result_ids, &faiss_search_parameters);
   } else {
-    hnsw_index->search(ANN_SEARCHER_QUERY_COUNT, x, k, reinterpret_cast<float*>(result_distances),
-                       result_ids, &faiss_search_parameters);
+    reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_)
+        ->search(ANN_SEARCHER_QUERY_COUNT, x, k, reinterpret_cast<float*>(result_distances),
+                 result_ids, &faiss_search_parameters);
   }
 
-  if (idmap_index != nullptr) {
+  if (faiss_id_map_ != nullptr) {
     int64_t* li = result_ids;
     for (int64_t i = 0; i < ANN_SEARCHER_QUERY_COUNT * k; i++) {
-      li[i] = li[i] < 0 ? li[i] : idmap_index->id_map[li[i]];
+      li[i] = li[i] < 0 ? li[i]
+                        : reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map[li[i]];
     }
   }
 
@@ -80,7 +80,7 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   }
 }
 
-void FaissHnswAnnSearcher::SearchParamItemChangeHook(const std::string& key, const json& value) {
+void FaissHnswAnnSearcher::OnSearchParamItemChange(const std::string& key, const json& value) {
   if (key == FaissHnswSearchParams::efSearch_key) {
     value.is_number_integer() && (search_params_.efSearch = value.get<int>());
     T_LOG(INFO) << "here:: " << key;
@@ -92,9 +92,19 @@ void FaissHnswAnnSearcher::SearchParamItemChangeHook(const std::string& key, con
   }
 };
 
-void FaissHnswAnnSearcher::SearchParamsChangeHook(const json& value) {
+void FaissHnswAnnSearcher::OnSearchParamsChange(const json& value) {
   for (auto it = value.begin(); it != value.end(); ++it) {
-    SearchParamItemChangeHook(it.key(), it.value());
+    OnSearchParamItemChange(it.key(), it.value());
   }
 }
+
+void FaissHnswAnnSearcher::OnIndexLoaded() {
+  // fetch and check faiss index here
+  auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
+  auto [id_map, transform, hnsw] = faiss_util::UnpackHnsw(faiss_index, common_params_);
+  faiss_id_map_ = id_map;
+  faiss_transform_ = transform;
+  faiss_hnsw_ = hnsw;
+}
+
 }  // namespace tenann

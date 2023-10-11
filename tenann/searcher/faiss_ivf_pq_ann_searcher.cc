@@ -61,7 +61,7 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int6
   }
 }
 
-void FaissIvfPqAnnSearcher::SearchParamItemChangeHook(const std::string& key, const json& value) {
+void FaissIvfPqAnnSearcher::OnSearchParamItemChange(const std::string& key, const json& value) {
   try {
     if (key == FaissIvfPqSearchParams::nprobe_key) {
       search_params_.nprobe = value.get<FaissIvfPqSearchParams::nprobe_type>();
@@ -90,9 +90,9 @@ void FaissIvfPqAnnSearcher::SearchParamItemChangeHook(const std::string& key, co
   T_LOG(ERROR) << "unsupport search parameter: " << key;
 };
 
-void FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher::SearchParamsChangeHook(const json& value) {
+void FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher::OnSearchParamsChange(const json& value) {
   for (auto it = value.begin(); it != value.end(); ++it) {
-    SearchParamItemChangeHook(it.key(), it.value());
+    OnSearchParamItemChange(it.key(), it.value());
   }
 }
 

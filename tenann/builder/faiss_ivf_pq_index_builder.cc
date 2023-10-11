@@ -35,6 +35,8 @@ FaissIvfPqIndexBuilder::FaissIvfPqIndexBuilder(const IndexMeta& meta)
     : FaissIndexBuilderWithBuffer(meta) {
   FetchParameters(meta, &index_params_);
   FetchParameters(meta, &search_params_);
+  T_CHECK(common_params_.metric_type != MetricType::kCosineSimilarity)
+      << "IVF PQ does not support cosine similarity now";
 }
 
 FaissIvfPqIndexBuilder::~FaissIvfPqIndexBuilder() = default;

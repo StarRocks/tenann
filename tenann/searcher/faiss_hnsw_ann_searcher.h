@@ -19,7 +19,6 @@
 
 #pragma once
 
-
 #include "tenann/searcher/ann_searcher.h"
 
 namespace tenann {
@@ -39,12 +38,17 @@ class FaissHnswAnnSearcher : public AnnSearcher {
                  uint8_t* result_distances) override;
 
  protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override;
+  void OnSearchParamItemChange(const std::string& key, const json& value) override;
 
-  void SearchParamsChangeHook(const json& value) override;
+  void OnSearchParamsChange(const json& value) override;
+
+  void OnIndexLoaded() override;
 
  private:
   FaissHnswSearchParams search_params_;
+  const void* faiss_id_map_;
+  const void* faiss_transform_;
+  const void* faiss_hnsw_;
 };
 
 }  // namespace tenann

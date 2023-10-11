@@ -162,7 +162,7 @@ int main(int argc, char const* argv[]) {
 
   auto query_view = PrimitiveSeqView{
       .data = reinterpret_cast<uint8_t*>(query.data()),
-      .size = query.size(),
+      .size = static_cast<uint32_t>(query.size()),
       .elem_type = PrimitiveType::kFloatType,
   };
   std::vector<int64_t> results(10);
