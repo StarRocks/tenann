@@ -262,7 +262,7 @@ build_fmt
 build_lapack # must before faiss
 build_faiss
 build_gtest
-build_pybind11
+# build_pybind11
 
 # strip unnecessary debug symbol for binaries in thirdparty
 strip_binary
