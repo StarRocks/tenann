@@ -25,12 +25,15 @@
 #include "faiss/impl/HNSW.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/internal/faiss_index_util.h"
+#include "tenann/index/parameter_serde.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/util/distance_util.h"
 
 namespace tenann {
 
-FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {}
+FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {
+  FetchParameters(meta, &search_params_);
+}
 
 FaissHnswAnnSearcher::~FaissHnswAnnSearcher() = default;
 
