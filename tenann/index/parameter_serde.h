@@ -77,8 +77,8 @@ inline void FetchParameters(const IndexMeta& meta, FaissHnswIndexParams* out_par
 }
 
 inline void FetchParameters(const IndexMeta& meta, FaissHnswSearchParams* out_params) {
-  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, efSearch);
-  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, check_relative_distance);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, efSearch);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, check_relative_distance);
 
   out_params->Validate();
 }
@@ -92,10 +92,10 @@ inline void FetchParameters(const IndexMeta& meta, FaissIvfPqIndexParams* out_pa
 }
 
 inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_params) {
-  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nprobe);
-  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, max_codes);
-  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, scan_table_threshold);
-  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, polysemous_ht);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, nprobe);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, max_codes);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, scan_table_threshold);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, polysemous_ht);
 
   out_params->Validate();
 }
