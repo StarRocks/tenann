@@ -68,8 +68,8 @@ int main() {
   meta.common_params()["dim"] = 128;
   meta.common_params()["is_vector_normed"] = false;
   meta.common_params()["metric_type"] = tenann::MetricType::kCosineSimilarity;
-  meta.index_params()["efConstruction"] = 40;
-  meta.index_params()["M"] = 16;
+  meta.index_params()["efConstruction"] = 500;
+  meta.index_params()["M"] = 128;
   meta.search_params()["efSearch"] = 800;
   meta.extra_params()["comments"] = "my comments";
 
