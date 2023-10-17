@@ -1,0 +1,15 @@
+需要安装 faiss 的 python 环境
+用法： 
+python3.9 index_file_tool.py show xxx(file_path)
+python3.9 index_file_tool.py search xxx(file_path) xxx(vertor)
+
+例如：
+# 解析 ivfpq 索引文件
+python3.9 index_file_tool.py show ivfpq.index
+
+# 运行example用例 生成  hnsw 索引文件
+cd ~/tenann/build_Release/examples && ./faiss_hnsw_example
+# 解析 hnsw 索引文件
+python3.9 index_file_tool.py show /tmp/faiss_hnsw_index
+python3.9 index_file_tool.py show /tmp/faiss_hnsw_index1
+python3.9 index_file_tool.py show /tmp/faiss_hnsw_index2
