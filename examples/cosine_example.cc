@@ -61,16 +61,17 @@ void PrintResults(const std::vector<int64_t>& result_ids,
 int main() {
   tenann::IndexMeta meta;
 
+  auto metric = tenann::MetricType::kCosineSimilarity;
   // set meta values
   meta.SetMetaVersion(0);
   meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
   meta.SetIndexType(tenann::IndexType::kFaissHnsw);
   meta.common_params()["dim"] = 128;
   meta.common_params()["is_vector_normed"] = false;
-  meta.common_params()["metric_type"] = tenann::MetricType::kCosineSimilarity;
+  meta.common_params()["metric_type"] = metric;
   meta.index_params()["efConstruction"] = 500;
   meta.index_params()["M"] = 128;
-  meta.search_params()["efSearch"] = 800;
+  meta.search_params()["efSearch"] = 80;
   meta.extra_params()["comments"] = "my comments";
 
   // dimension of the vectors to index
@@ -115,6 +116,7 @@ int main() {
       .Add({base_col})
       .Flush(/*write_index_cache=*/true);
 
+  meta.search_params()["efSearch"] = 900;
   tenann::IndexReaderRef index_reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
   auto ann_searcher = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
 
@@ -142,9 +144,8 @@ int main() {
   PrintResults(result_ids, result_distances, nq, k);
 
   // brute force
-  tenann::util::BruteForceAnn(d, base_col, nullptr, nullptr, query_col,
-                              tenann::MetricType::kCosineSimilarity, k, result_ids.data(),
-                              result_distances.data());
+  tenann::util::BruteForceAnn(d, base_col, nullptr, nullptr, query_col, metric, k,
+                              result_ids.data(), result_distances.data());
   std::cout << "Bruteforce Results: \n";
   PrintResults(result_ids, result_distances, nq, k);
 }
