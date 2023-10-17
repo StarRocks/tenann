@@ -39,6 +39,7 @@ set(TENANN_SRC
     store/lru_cache.cc
     util/runtime_profile.cc
     util/spinlock.cc
+    util/threads.cc
 )
 
 # TenANN library target

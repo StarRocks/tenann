@@ -16,6 +16,7 @@
 # under the License.
 
 set(TENANN_TEST_SRC
+    tenann_test.cc
     faiss_test_base.cc
     builder/test_faiss_index_builder.cc
     builder/test_faiss_hnsw_index_builder.cc
@@ -35,13 +36,13 @@ if(NOT WITH_AVX2 STREQUAL "ON")
 endif()
 
 target_compile_options(tenann_test_avx2 PRIVATE ${FAISS_AVX2_CXX_FLAGS})
-target_link_libraries(tenann_test_avx2 tenann_avx2 GTest::gtest GTest::gtest_main ${TENANN_AVX2_LINK_LIBS})
+target_link_libraries(tenann_test_avx2 tenann_avx2 GTest::gtest ${TENANN_AVX2_LINK_LIBS})
 
 # add gtest lib
 set(GTest_DIR "${TENANN_THIRDPARTY}/installed/lib/cmake/GTest" CACHE PATH "gtest search path")
 find_package(GTest REQUIRED)
 
-target_link_libraries(tenann_test PRIVATE tenann GTest::gtest GTest::gtest_main)
+target_link_libraries(tenann_test PRIVATE tenann GTest::gtest)
 include(GoogleTest)
 
 # add tenann_test to ctest, log path: build_Release/Testing/Temporary/LastTest.log
