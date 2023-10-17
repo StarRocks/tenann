@@ -1,5 +1,24 @@
 # TenANN v0.2.x
 
+## v0.2.2-RLELASE
+Download URL: [tenann-v0.2.2-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.2.2-RELEASE.tar.gz)
+
+##  New Features
+- 增加接口函数，用于设置faiss库用到的并行线程数，示例：
+```c++
+#include "tenann/util/threads.h"
+tenann::OmpSetNumThreads(8);
+```
+  - 注意，此参数是全局变量，faiss内部全部的并行计算逻辑均共享此参数，包括批量写入与批量查询（批量查询TenANN暂未支持，所以暂时不受影响）
+  - 经测试，设置此参数能够极大的改善索引构建性能，得到近似线性的加速比
+
+### Improvements
+- Patch HNSW到faiss-1.7.4，略微提升Recall表现
+
+### Bug Fix
+- 修复设置Searcher的查询参数不生效的问题
+- 修复faiss库中的HNSW只有索引中的efSearch生效，查询时动态传入的efSearch不生效的问题（暂时通过patch实现，后面向社区提交PR)
+
 ## v0.2.1-RLELASE
 Download URL: [tenann-v0.2.1-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.2.1-RELEASE.tar.gz)
 
