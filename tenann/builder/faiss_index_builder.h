@@ -101,6 +101,7 @@ class FaissIndexBuilder : public IndexBuilder {
 
  protected:
   VectorIndexCommonParams common_params_;
+  VectorIndexExtraParams extra_params_;
 
   bool memory_only_ = false;
   bool is_opened_ = false;

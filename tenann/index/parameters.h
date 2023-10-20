@@ -54,6 +54,12 @@ struct VectorIndexCommonParams {
   }
 };
 
+struct VectorIndexExtraParams {
+  std::string comments = "";
+
+  void Validate() {}
+};
+
 /** Parameters for Faiss IVF-PQ */
 struct FaissIvfPqIndexParams {
   DEFINE_OPTIONAL_PARAM(size_t, nlists, 16);

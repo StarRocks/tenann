@@ -69,6 +69,13 @@ inline void FetchParameters(const IndexMeta& meta, VectorIndexCommonParams* out_
   out_params->Validate();
 }
 
+inline void FetchParameters(const IndexMeta& meta, VectorIndexExtraParams* out_params) {
+  if (meta.extra_params().contains("comments")) {
+      out_params->comments = meta.extra_params()["comments"];
+  } 
+  out_params->Validate();
+}
+
 inline void FetchParameters(const IndexMeta& meta, FaissHnswIndexParams* out_params) {
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, M);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, efConstruction);

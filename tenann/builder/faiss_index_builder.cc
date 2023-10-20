@@ -39,8 +39,7 @@ namespace tenann {
 
 FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta) : IndexBuilder(meta) {
   FetchParameters(meta, &common_params_);
-
-  auto index_type = meta.index_type();
+  FetchParameters(meta, &extra_params_);
 
   T_CHECK(common_params_.metric_type == MetricType::kL2Distance ||
           common_params_.metric_type == MetricType::kCosineSimilarity)
@@ -121,7 +120,7 @@ IndexBuilder& FaissIndexBuilder::Flush(bool write_index_cache, const char* custo
       // write index file
       index_writer_->WriteIndex(index_ref_, index_save_path_);
     }
-    
+
     // write index cache
     if (write_index_cache) {
       T_CHECK(index_cache_ != nullptr);
@@ -306,7 +305,7 @@ void FaissIndexBuilder::SetOpenState() {
 
 void FaissIndexBuilder::SetCloseState() {
   is_opened_ = false;
-  is_closed_ = false;
+  is_closed_ = true;
 }
 
 }  // namespace tenann

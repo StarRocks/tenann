@@ -82,7 +82,6 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush(bool write_index_cache,
     T_SCOPED_TIMER(flush_total_timer_);
 
     T_LOG_IF(ERROR, !is_opened_) << "index builder has not been opened";
-    T_LOG_IF(ERROR, is_closed_) << "index builder has already been closed";
     T_LOG_IF(ERROR, index_ref_ == nullptr) << "index has not been built";
 
     if (GetFaissIndex()->is_trained == false) {
