@@ -23,6 +23,7 @@
 
 #include "tenann/common/seq_view.h"
 #include "tenann/index/parameters.h"
+#include "tenann/searcher/ann_filter.h"
 #include "tenann/searcher/searcher.h"
 
 namespace tenann {
@@ -38,11 +39,12 @@ class AnnSearcher : public Searcher<AnnSearcher> {
   T_FORBID_COPY_AND_ASSIGN(AnnSearcher);
 
   /// ANN搜索接口，只返回k近邻的id
-  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) = 0;
+  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
+                         AnnFilter* ann_filter = nullptr) = 0;
 
   /// ANN搜索接口，同时返回k近邻的id和距离
   virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                         uint8_t* result_distances) = 0;
+                         uint8_t* result_distances, AnnFilter* ann_filter = nullptr) = 0;
 
  protected:
   VectorIndexCommonParams common_params_;

@@ -31,6 +31,7 @@ set(TENANN_SRC
     index/faiss_index_reader.cc
     index/index_writer.cc
     index/faiss_index_writer.cc
+    searcher/ann_filter.cc
     searcher/searcher.cc
     searcher/ann_searcher.cc
     searcher/faiss_hnsw_ann_searcher.cc

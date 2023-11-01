@@ -26,6 +26,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/index/internal/faiss_index_util.h"
 #include "tenann/index/parameter_serde.h"
+#include "tenann/searcher/internal/ann_filter_adapter.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/util/distance_util.h"
 
@@ -37,13 +38,14 @@ FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(
 
 FaissHnswAnnSearcher::~FaissHnswAnnSearcher() = default;
 
-void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) {
+void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
+                                     AnnFilter* ann_filter) {
   std::vector<float> distances(k);
-  AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()));
+  AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()), ann_filter);
 }
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                                     uint8_t* result_distances) {
+                                     uint8_t* result_distances, AnnFilter* ann_filter) {
   T_CHECK_NOTNULL(index_ref_);
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
@@ -52,7 +54,9 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   faiss::SearchParametersHNSW faiss_search_parameters;
   faiss_search_parameters.efSearch = search_params_.efSearch;
   faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
-
+  if (ann_filter) {
+    faiss_search_parameters.sel = ann_filter->getAdapter().getIDSelector();
+  }
   // transform the query vector first if a pre-transform is set
   const float* x = reinterpret_cast<const float*>(query_vector.data);
   if (faiss_transform_ != nullptr) {

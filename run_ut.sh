@@ -21,14 +21,16 @@ LATEST_BUILD_DIR=$(ls -td build_* | head -n 1)
 
 if [ -z ${LATEST_BUILD_DIR} ]; then
   # build release and enable avx2 by default
-  sh build.sh --with-tests --with-avx2
+  sh build.sh --with-tests --with-avx2 --with-python 
   LATEST_BUILD_DIR=$(ls -td build_* | head -n 1)
 else
   DIR_SUFFIX=${LATEST_BUILD_DIR#build_}
   rm ${LATEST_BUILD_DIR}/test/tenann_test
-  BUILD_TYPE=${DIR_SUFFIX} sh build.sh --with-tests --with-avx2
+  BUILD_TYPE=${DIR_SUFFIX} sh build.sh --with-tests --with-avx2 --with-python 
 fi
 
+# TODO: 解决python 问题后打开
+# python3.6 -m unittest discover -s python_bindings -p "test_*.py"
 env CTEST_OUTPUT_ON_FAILURE=1 make -C ${LATEST_BUILD_DIR} test
 
 # make coverage report: MAKE_COVERAGE=1 sh run_ut.sh
