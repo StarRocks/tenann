@@ -1163,12 +1163,13 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
 
   void scan_codes_range(size_t ncode, const uint8_t* codes, const idx_t* ids, float radius,
                         RangeQueryResult& rres) const override {
-    RangeSearchResults<C, use_sel> res = {/* key */ this->key,
-                                          /* ids */ this->store_pairs ? nullptr : ids,
-                                          /* sel */ this->sel,
-                                          /* ivfpq */ this->ivfpq,  // added by tenann.
-                                          /* radius */ sqrtf(radius),
-                                          /* rres */ rres};
+    RangeSearchResults<C, use_sel> res = {
+        /* key */ this->key,
+        /* ids */ this->store_pairs ? nullptr : ids,
+        /* sel */ this->sel,
+        /* ivfpq */ this->ivfpq,     // added by tenann.
+        /* radius */ sqrtf(radius),  // modified by tenann, use squared root radius instead
+        /* rres */ rres};
 
     if (this->polysemous_ht > 0) {
       assert(precompute_mode == 2);
