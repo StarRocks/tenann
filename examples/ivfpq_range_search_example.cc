@@ -28,6 +28,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/internal/IndexIVFPQ.h"
+#include "tenann/index/internal/custom_ivfpq.h"
 #include "tenann/util/runtime_profile_macros.h"
 
 #define RETURN_SELF_AFTER(stmt) stmt return *this;
@@ -91,7 +92,7 @@ class RangeSearchEvaluator {
       for (auto error_scale : error_scale_list) {
         ivfpq_->nprobe = nprobe;
 
-        if constexpr (std::is_same_v<tenann::dummy_faiss::IndexIVFPQ, IVFPQ>) {
+        if constexpr (std::is_same_v<tenann::CustomIvfPq, IVFPQ>) {
           ivfpq_->error_scale = error_scale;
         }
 
@@ -252,7 +253,7 @@ int main(int argc, char const* argv[]) {
   std::vector<int64_t> nprobe_list = {nlist};
   std::vector<float> error_scale_list = {0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.2};
 
-  RangeSearchEvaluator<tenann::dummy_faiss::IndexIVFPQ> evaluator1;
+  RangeSearchEvaluator<tenann::CustomIvfPq> evaluator1;
   evaluator1.SetVerbose(verbose)
       .SetBase(nb, base.data())    //
       .SetQuery(nq, query.data())  //

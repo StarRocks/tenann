@@ -21,7 +21,7 @@ set(TENANN_TEST_SRC
     builder/test_faiss_index_builder.cc
     builder/test_faiss_hnsw_index_builder.cc
     builder/test_faiss_ivf_pq_index_builder.cc
-    index/test_internal_tenann_ivfpq.cc
+    index/test_custom_ivfpq.cc
     searcher/test_faiss_hnsw_ann_searcher.cc
     searcher/test_faiss_ivf_pq_ann_searcher.cc
     thirdparty/test_fmt.cc

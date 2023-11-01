@@ -26,6 +26,7 @@ set(TENANN_SRC
     factory/index_factory.cc
     factory/ann_searcher_factory.cc
     index/internal/IndexIVFPQ.cpp
+    index/internal/custom_ivfpq.cc
     index/index.cc
     index/index_cache.cc
     index/index_reader.cc
