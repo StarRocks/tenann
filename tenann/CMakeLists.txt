@@ -73,7 +73,6 @@ set(WL_END_GROUP "-Wl,--end-group")
 
 # TenANN link options
 set(TENANN_LINK_LIBS
-    ${WL_START_GROUP}
     fmt
     faiss
     ${LAPACK_LIBRARIES}
@@ -104,7 +103,6 @@ endif()
 target_compile_options(tenann_avx2 PRIVATE ${FAISS_AVX2_CXX_FLAGS})
 
 set(TENANN_AVX2_LINK_LIBS
-    ${WL_START_GROUP}
     fmt
     faiss_avx2
     ${LAPACK_LIBRARIES}
