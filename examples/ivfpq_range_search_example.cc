@@ -239,7 +239,7 @@ std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0) {
 int main(int argc, char const* argv[]) {
   const int dim = 128;
   const int nb = 10000;
-  const int nq = 10;
+  const int nq = 1000;
   const float radius = 15;
   const int nlist = 1;  // sqrt(nb);
   const int M = 32;

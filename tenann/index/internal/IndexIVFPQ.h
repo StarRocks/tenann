@@ -54,9 +54,12 @@ struct IndexIVFPQ : IndexIVF {
   /// size nlist * pq.M * pq.ksub
   AlignedTable<float> precomputed_table;
 
-  /// Added by tenann, saving reconstruction error for each vector.
-  std::map<idx_t, float> reconstruction_errors;
+  /* The following lines are added by tenann */
+  /// Saving reconstruction error for each vector.
+  /// There are totally `nlist` child vectors, each saving the reconstruction errors for an inverted list entry.
+  std::vector<std::vector<float>> reconstruction_errors;
   float error_scale = 0.1; // 0~1，越大Recall越高，性能越低，为0的时候，代表忽略错误
+  /* End tenann.*/
 
   IndexIVFPQ(Index* quantizer, size_t d, size_t nlist, size_t M, size_t nbits_per_idx,
              MetricType metric = METRIC_L2);
@@ -121,9 +124,10 @@ struct IndexIVFPQ : IndexIVF {
 
   IndexIVFPQ();
 
-  /// added by TenANN
+  /* The following lines are added by tenann */
   // void range_search(idx_t n, const float* x, float radius, RangeSearchResult* result,
   //                   const SearchParameters* params = nullptr) const override;
+  /* End tenann. */
 };
 
 // block size used in IndexIVFPQ::add_core_o

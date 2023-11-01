@@ -52,6 +52,11 @@ IndexIVFPQ::IndexIVFPQ(Index* quantizer, size_t d, size_t nlist, size_t M, size_
   polysemous_training = nullptr;
   do_polysemous_training = false;
   polysemous_ht = 0;
+
+  /* The following lines are added by tenann */
+  FAISS_THROW_IF_NOT(metric == METRIC_L2);
+  reconstruction_errors.resize(nlist);
+  /* End tenann.*/
 }
 
 /****************************************************************
@@ -157,24 +162,12 @@ void IndexIVFPQ::decode_multiple(size_t n, const idx_t* keys, const uint8_t* xco
 void IndexIVFPQ::add_core(idx_t n, const float* x, const idx_t* xids, const idx_t* coarse_idx) {
   // add_core_o(n, x, xids, nullptr, coarse_idx);
 
-  /** The following lines are added by tenann */
-
-  // Check if the reconstruction_errors vector is of the correct size
-  FAISS_THROW_IF_NOT(reconstruction_errors.size() == ntotal);
-  idx_t ntotal_before_add = ntotal;
-
+  /* The following lines are added by tenann */
   // Add vectors into the index
   // and compute the residuals between the raw vectors and the reconstructed vectors
   std::vector<float> residual2(n * d);
   add_core_o(n, x, xids, residual2.data(), coarse_idx);
-
-  // Compute the l2 norms of the residuals, i.e., the reconstruction errors
-  std::vector<float> errors(n);
-  fvec_norms_L2(errors.data(), residual2.data(), d, n);
-  for (idx_t i = 0; i < n; i++) {
-    idx_t id = xids ? xids[i] : ntotal_before_add + i;
-    reconstruction_errors.emplace(id, errors[i]);
-  }
+  /* End tenann.*/
 }
 
 static float* compute_residuals(const Index* quantizer, Index::idx_t n, const float* x,
@@ -307,6 +300,13 @@ void IndexIVFPQ::add_core_o(idx_t n, const float* x, const idx_t* xids, float* r
       const float* xi = to_encode + i * d;
       pq.decode(code, res2);
       for (int j = 0; j < d; j++) res2[j] = xi[j] - res2[j];
+
+      /* The following lines are added by tenann */
+      float reconstruction_error;
+      fvec_norms_L2(&reconstruction_error, res2, d, 1);
+      reconstruction_errors[key].push_back(reconstruction_error);
+      FAISS_THROW_IF_NOT(reconstruction_errors[key].size() != offset);
+      /* End tenann.*/
     }
 
     direct_map.add_single_id(id, key, offset);
@@ -494,6 +494,22 @@ struct QueryTables {
   int use_precomputed_table;
   int polysemous_ht;
 
+  /* The following lines are added by tenann */
+  /*
+   *  1. by_residual ==  true:
+   *    d = || x - y_C ||^2 + || y_R ||^2 + 2 * (y_C|y_R) - 2 * (x|y_R)
+   *        ---------------   ---------------------------       -------
+   *             term 1                 term 2                   term 3
+   *
+   *    sim_table = term1 + term2 + term3, sim_table_2 = term3
+   *  2. by_residual == false:
+   *    d = || x - y_R ||^2
+   *        ---------------
+   *             term
+   *
+   *    sim_table = term, sim_table_2 = nullptr
+   */
+  /* End tenann. */
   // pre-allocated data buffers
   float *sim_table, *sim_table_2;
   float *residual_vec, *decoded_vec;
@@ -765,7 +781,7 @@ struct RangeSearchResults {
   idx_t key;
   const idx_t* ids;
   const IDSelector* sel;
-  const IndexIVFPQ* ivfpq;
+  const IndexIVFPQ* ivfpq;  // added by tenann.
 
   // wrapped result structure
   float radius;
@@ -779,11 +795,8 @@ struct RangeSearchResults {
     //   rres.add(dis, id);
     // }
 
-    auto iter = ivfpq->reconstruction_errors.find(j);
-    FAISS_THROW_IF_NOT_MSG(iter != ivfpq->reconstruction_errors.end(),
-                           "cannot find required reconstuction error, the index may be broken");
-    auto reconstruction_error = iter->second;
-
+    /* The following lines are added by tenann */
+    auto reconstruction_error = ivfpq->reconstruction_errors[key][j];
     // TODO：only works for l2 distance now, we should explicitly validate the given metric
     // The result is valid iff lower bound of distance <= radius.
     // Only works for L2 metric and ADC distance.
@@ -792,6 +805,7 @@ struct RangeSearchResults {
       idx_t id = ids ? ids[j] : lo_build(key, j);
       rres.add(dis, id);
     }
+    /* End tenann. */
   }
 };
 
@@ -1152,7 +1166,7 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
     RangeSearchResults<C, use_sel> res = {/* key */ this->key,
                                           /* ids */ this->store_pairs ? nullptr : ids,
                                           /* sel */ this->sel,
-                                          /* ivfpq */ this->ivfpq,
+                                          /* ivfpq */ this->ivfpq,  // added by tenann.
                                           /* radius */ sqrtf(radius),
                                           /* rres */ rres};
 
