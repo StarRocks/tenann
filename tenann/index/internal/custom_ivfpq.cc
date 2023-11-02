@@ -635,7 +635,7 @@ struct KnnSearchResults {
   }
 };
 
-template <class C, bool use_sel>
+template <class C, bool use_sel, bool use_error_scale>
 struct RangeSearchResults {
   idx_t key;
   const idx_t* ids;
@@ -650,22 +650,23 @@ struct RangeSearchResults {
   inline bool skip_entry(idx_t j) { return use_sel && !sel->is_member(ids[j]); }
 
   inline void add(idx_t j, float dis) {
-    // if (C::cmp(radius, dis)) { // onl
-    //   idx_t id = ids ? ids[j] : lo_build(key, j);
-    //   rres.add(dis, id);
-    // }
-
-    /* The following lines are added by tenann */
-    auto reconstruction_error = ivfpq->reconstruction_errors[key][j];
-    // TODO：only works for l2 distance now, we should explicitly validate the given metric
-    // The result is valid iff lower bound of distance <= radius.
-    // Only works for L2 metric and ADC distance.
-    auto lower_bound = std::abs(sqrtf(dis) - reconstruction_error * error_scale);
-    if (lower_bound <= radius) {
-      idx_t id = ids ? ids[j] : lo_build(key, j);
-      rres.add(dis, id);
+    if constexpr (use_error_scale) {
+      /* The following lines are added by tenann */
+      auto reconstruction_error = ivfpq->reconstruction_errors[key][j];
+      // The result is valid if the distance lower bound <= radius.
+      // Only works for L2 metric and ADC distance.
+      auto lower_bound = std::abs(sqrtf(dis) - reconstruction_error * error_scale);
+      if (lower_bound <= radius) {
+        idx_t id = ids ? ids[j] : lo_build(key, j);
+        rres.add(dis, id);
+      }
+      /* End tenann. */
+    } else {
+      if (C::cmp(radius, dis)) {
+        idx_t id = ids ? ids[j] : lo_build(key, j);
+        rres.add(dis, id);
+      }
     }
-    /* End tenann. */
   }
 };
 
@@ -1024,26 +1025,51 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
 
   void scan_codes_range(size_t ncode, const uint8_t* codes, const idx_t* ids, float radius,
                         RangeQueryResult& rres) const override {
-    RangeSearchResults<C, use_sel> res = {
-        /* key */ this->key,
-        /* ids */ this->store_pairs ? nullptr : ids,
-        /* sel */ this->sel,
-        /* ivfpq */ this->ivfpq,              // added by tenann
-        /* error_scale */ this->error_scale,  // added by tenann
-        /* radius */ sqrtf(radius),  // modified by tenann (tenann uses squared root radius instead)
-        /* rres */ rres};
+    if (0 < error_scale && error_scale <= 1) {
+      RangeSearchResults<C, use_sel, true> res = {
+          /* key */ this->key,
+          /* ids */ this->store_pairs ? nullptr : ids,
+          /* sel */ this->sel,
+          /* ivfpq */ this->ivfpq,              // added by tenann
+          /* error_scale */ this->error_scale,  // added by tenann
+          /* radius */ sqrtf(radius),  // modified by tenann (tenann uses squared root radius
+                                       // instead)
+          /* rres */ rres};
 
-    if (this->polysemous_ht > 0) {
-      assert(precompute_mode == 2);
-      this->scan_list_polysemous(ncode, codes, res);
-    } else if (precompute_mode == 2) {
-      this->scan_list_with_table(ncode, codes, res);
-    } else if (precompute_mode == 1) {
-      this->scan_list_with_pointer(ncode, codes, res);
-    } else if (precompute_mode == 0) {
-      this->scan_on_the_fly_dist(ncode, codes, res);
+      if (this->polysemous_ht > 0) {
+        assert(precompute_mode == 2);
+        this->scan_list_polysemous(ncode, codes, res);
+      } else if (precompute_mode == 2) {
+        this->scan_list_with_table(ncode, codes, res);
+      } else if (precompute_mode == 1) {
+        this->scan_list_with_pointer(ncode, codes, res);
+      } else if (precompute_mode == 0) {
+        this->scan_on_the_fly_dist(ncode, codes, res);
+      } else {
+        FAISS_THROW_MSG("bad precomp mode");
+      }
     } else {
-      FAISS_THROW_MSG("bad precomp mode");
+      RangeSearchResults<C, use_sel, false> res = {
+          /* key */ this->key,
+          /* ids */ this->store_pairs ? nullptr : ids,
+          /* sel */ this->sel,
+          /* ivfpq */ this->ivfpq,              // added by tenann
+          /* error_scale */ this->error_scale,  // added by tenann
+          /* radius */ radius,
+          /* rres */ rres};
+
+      if (this->polysemous_ht > 0) {
+        assert(precompute_mode == 2);
+        this->scan_list_polysemous(ncode, codes, res);
+      } else if (precompute_mode == 2) {
+        this->scan_list_with_table(ncode, codes, res);
+      } else if (precompute_mode == 1) {
+        this->scan_list_with_pointer(ncode, codes, res);
+      } else if (precompute_mode == 0) {
+        this->scan_on_the_fly_dist(ncode, codes, res);
+      } else {
+        FAISS_THROW_MSG("bad precomp mode");
+      }
     }
   }
 };
