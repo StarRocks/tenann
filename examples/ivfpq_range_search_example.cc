@@ -82,20 +82,20 @@ class RangeSearchEvaluator {
     return *this;
   }
 
-  // nprobe, error_scale, QPS, precision, recall, result_cardinality
+  // nprobe, range_search_confidence, QPS, precision, recall, result_cardinality
   using ResultItem = std::tuple<int64_t, float, double, double, double, double>;
 
   std::vector<ResultItem> Evaluate(const std::vector<int64_t> nprobe_list,
-                                   const std::vector<float>& error_scale_list) {
+                                   const std::vector<float>& range_search_confidence_list) {
     tenann::OmpSetNumThreads(1);
     std::vector<ResultItem> evaluation_results;
 
     for (auto nprobe : nprobe_list) {
-      for (auto error_scale : error_scale_list) {
+      for (auto range_search_confidence : range_search_confidence_list) {
         ivfpq_->nprobe = nprobe;
 
         if constexpr (std::is_same_v<tenann::CustomIvfPq, IVFPQ>) {
-          ivfpq_->error_scale = error_scale;
+          ivfpq_->range_search_confidence = range_search_confidence;
         }
 
         faiss::RangeSearchResult results(nq_);
@@ -110,7 +110,7 @@ class RangeSearchEvaluator {
         }
         auto [precision, recall, result_cardinality] = Report(ground_truth_.get(), &results);
         double qps = double(nq_) / duration_ns * 1000 * 1000 * 1000;
-        evaluation_results.emplace_back(nprobe, error_scale, qps, precision, recall,
+        evaluation_results.emplace_back(nprobe, range_search_confidence, qps, precision, recall,
                                         result_cardinality);
 
         if constexpr (std::is_same_v<faiss::IndexIVFPQ, IVFPQ>) {
@@ -127,9 +127,9 @@ class RangeSearchEvaluator {
   };
 
   static void PrintEvaluationResults(const std::vector<ResultItem>& results) {
-    std::cout << "nprobe,error_scale,QPS,precision,recall,result_cardinality\n";
-    for (auto [nprobe, error_scale, qps, precision, recall, result_cardinality] : results) {
-      std::cout << std::setprecision(4) << nprobe << "," << error_scale << "," << qps << ","
+    std::cout << "nprobe,range_search_confidence,QPS,precision,recall,result_cardinality\n";
+    for (auto [nprobe, range_search_confidence, qps, precision, recall, result_cardinality] : results) {
+      std::cout << std::setprecision(4) << nprobe << "," << range_search_confidence << "," << qps << ","
                 << precision << "," << recall << "," << result_cardinality << "\n";
     }
   }
@@ -253,7 +253,7 @@ int main(int argc, char const* argv[]) {
   auto query = RandomVectors(nq, dim, 1);
 
   std::vector<int64_t> nprobe_list = {nlist};
-  std::vector<float> error_scale_list = {0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.2, 1};
+  std::vector<float> range_search_confidence_list = {0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.2, 1};
 
   tenann::OmpSetNumThreads(16);
   RangeSearchEvaluator<tenann::CustomIvfPq> evaluator1;
@@ -268,7 +268,7 @@ int main(int argc, char const* argv[]) {
   auto result1 = evaluator1
                      .SetRadius(radius)     //
                      .ComputeGroundTruth()  //
-                     .Evaluate(nprobe_list, error_scale_list);
+                     .Evaluate(nprobe_list, range_search_confidence_list);
 
   tenann::OmpSetNumThreads(16);
   RangeSearchEvaluator<faiss::IndexIVFPQ> evaluator2;
@@ -283,7 +283,7 @@ int main(int argc, char const* argv[]) {
   auto result2 = evaluator2
                      .SetRadius(radius)     //
                      .ComputeGroundTruth()  //
-                     .Evaluate(nprobe_list, error_scale_list);
+                     .Evaluate(nprobe_list, range_search_confidence_list);
 
   RangeSearchEvaluator<>::PrintEvaluationResults(result1);
   RangeSearchEvaluator<>::PrintEvaluationResults(result2);

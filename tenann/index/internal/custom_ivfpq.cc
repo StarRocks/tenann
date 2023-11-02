@@ -197,7 +197,8 @@ void CustomIvfPq::custom_range_search_preassigned(idx_t nx, const float* x, floa
   idx_t nprobe = params ? params->nprobe : this->nprobe;
 
   /* The following lines are added by tenann */
-  float dynamic_error_scale = params ? params->error_scale : this->error_scale;
+  float dynamic_range_search_confidence =
+      params ? params->range_search_confidence : this->range_search_confidence;
   /* End tenann.*/
 
   nprobe = std::min((idx_t)nlist, nprobe);
@@ -225,7 +226,7 @@ void CustomIvfPq::custom_range_search_preassigned(idx_t nx, const float* x, floa
   {
     RangeSearchPartialResult pres(result);
     std::unique_ptr<InvertedListScanner> scanner(custom_get_InvertedListScanner(
-        store_pairs, sel, dynamic_error_scale));  // modifid by tenann
+        store_pairs, sel, dynamic_range_search_confidence));  // modifid by tenann
     FAISS_THROW_IF_NOT(scanner.get());
     all_pres[omp_get_thread_num()] = &pres;
 
@@ -635,13 +636,13 @@ struct KnnSearchResults {
   }
 };
 
-template <class C, bool use_sel, bool use_error_scale>
+template <class C, bool use_sel, bool use_range_search_confidence>
 struct RangeSearchResults {
   idx_t key;
   const idx_t* ids;
   const IDSelector* sel;
-  const CustomIvfPq* ivfpq;     // added by tenann
-  const float error_scale = 0;  // added by tenann
+  const CustomIvfPq* ivfpq;                 // added by tenann
+  const float range_search_confidence = 0;  // added by tenann
 
   // wrapped result structure
   float radius;
@@ -650,12 +651,12 @@ struct RangeSearchResults {
   inline bool skip_entry(idx_t j) { return use_sel && !sel->is_member(ids[j]); }
 
   inline void add(idx_t j, float dis) {
-    if constexpr (use_error_scale) {
+    if constexpr (use_range_search_confidence) {
       /* The following lines are added by tenann */
       auto reconstruction_error = ivfpq->reconstruction_errors[key][j];
       // The result is valid if the distance lower bound <= radius.
       // Only works for L2 metric and ADC distance.
-      auto lower_bound = std::abs(sqrtf(dis) - reconstruction_error * error_scale);
+      auto lower_bound = std::abs(sqrtf(dis) - reconstruction_error * range_search_confidence);
       if (lower_bound <= radius) {
         idx_t id = ids ? ids[j] : lo_build(key, j);
         rres.add(dis, id);
@@ -966,8 +967,8 @@ template <MetricType METRIC_TYPE, class C, class PQDecoder, bool use_sel>
 struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, InvertedListScanner {
   int precompute_mode;
   const IDSelector* sel;
-  const CustomIvfPq* ivfpq;  // modifiled by tenann
-  float error_scale = 0;     // added by tenann
+  const CustomIvfPq* ivfpq;           // modifiled by tenann
+  float range_search_confidence = 0;  // added by tenann
 
   IVFPQScanner(const CustomIvfPq& ivfpq, bool store_pairs, int precompute_mode,
                const IDSelector* sel)
@@ -1025,13 +1026,14 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
 
   void scan_codes_range(size_t ncode, const uint8_t* codes, const idx_t* ids, float radius,
                         RangeQueryResult& rres) const override {
-    if (0 < error_scale && error_scale <= 1) {
+    /* The following lines are added by tenann */
+    if (0 < range_search_confidence && range_search_confidence <= 1) {
       RangeSearchResults<C, use_sel, true> res = {
           /* key */ this->key,
           /* ids */ this->store_pairs ? nullptr : ids,
           /* sel */ this->sel,
-          /* ivfpq */ this->ivfpq,              // added by tenann
-          /* error_scale */ this->error_scale,  // added by tenann
+          /* ivfpq */ this->ivfpq,                                      // added by tenann
+          /* range_search_confidence */ this->range_search_confidence,  // added by tenann
           /* radius */ sqrtf(radius),  // modified by tenann (tenann uses squared root radius
                                        // instead)
           /* rres */ rres};
@@ -1048,13 +1050,14 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
       } else {
         FAISS_THROW_MSG("bad precomp mode");
       }
-    } else {
+
+    } /* End tenann. */ else {
       RangeSearchResults<C, use_sel, false> res = {
           /* key */ this->key,
           /* ids */ this->store_pairs ? nullptr : ids,
           /* sel */ this->sel,
-          /* ivfpq */ this->ivfpq,              // added by tenann
-          /* error_scale */ this->error_scale,  // added by tenann
+          /* ivfpq */ this->ivfpq,                                      // added by tenann
+          /* range_search_confidence */ this->range_search_confidence,  // added by tenann
           /* radius */ radius,
           /* rres */ rres};
 
@@ -1076,16 +1079,17 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
 
 template <class PQDecoder, bool use_sel>
 InvertedListScanner* get_InvertedListScanner1(const CustomIvfPq& index, bool store_pairs,
-                                              const IDSelector* sel, float dynamic_error_scale) {
+                                              const IDSelector* sel,
+                                              float dynamic_range_search_confidence) {
   if (index.metric_type == METRIC_INNER_PRODUCT) {
     auto ret = new IVFPQScanner<METRIC_INNER_PRODUCT, CMin<float, idx_t>, PQDecoder, use_sel>(
         index, store_pairs, 2, sel);
-    ret->error_scale = dynamic_error_scale;
+    ret->range_search_confidence = dynamic_range_search_confidence;
     return ret;
   } else if (index.metric_type == METRIC_L2) {
     auto ret = new IVFPQScanner<METRIC_L2, CMax<float, idx_t>, PQDecoder, use_sel>(
         index, store_pairs, 2, sel);
-    ret->error_scale = dynamic_error_scale;
+    ret->range_search_confidence = dynamic_range_search_confidence;
     return ret;
   }
   return nullptr;
@@ -1093,28 +1097,29 @@ InvertedListScanner* get_InvertedListScanner1(const CustomIvfPq& index, bool sto
 
 template <bool use_sel>
 InvertedListScanner* get_InvertedListScanner2(const CustomIvfPq& index, bool store_pairs,
-                                              const IDSelector* sel, float dynamic_error_scale) {
+                                              const IDSelector* sel,
+                                              float dynamic_range_search_confidence) {
   if (index.pq.nbits == 8) {
     return get_InvertedListScanner1<PQDecoder8, use_sel>(index, store_pairs, sel,
-                                                         dynamic_error_scale);
+                                                         dynamic_range_search_confidence);
   } else if (index.pq.nbits == 16) {
     return get_InvertedListScanner1<PQDecoder16, use_sel>(index, store_pairs, sel,
-                                                          dynamic_error_scale);
+                                                          dynamic_range_search_confidence);
   } else {
     return get_InvertedListScanner1<PQDecoderGeneric, use_sel>(index, store_pairs, sel,
-                                                               dynamic_error_scale);
+                                                               dynamic_range_search_confidence);
   }
 }
 
 }  // anonymous namespace
 
-InvertedListScanner* CustomIvfPq::custom_get_InvertedListScanner(bool store_pairs,
-                                                                 const IDSelector* sel,
-                                                                 float dynamic_error_scale) const {
+InvertedListScanner* CustomIvfPq::custom_get_InvertedListScanner(
+    bool store_pairs, const IDSelector* sel, float dynamic_range_search_confidence) const {
   if (sel) {
-    return get_InvertedListScanner2<true>(*this, store_pairs, sel, dynamic_error_scale);
+    return get_InvertedListScanner2<true>(*this, store_pairs, sel, dynamic_range_search_confidence);
   } else {
-    return get_InvertedListScanner2<false>(*this, store_pairs, sel, dynamic_error_scale);
+    return get_InvertedListScanner2<false>(*this, store_pairs, sel,
+                                           dynamic_range_search_confidence);
   }
   return nullptr;
 }

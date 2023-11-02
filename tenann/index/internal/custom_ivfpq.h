@@ -24,8 +24,8 @@
 namespace tenann {
 
 struct CustomIvfPqSearchParameters : faiss::IVFPQSearchParameters {
-  float error_scale;
-  CustomIvfPqSearchParameters() : error_scale(0) {}
+  float range_search_confidence;
+  CustomIvfPqSearchParameters() : range_search_confidence(0) {}
   ~CustomIvfPqSearchParameters() {}
 };
 
@@ -37,7 +37,7 @@ struct CustomIvfPq : faiss::IndexIVFPQ {
   /// The larger its value, the higher the recall, the lower the performance.
   /// When it is set to 1, the recall can reach 100%, but the number of wrong results
   /// will be greatly increased, and in the extreme case, all database vectors will be returned.
-  float error_scale = 0;
+  float range_search_confidence = 0;
 
   CustomIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M, size_t nbits_per_idx);
 
@@ -60,7 +60,7 @@ struct CustomIvfPq : faiss::IndexIVFPQ {
 
   faiss::InvertedListScanner* custom_get_InvertedListScanner(bool store_pairs,
                                                       const faiss::IDSelector* sel,
-                                                      float error_scale) const;
+                                                      float range_search_confidence) const;
 };
 
 }  // namespace tenann
