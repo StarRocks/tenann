@@ -8,16 +8,7 @@
 // -*- c++ -*-
 #include "tenann/index/internal/custom_ivfpq.h"
 
-#include <faiss/Clustering.h>
-#include <faiss/IndexFlat.h>
-#include <faiss/impl/AuxIndexStructures.h>
-#include <faiss/impl/FaissAssert.h>
-#include <faiss/impl/IDSelector.h>
-#include <faiss/impl/ProductQuantizer.h>
-#include <faiss/utils/Heap.h>
-#include <faiss/utils/distances.h>
-#include <faiss/utils/hamming.h>
-#include <faiss/utils/utils.h>
+#include <omp.h>
 #include <stdint.h>
 
 #include <algorithm>
@@ -25,11 +16,21 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdio>
+#include <mutex>
+
+#include "faiss/Clustering.h"
+#include "faiss/IndexFlat.h"
+#include "faiss/impl/AuxIndexStructures.h"
+#include "faiss/impl/FaissAssert.h"
+#include "faiss/impl/IDSelector.h"
+#include "faiss/impl/ProductQuantizer.h"
+#include "faiss/utils/Heap.h"
+#include "faiss/utils/distances.h"
+#include "faiss/utils/hamming.h"
+#include "faiss/utils/utils.h"
 
 #ifdef __AVX2__
 #include <immintrin.h>
-
-#include "custom_ivfpq.h"
 #endif
 
 namespace tenann {
@@ -62,10 +63,7 @@ void CustomIvfPq::add_core(idx_t n, const float* x, const idx_t* xids, const idx
   // add_core_o(n, x, xids, nullptr, coarse_idx);
 
   /* The following lines are added by tenann */
-  // Add vectors into the index
-  // and compute the residuals between the raw vectors and the reconstructed vectors
-  std::vector<float> residual2(n * d);
-  custom_add_core_o(n, x, xids, residual2.data(), coarse_idx);
+  custom_add_core_o(n, x, xids, nullptr, coarse_idx);
   /* End tenann.*/
 }
 
@@ -82,9 +80,9 @@ void CustomIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, 
         printf("CustomIvfPq::add_core_o: adding %" PRId64 ":%" PRId64 " / %" PRId64 "\n", i0, i1,
                n);
       }
-      add_core_o(i1 - i0, x + i0 * d, xids ? xids + i0 : nullptr,
-                 residuals_2 ? residuals_2 + i0 * d : nullptr,
-                 precomputed_idx ? precomputed_idx + i0 : nullptr);
+      custom_add_core_o(i1 - i0, x + i0 * d, xids ? xids + i0 : nullptr,
+                        residuals_2 ? residuals_2 + i0 * d : nullptr,
+                        precomputed_idx ? precomputed_idx + i0 : nullptr);
     }
     return;
   }
@@ -138,19 +136,19 @@ void CustomIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, 
     uint8_t* code = xcodes + i * code_size;
     size_t offset = invlists->add_entry(key, id, code);
 
-    if (residuals_2) {
-      float* res2 = residuals_2 + i * d;
-      const float* xi = to_encode + i * d;
-      pq.decode(code, res2);
-      for (int j = 0; j < d; j++) res2[j] = xi[j] - res2[j];
+    /* The following lines are modified by tenann */
+    std::vector<float> vector_res2(d);
+    float* res2 = residuals_2 ? residuals_2 + i * d : vector_res2.data();
 
-      /* The following lines are added by tenann */
-      float reconstruction_error;
-      fvec_norms_L2(&reconstruction_error, res2, d, 1);
-      reconstruction_errors[key].push_back(reconstruction_error);
-      FAISS_THROW_IF_NOT(reconstruction_errors[key].size() != offset);
-      /* End tenann.*/
-    }
+    const float* xi = to_encode + i * d;
+    pq.decode(code, res2);
+    for (int j = 0; j < d; j++) res2[j] = xi[j] - res2[j];
+
+    float reconstruction_error;
+    fvec_norms_L2(&reconstruction_error, res2, d, 1);
+    reconstruction_errors[key].push_back(reconstruction_error);
+    FAISS_THROW_IF_NOT(reconstruction_errors[key].size() != offset);
+    /* End tenann.*/
 
     direct_map.add_single_id(id, key, offset);
   }
@@ -162,6 +160,164 @@ void CustomIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, 
     printf(" add_core times: %.3f %.3f %.3f %s\n", t1 - t0, t2 - t1, t3 - t2, comment);
   }
   ntotal += n;
+}
+
+// Ported from faiss/IndexIVFPQ.cpp
+void CustomIvfPq::range_search(idx_t nx, const float* x, float radius, RangeSearchResult* result,
+                               const SearchParameters* params_in) const {
+  const CustomIvfPqSearchParameters* params = nullptr;
+  const SearchParameters* quantizer_params = nullptr;
+  if (params_in) {
+    params = dynamic_cast<const CustomIvfPqSearchParameters*>(params_in);
+    FAISS_THROW_IF_NOT_MSG(params, "CustomIvfPq params have incorrect type");
+    quantizer_params = params->quantizer_params;
+  }
+  const size_t nprobe = std::min(nlist, params ? params->nprobe : this->nprobe);
+  std::unique_ptr<idx_t[]> keys(new idx_t[nx * nprobe]);
+  std::unique_ptr<float[]> coarse_dis(new float[nx * nprobe]);
+
+  double t0 = getmillisecs();
+  quantizer->search(nx, x, nprobe, coarse_dis.get(), keys.get(), quantizer_params);
+  indexIVF_stats.quantization_time += getmillisecs() - t0;
+
+  t0 = getmillisecs();
+  invlists->prefetch_lists(keys.get(), nx * nprobe);
+
+  custom_range_search_preassigned(nx, x, radius, keys.get(), coarse_dis.get(), result, false,
+                                  params, &indexIVF_stats);
+
+  indexIVF_stats.search_time += getmillisecs() - t0;
+}
+
+void CustomIvfPq::custom_range_search_preassigned(idx_t nx, const float* x, float radius,
+                                                  const idx_t* keys, const float* coarse_dis,
+                                                  RangeSearchResult* result, bool store_pairs,
+                                                  const CustomIvfPqSearchParameters* params,
+                                                  IndexIVFStats* stats) const {
+  idx_t nprobe = params ? params->nprobe : this->nprobe;
+
+  /* The following lines are added by tenann */
+  float dynamic_error_scale = params ? params->error_scale : this->error_scale;
+  /* End tenann.*/
+
+  nprobe = std::min((idx_t)nlist, nprobe);
+  FAISS_THROW_IF_NOT(nprobe > 0);
+
+  idx_t max_codes = params ? params->max_codes : this->max_codes;
+  IDSelector* sel = params ? params->sel : nullptr;
+
+  size_t nlistv = 0, ndis = 0;
+
+  bool interrupt = false;
+  std::mutex exception_mutex;
+  std::string exception_string;
+
+  std::vector<RangeSearchPartialResult*> all_pres(omp_get_max_threads());
+
+  int pmode = this->parallel_mode & ~PARALLEL_MODE_NO_HEAP_INIT;
+  // don't start parallel section if single query
+  bool do_parallel = omp_get_max_threads() >= 2 && (pmode == 3   ? false
+                                                    : pmode == 0 ? nx > 1
+                                                    : pmode == 1 ? nprobe > 1
+                                                                 : nprobe * nx > 1);
+
+#pragma omp parallel if (do_parallel) reduction(+ : nlistv, ndis)
+  {
+    RangeSearchPartialResult pres(result);
+    std::unique_ptr<InvertedListScanner> scanner(custom_get_InvertedListScanner(
+        store_pairs, sel, dynamic_error_scale));  // modifid by tenann
+    FAISS_THROW_IF_NOT(scanner.get());
+    all_pres[omp_get_thread_num()] = &pres;
+
+    // prepare the list scanning function
+
+    auto scan_list_func = [&](size_t i, size_t ik, RangeQueryResult& qres) {
+      idx_t key = keys[i * nprobe + ik]; /* select the list  */
+      if (key < 0) return;
+      FAISS_THROW_IF_NOT_FMT(key < (idx_t)nlist, "Invalid key=%" PRId64 " at ik=%zd nlist=%zd\n",
+                             key, ik, nlist);
+      const size_t list_size = invlists->list_size(key);
+
+      if (list_size == 0) return;
+
+      try {
+        InvertedLists::ScopedCodes scodes(invlists, key);
+        InvertedLists::ScopedIds ids(invlists, key);
+
+        scanner->set_list(key, coarse_dis[i * nprobe + ik]);
+        nlistv++;
+        ndis += list_size;
+        scanner->scan_codes_range(list_size, scodes.get(), ids.get(), radius, qres);
+
+      } catch (const std::exception& e) {
+        std::lock_guard<std::mutex> lock(exception_mutex);
+        exception_string = demangle_cpp_symbol(typeid(e).name()) + "  " + e.what();
+        interrupt = true;
+      }
+    };
+
+    if (parallel_mode == 0) {
+#pragma omp for
+      for (idx_t i = 0; i < nx; i++) {
+        scanner->set_query(x + i * d);
+
+        RangeQueryResult& qres = pres.new_result(i);
+
+        for (size_t ik = 0; ik < nprobe; ik++) {
+          scan_list_func(i, ik, qres);
+        }
+      }
+
+    } else if (parallel_mode == 1) {
+      for (size_t i = 0; i < nx; i++) {
+        scanner->set_query(x + i * d);
+
+        RangeQueryResult& qres = pres.new_result(i);
+
+#pragma omp for schedule(dynamic)
+        for (int64_t ik = 0; ik < nprobe; ik++) {
+          scan_list_func(i, ik, qres);
+        }
+      }
+    } else if (parallel_mode == 2) {
+      RangeQueryResult* qres = nullptr;
+
+#pragma omp for schedule(dynamic)
+      for (idx_t iik = 0; iik < nx * (idx_t)nprobe; iik++) {
+        idx_t i = iik / (idx_t)nprobe;
+        idx_t ik = iik % (idx_t)nprobe;
+        if (qres == nullptr || qres->qno != i) {
+          qres = &pres.new_result(i);
+          scanner->set_query(x + i * d);
+        }
+        scan_list_func(i, ik, *qres);
+      }
+    } else {
+      FAISS_THROW_FMT("parallel_mode %d not supported\n", parallel_mode);
+    }
+    if (parallel_mode == 0) {
+      pres.finalize();
+    } else {
+#pragma omp barrier
+#pragma omp single
+      RangeSearchPartialResult::merge(all_pres, false);
+#pragma omp barrier
+    }
+  }
+
+  if (interrupt) {
+    if (!exception_string.empty()) {
+      FAISS_THROW_FMT("search interrupted with: %s", exception_string.c_str());
+    } else {
+      FAISS_THROW_MSG("computation interrupted");
+    }
+  }
+
+  if (stats) {
+    stats->nq += nx;
+    stats->nlist += nlistv;
+    stats->ndis += ndis;
+  }
 }
 
 /// 2G by default, accommodates tables up to PQ32 w/ 65536 centroids
@@ -484,7 +640,8 @@ struct RangeSearchResults {
   idx_t key;
   const idx_t* ids;
   const IDSelector* sel;
-  const CustomIvfPq* ivfpq;  // added by tenann.
+  const CustomIvfPq* ivfpq;     // added by tenann
+  const float error_scale = 0;  // added by tenann
 
   // wrapped result structure
   float radius;
@@ -503,7 +660,7 @@ struct RangeSearchResults {
     // TODO：only works for l2 distance now, we should explicitly validate the given metric
     // The result is valid iff lower bound of distance <= radius.
     // Only works for L2 metric and ADC distance.
-    auto lower_bound = std::abs(sqrtf(dis) - reconstruction_error * ivfpq->error_scale);
+    auto lower_bound = std::abs(sqrtf(dis) - reconstruction_error * error_scale);
     if (lower_bound <= radius) {
       idx_t id = ids ? ids[j] : lo_build(key, j);
       rres.add(dis, id);
@@ -808,7 +965,8 @@ template <MetricType METRIC_TYPE, class C, class PQDecoder, bool use_sel>
 struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, InvertedListScanner {
   int precompute_mode;
   const IDSelector* sel;
-  const CustomIvfPq* ivfpq;
+  const CustomIvfPq* ivfpq;  // modifiled by tenann
+  float error_scale = 0;     // added by tenann
 
   IVFPQScanner(const CustomIvfPq& ivfpq, bool store_pairs, int precompute_mode,
                const IDSelector* sel)
@@ -870,8 +1028,9 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
         /* key */ this->key,
         /* ids */ this->store_pairs ? nullptr : ids,
         /* sel */ this->sel,
-        /* ivfpq */ this->ivfpq,     // added by tenann.
-        /* radius */ sqrtf(radius),  // modified by tenann, use squared root radius instead
+        /* ivfpq */ this->ivfpq,              // added by tenann
+        /* error_scale */ this->error_scale,  // added by tenann
+        /* radius */ sqrtf(radius),  // modified by tenann (tenann uses squared root radius instead)
         /* rres */ rres};
 
     if (this->polysemous_ht > 0) {
@@ -891,37 +1050,45 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
 
 template <class PQDecoder, bool use_sel>
 InvertedListScanner* get_InvertedListScanner1(const CustomIvfPq& index, bool store_pairs,
-                                              const IDSelector* sel) {
+                                              const IDSelector* sel, float dynamic_error_scale) {
   if (index.metric_type == METRIC_INNER_PRODUCT) {
-    return new IVFPQScanner<METRIC_INNER_PRODUCT, CMin<float, idx_t>, PQDecoder, use_sel>(
+    auto ret = new IVFPQScanner<METRIC_INNER_PRODUCT, CMin<float, idx_t>, PQDecoder, use_sel>(
         index, store_pairs, 2, sel);
+    ret->error_scale = dynamic_error_scale;
+    return ret;
   } else if (index.metric_type == METRIC_L2) {
-    return new IVFPQScanner<METRIC_L2, CMax<float, idx_t>, PQDecoder, use_sel>(index, store_pairs,
-                                                                               2, sel);
+    auto ret = new IVFPQScanner<METRIC_L2, CMax<float, idx_t>, PQDecoder, use_sel>(
+        index, store_pairs, 2, sel);
+    ret->error_scale = dynamic_error_scale;
+    return ret;
   }
   return nullptr;
 }
 
 template <bool use_sel>
 InvertedListScanner* get_InvertedListScanner2(const CustomIvfPq& index, bool store_pairs,
-                                              const IDSelector* sel) {
+                                              const IDSelector* sel, float dynamic_error_scale) {
   if (index.pq.nbits == 8) {
-    return get_InvertedListScanner1<PQDecoder8, use_sel>(index, store_pairs, sel);
+    return get_InvertedListScanner1<PQDecoder8, use_sel>(index, store_pairs, sel,
+                                                         dynamic_error_scale);
   } else if (index.pq.nbits == 16) {
-    return get_InvertedListScanner1<PQDecoder16, use_sel>(index, store_pairs, sel);
+    return get_InvertedListScanner1<PQDecoder16, use_sel>(index, store_pairs, sel,
+                                                          dynamic_error_scale);
   } else {
-    return get_InvertedListScanner1<PQDecoderGeneric, use_sel>(index, store_pairs, sel);
+    return get_InvertedListScanner1<PQDecoderGeneric, use_sel>(index, store_pairs, sel,
+                                                               dynamic_error_scale);
   }
 }
 
 }  // anonymous namespace
 
-InvertedListScanner* CustomIvfPq::get_InvertedListScanner(bool store_pairs,
-                                                          const IDSelector* sel) const {
+InvertedListScanner* CustomIvfPq::custom_get_InvertedListScanner(bool store_pairs,
+                                                                 const IDSelector* sel,
+                                                                 float dynamic_error_scale) const {
   if (sel) {
-    return get_InvertedListScanner2<true>(*this, store_pairs, sel);
+    return get_InvertedListScanner2<true>(*this, store_pairs, sel, dynamic_error_scale);
   } else {
-    return get_InvertedListScanner2<false>(*this, store_pairs, sel);
+    return get_InvertedListScanner2<false>(*this, store_pairs, sel, dynamic_error_scale);
   }
   return nullptr;
 }

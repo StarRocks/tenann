@@ -30,6 +30,7 @@
 #include "tenann/index/internal/IndexIVFPQ.h"
 #include "tenann/index/internal/custom_ivfpq.h"
 #include "tenann/util/runtime_profile_macros.h"
+#include "tenann/util/threads.h"
 
 #define RETURN_SELF_AFTER(stmt) stmt return *this;
 
@@ -55,19 +56,19 @@ class RangeSearchEvaluator {
   Self& SetNBits(int nbits) { RETURN_SELF_AFTER(this->nbits_ = nbits;) }
 
   Self& BuildIndex() {
-    T_LOG_IF(INFO, verbose_) << "Building index...";
+    T_LOG(INFO) << "Building index...";
 
     coarse_quantizer_ = std::make_unique<faiss::IndexFlatL2>(dim_);
     ivfpq_ = std::make_unique<IVFPQ>(coarse_quantizer_.get(), dim_, n_list_, m_, nbits_);
     ivfpq_->train(nb_, base_);
     ivfpq_->add(nb_, base_);
 
-    T_LOG_IF(INFO, verbose_) << "Done building index.";
+    T_LOG(INFO) << "Done building index.";
     return *this;
   }
 
   Self& ComputeGroundTruth() {
-    T_LOG_IF(INFO, verbose_) << "Computing ground truth...";
+    T_LOG(INFO) << "Computing ground truth...";
 
     T_CHECK(dim_ > 0);
     ground_truth_ = std::make_unique<faiss::RangeSearchResult>(nq_);
@@ -77,7 +78,7 @@ class RangeSearchEvaluator {
       PrintRangeSearchResults(ground_truth_.get());
     }
 
-    T_LOG_IF(INFO, verbose_) << "Done computing ground truth.";
+    T_LOG(INFO) << "Done computing ground truth.";
     return *this;
   }
 
@@ -86,6 +87,7 @@ class RangeSearchEvaluator {
 
   std::vector<ResultItem> Evaluate(const std::vector<int64_t> nprobe_list,
                                    const std::vector<float>& error_scale_list) {
+    tenann::OmpSetNumThreads(1);
     std::vector<ResultItem> evaluation_results;
 
     for (auto nprobe : nprobe_list) {
@@ -239,20 +241,21 @@ std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0) {
 
 int main(int argc, char const* argv[]) {
   const int dim = 128;
-  const int nb = 10000;
+  const int nb = 100000;
   const int nq = 1000;
   const float radius = 15;
   const int nlist = 1;  // sqrt(nb);
   const int M = 32;
   const int nbits = 8;
-  const bool verbose = true;
+  const bool verbose = false;
 
   auto base = RandomVectors(nb, dim, 0);
   auto query = RandomVectors(nq, dim, 1);
 
   std::vector<int64_t> nprobe_list = {nlist};
-  std::vector<float> error_scale_list = {0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.2};
+  std::vector<float> error_scale_list = {0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.2, 1};
 
+  tenann::OmpSetNumThreads(16);
   RangeSearchEvaluator<tenann::CustomIvfPq> evaluator1;
   evaluator1.SetVerbose(verbose)
       .SetBase(nb, base.data())    //
@@ -267,6 +270,7 @@ int main(int argc, char const* argv[]) {
                      .ComputeGroundTruth()  //
                      .Evaluate(nprobe_list, error_scale_list);
 
+  tenann::OmpSetNumThreads(16);
   RangeSearchEvaluator<faiss::IndexIVFPQ> evaluator2;
   evaluator2.SetVerbose(verbose)
       .SetBase(nb, base.data())    //
