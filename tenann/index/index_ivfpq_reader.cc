@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include "tenann/index/custom_ivfpq_reader.h"
+#include "tenann/index/index_ivfpq_reader.h"
 
 #include "faiss/Index.h"
 #include "faiss/IndexIVFPQR.h"
@@ -27,7 +27,7 @@
 #include "faiss/impl/io_macros.h"
 #include "faiss/index_io.h"
 #include "tenann/common/logging.h"
-#include "tenann/index/internal/custom_ivfpq.h"
+#include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/util/defer.h"
 
 namespace faiss {
@@ -150,9 +150,9 @@ using faiss::fourcc_inv_printable;
 // TODO: ignore this flag and use IndexCache
 static constexpr const int IO_FLAG = faiss::IO_FLAG_READ_ONLY;
 
-CustomIvfPqReader::~CustomIvfPqReader() = default;
+IndexIvfPqReader::~IndexIvfPqReader() = default;
 
-IndexRef CustomIvfPqReader::ReadIndex(const std::string& path) {
+IndexRef IndexIvfPqReader::ReadIndex(const std::string& path) {
   // open the index file and close it automatically
   // when we leave the current scope through `Defer`
   auto file = fopen(path.c_str(), "rb");
@@ -178,21 +178,21 @@ IndexRef CustomIvfPqReader::ReadIndex(const std::string& path) {
         << "could not read read ivfpq from file " << path << ": "
         << "expect magic number `IwPQ` but got " << fourcc_inv_printable(h);
 
-    auto custom_ivfpq = std::make_unique<CustomIvfPq>();
+    auto index_ivfpq = std::make_unique<IndexIvfPq>();
     // read faiss IndexIVFPQ
-    faiss::read_ivfpq(custom_ivfpq.get(), f, h, IO_FLAG);
+    faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG);
     /* read custom fields */
     // read range_search_confidence
-    READ1(custom_ivfpq->range_search_confidence);
+    READ1(index_ivfpq->range_search_confidence);
     // read reconstruction_errors
     size_t num_invlists;
     READ1(num_invlists);
-    custom_ivfpq->reconstruction_errors.resize(num_invlists);
+    index_ivfpq->reconstruction_errors.resize(num_invlists);
     for (size_t i = 0; i < num_invlists; i++) {
-      READVECTOR(custom_ivfpq->reconstruction_errors[i]);
+      READVECTOR(index_ivfpq->reconstruction_errors[i]);
     }
 
-    return std::make_shared<Index>(custom_ivfpq.release(),  //
+    return std::make_shared<Index>(index_ivfpq.release(),  //
                                    IndexType::kFaissIvfPq,  //
                                    [](void* index) { delete static_cast<faiss::Index*>(index); });
   } catch (faiss::FaissException& e) {

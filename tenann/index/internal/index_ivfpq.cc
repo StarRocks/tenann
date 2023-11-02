@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include "tenann/index/internal/custom_ivfpq.h"
+#include "tenann/index/internal/index_ivfpq.h"
 
 #include <omp.h>
 #include <stdint.h>
@@ -43,15 +43,15 @@
 #ifdef __AVX2__
 #include <immintrin.h>
 
-#include "custom_ivfpq.h"
+#include "index_ivfpq.h"
 #endif
 
 namespace tenann {
 using namespace faiss;
 
-CustomIvfPq::CustomIvfPq() : faiss::IndexIVFPQ() {}
+IndexIvfPq::IndexIvfPq() : faiss::IndexIVFPQ() {}
 
-CustomIvfPq::~CustomIvfPq() {}
+IndexIvfPq::~IndexIvfPq() {}
 
 static float* compute_residuals(const Index* quantizer, Index::idx_t n, const float* x,
                                 const Index::idx_t* list_nos) {
@@ -67,7 +67,7 @@ static float* compute_residuals(const Index* quantizer, Index::idx_t n, const fl
   return residuals;
 }
 
-CustomIvfPq::CustomIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M,
+IndexIvfPq::IndexIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M,
                          size_t nbits_per_idx)
     : IndexIVFPQ(quantizer, d, nlist, M, nbits_per_idx, faiss::METRIC_L2) {
   /* The following lines are added by tenann */
@@ -75,7 +75,7 @@ CustomIvfPq::CustomIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t
   /* End tenann.*/
 }
 
-void CustomIvfPq::add_core(idx_t n, const float* x, const idx_t* xids, const idx_t* coarse_idx) {
+void IndexIvfPq::add_core(idx_t n, const float* x, const idx_t* xids, const idx_t* coarse_idx) {
   // add_core_o(n, x, xids, nullptr, coarse_idx);
 
   /* The following lines are added by tenann */
@@ -83,17 +83,17 @@ void CustomIvfPq::add_core(idx_t n, const float* x, const idx_t* xids, const idx
   /* End tenann.*/
 }
 
-// block size used in CustomIvfPq::add_core_o
+// block size used in IndexIvfPq::add_core_o
 static int index_ivfpq_add_core_o_bs = 32768;
 
-void CustomIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, float* residuals_2,
+void IndexIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, float* residuals_2,
                                     const idx_t* precomputed_idx) {
   idx_t bs = index_ivfpq_add_core_o_bs;
   if (n > bs) {
     for (idx_t i0 = 0; i0 < n; i0 += bs) {
       idx_t i1 = std::min(i0 + bs, n);
       if (verbose) {
-        printf("CustomIvfPq::add_core_o: adding %" PRId64 ":%" PRId64 " / %" PRId64 "\n", i0, i1,
+        printf("IndexIvfPq::add_core_o: adding %" PRId64 ":%" PRId64 " / %" PRId64 "\n", i0, i1,
                n);
       }
       custom_add_core_o(i1 - i0, x + i0 * d, xids ? xids + i0 : nullptr,
@@ -179,13 +179,13 @@ void CustomIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, 
 }
 
 // Ported from faiss/IndexIVFPQ.cpp
-void CustomIvfPq::range_search(idx_t nx, const float* x, float radius, RangeSearchResult* result,
+void IndexIvfPq::range_search(idx_t nx, const float* x, float radius, RangeSearchResult* result,
                                const SearchParameters* params_in) const {
-  const CustomIvfPqSearchParameters* params = nullptr;
+  const IndexIvfPqSearchParameters* params = nullptr;
   const SearchParameters* quantizer_params = nullptr;
   if (params_in) {
-    params = dynamic_cast<const CustomIvfPqSearchParameters*>(params_in);
-    FAISS_THROW_IF_NOT_MSG(params, "CustomIvfPq params have incorrect type");
+    params = dynamic_cast<const IndexIvfPqSearchParameters*>(params_in);
+    FAISS_THROW_IF_NOT_MSG(params, "IndexIvfPq params have incorrect type");
     quantizer_params = params->quantizer_params;
   }
   const size_t nprobe = std::min(nlist, params ? params->nprobe : this->nprobe);
@@ -205,10 +205,10 @@ void CustomIvfPq::range_search(idx_t nx, const float* x, float radius, RangeSear
   indexIVF_stats.search_time += getmillisecs() - t0;
 }
 
-void CustomIvfPq::custom_range_search_preassigned(idx_t nx, const float* x, float radius,
+void IndexIvfPq::custom_range_search_preassigned(idx_t nx, const float* x, float radius,
                                                   const idx_t* keys, const float* coarse_dis,
                                                   RangeSearchResult* result, bool store_pairs,
-                                                  const CustomIvfPqSearchParameters* params,
+                                                  const IndexIvfPqSearchParameters* params,
                                                   IndexIVFStats* stats) const {
   idx_t nprobe = params ? params->nprobe : this->nprobe;
 
@@ -348,7 +348,7 @@ using idx_t = Index::idx_t;
 #define TOC get_cycles() - t0
 
 /** QueryTables manages the various ways of searching an
- * CustomIvfPq. The code contains a lot of branches, depending on:
+ * IndexIvfPq. The code contains a lot of branches, depending on:
  * - metric_type: are we computing L2 or Inner product similarity?
  * - by_residual: do we encode raw vectors or residuals?
  * - use_precomputed_table: are x_R|x_C tables precomputed?
@@ -359,10 +359,10 @@ struct QueryTables {
    * General data from the IVFPQ
    *****************************************************/
 
-  const CustomIvfPq& ivfpq;
+  const IndexIvfPq& ivfpq;
   const IVFSearchParameters* params;
 
-  // copied from CustomIvfPq for easier access
+  // copied from IndexIvfPq for easier access
   int d;
   const ProductQuantizer& pq;
   MetricType metric_type;
@@ -396,7 +396,7 @@ struct QueryTables {
   // for table pointers
   std::vector<const float*> sim_table_ptrs;
 
-  explicit QueryTables(const CustomIvfPq& ivfpq, const IVFSearchParameters* params)
+  explicit QueryTables(const IndexIvfPq& ivfpq, const IVFSearchParameters* params)
       : ivfpq(ivfpq),
         d(ivfpq.d),
         pq(ivfpq.pq),
@@ -657,7 +657,7 @@ struct RangeSearchResults {
   idx_t key;
   const idx_t* ids;
   const IDSelector* sel;
-  const CustomIvfPq* ivfpq;                 // added by tenann
+  const IndexIvfPq* ivfpq;                 // added by tenann
   const float range_search_confidence = 0;  // added by tenann
 
   // wrapped result structure
@@ -698,7 +698,7 @@ struct IVFPQScannerT : QueryTables {
   const IDType* list_ids;
   size_t list_size;
 
-  IVFPQScannerT(const CustomIvfPq& ivfpq, const IVFSearchParameters* params)
+  IVFPQScannerT(const IndexIvfPq& ivfpq, const IVFSearchParameters* params)
       : QueryTables(ivfpq, params) {
     assert(METRIC_TYPE == metric_type);
   }
@@ -983,10 +983,10 @@ template <MetricType METRIC_TYPE, class C, class PQDecoder, bool use_sel>
 struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, InvertedListScanner {
   int precompute_mode;
   const IDSelector* sel;
-  const CustomIvfPq* ivfpq;           // modifiled by tenann
+  const IndexIvfPq* ivfpq;           // modifiled by tenann
   float range_search_confidence = 0;  // added by tenann
 
-  IVFPQScanner(const CustomIvfPq& ivfpq, bool store_pairs, int precompute_mode,
+  IVFPQScanner(const IndexIvfPq& ivfpq, bool store_pairs, int precompute_mode,
                const IDSelector* sel)
       : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>(ivfpq, nullptr),
         precompute_mode(precompute_mode),
@@ -1094,7 +1094,7 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
 };
 
 template <class PQDecoder, bool use_sel>
-InvertedListScanner* get_InvertedListScanner1(const CustomIvfPq& index, bool store_pairs,
+InvertedListScanner* get_InvertedListScanner1(const IndexIvfPq& index, bool store_pairs,
                                               const IDSelector* sel,
                                               float dynamic_range_search_confidence) {
   if (index.metric_type == METRIC_INNER_PRODUCT) {
@@ -1112,7 +1112,7 @@ InvertedListScanner* get_InvertedListScanner1(const CustomIvfPq& index, bool sto
 }
 
 template <bool use_sel>
-InvertedListScanner* get_InvertedListScanner2(const CustomIvfPq& index, bool store_pairs,
+InvertedListScanner* get_InvertedListScanner2(const IndexIvfPq& index, bool store_pairs,
                                               const IDSelector* sel,
                                               float dynamic_range_search_confidence) {
   if (index.pq.nbits == 8) {
@@ -1129,7 +1129,7 @@ InvertedListScanner* get_InvertedListScanner2(const CustomIvfPq& index, bool sto
 
 }  // anonymous namespace
 
-InvertedListScanner* CustomIvfPq::custom_get_InvertedListScanner(
+InvertedListScanner* IndexIvfPq::custom_get_InvertedListScanner(
     bool store_pairs, const IDSelector* sel, float dynamic_range_search_confidence) const {
   if (sel) {
     return get_InvertedListScanner2<true>(*this, store_pairs, sel, dynamic_range_search_confidence);

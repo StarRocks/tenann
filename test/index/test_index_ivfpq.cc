@@ -20,7 +20,7 @@
 #include "faiss/IndexFlat.h"
 #include "faiss/utils/distances.h"
 #include "gtest/gtest.h"
-#include "tenann/index/internal/custom_ivfpq.h"
+#include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/util/random.h"
 
 const float float_diff_threshold = 0.000001;
@@ -34,7 +34,7 @@ TEST(InternalIvfPq, test_reconstruction_error) {
 
   auto base = tenann::RandomVectors(nb, dim, 0);
   faiss::IndexFlatL2 coarse_quantizer(dim);
-  tenann::CustomIvfPq ivfpq(&coarse_quantizer, dim, nlist, m, nbits);
+  tenann::IndexIvfPq ivfpq(&coarse_quantizer, dim, nlist, m, nbits);
   ivfpq.train(nb, base.data());
   ivfpq.add(nb, base.data());
 

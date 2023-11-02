@@ -23,15 +23,15 @@
 
 namespace tenann {
 
-struct CustomIvfPqSearchParameters : faiss::IVFPQSearchParameters {
+struct IndexIvfPqSearchParameters : faiss::IVFPQSearchParameters {
   float range_search_confidence;
-  CustomIvfPqSearchParameters() : range_search_confidence(0) {}
-  ~CustomIvfPqSearchParameters() {}
+  IndexIvfPqSearchParameters() : range_search_confidence(0) {}
+  ~IndexIvfPqSearchParameters() {}
 };
 
-struct CustomIvfPq : faiss::IndexIVFPQ {
-  CustomIvfPq();
-  ~CustomIvfPq() override;
+struct IndexIvfPq : faiss::IndexIVFPQ {
+  IndexIvfPq();
+  ~IndexIvfPq() override;
 
   std::vector<std::vector<float>> reconstruction_errors;
 
@@ -42,7 +42,7 @@ struct CustomIvfPq : faiss::IndexIVFPQ {
   /// will be greatly increased, and in the extreme case, all database vectors will be returned.
   float range_search_confidence = 0;
 
-  CustomIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M, size_t nbits_per_idx);
+  IndexIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M, size_t nbits_per_idx);
 
   void add_core(idx_t n, const float* x, const idx_t* xids, const idx_t* precomputed_idx) override;
 
@@ -58,7 +58,7 @@ struct CustomIvfPq : faiss::IndexIVFPQ {
   void custom_range_search_preassigned(idx_t nx, const float* x, float radius, const idx_t* keys,
                                        const float* coarse_dis, faiss::RangeSearchResult* result,
                                        bool store_pairs = false,
-                                       const CustomIvfPqSearchParameters* params = nullptr,
+                                       const IndexIvfPqSearchParameters* params = nullptr,
                                        faiss::IndexIVFStats* stats = nullptr) const;
 
   faiss::InvertedListScanner* custom_get_InvertedListScanner(bool store_pairs,

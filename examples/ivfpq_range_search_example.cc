@@ -27,7 +27,7 @@
 #include "faiss/utils/distances.h"
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
-#include "tenann/index/internal/custom_ivfpq.h"
+#include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/util/runtime_profile_macros.h"
 #include "tenann/util/threads.h"
 
@@ -93,7 +93,7 @@ class RangeSearchEvaluator {
       for (auto range_search_confidence : range_search_confidence_list) {
         ivfpq_->nprobe = nprobe;
 
-        if constexpr (std::is_same_v<tenann::CustomIvfPq, IVFPQ>) {
+        if constexpr (std::is_same_v<tenann::IndexIvfPq, IVFPQ>) {
           ivfpq_->range_search_confidence = range_search_confidence;
         }
 
@@ -255,7 +255,7 @@ int main(int argc, char const* argv[]) {
   std::vector<float> range_search_confidence_list = {0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.2, 1};
 
   tenann::OmpSetNumThreads(16);
-  RangeSearchEvaluator<tenann::CustomIvfPq> evaluator1;
+  RangeSearchEvaluator<tenann::IndexIvfPq> evaluator1;
   evaluator1.SetVerbose(verbose)
       .SetBase(nb, base.data())    //
       .SetQuery(nq, query.data())  //

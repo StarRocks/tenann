@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include "tenann/index/custom_ivfpq_writer.h"
+#include "tenann/index/index_ivfpq_writer.h"
 
 #include "faiss/Index.h"
 #include "faiss/impl/FaissAssert.h"
@@ -26,14 +26,14 @@
 #include "faiss/impl/io_macros.h"
 #include "faiss/index_io.h"
 #include "tenann/common/logging.h"
-#include "tenann/index/internal/custom_ivfpq.h"
+#include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/util/defer.h"
 
 namespace tenann {
 
-CustomIvfPqWriter::~CustomIvfPqWriter() = default;
+IndexIvfPqWriter::~IndexIvfPqWriter() = default;
 
-void CustomIvfPqWriter::WriteIndex(IndexRef index, const std::string& path) {
+void IndexIvfPqWriter::WriteIndex(IndexRef index, const std::string& path) {
   // open the index file and close it automatically
   // when we leave the current scope through `Defer`
   auto file = fopen(path.c_str(), "wb");
@@ -56,15 +56,15 @@ void CustomIvfPqWriter::WriteIndex(IndexRef index, const std::string& path) {
     // the name `f` is needed for faiss IO macros
     auto* f = &writer;
 
-    // get the raw CustomIvfPq pointer
-    const auto* custom_ivfpq = static_cast<const CustomIvfPq*>(index->index_raw());
+    // get the raw IndexIvfPq pointer
+    const auto* index_ivfpq = static_cast<const IndexIvfPq*>(index->index_raw());
 
     // write range_search_confidence
-    WRITE1(custom_ivfpq->range_search_confidence);
+    WRITE1(index_ivfpq->range_search_confidence);
     // write reconstruction errors
-    size_t vec_size = custom_ivfpq->reconstruction_errors.size();
+    size_t vec_size = index_ivfpq->reconstruction_errors.size();
     WRITE1(vec_size);
-    for (const auto& sub_vec : custom_ivfpq->reconstruction_errors) {
+    for (const auto& sub_vec : index_ivfpq->reconstruction_errors) {
       WRITEVECTOR(sub_vec);
     }
   } catch (faiss::FaissException& e) {

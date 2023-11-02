@@ -23,8 +23,8 @@
 #include "tenann/builder/faiss_ivf_pq_index_builder.h"
 #include "tenann/builder/index_builder.h"
 #include "tenann/common/error.h"
-#include "tenann/index/custom_ivfpq_reader.h"
-#include "tenann/index/custom_ivfpq_writer.h"
+#include "tenann/index/index_ivfpq_reader.h"
+#include "tenann/index/index_ivfpq_writer.h"
 #include "tenann/index/faiss_index_reader.h"
 #include "tenann/index/faiss_index_writer.h"
 #include "tenann/index/index_reader.h"
@@ -84,11 +84,11 @@ struct IndexFactoryTrait<kFaissHnsw> {
 template <>
 struct IndexFactoryTrait<kFaissIvfPq> {
   static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    return std::make_unique<CustomIvfPqReader>(meta);
+    return std::make_unique<IndexIvfPqReader>(meta);
   };
 
   static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    return std::make_unique<CustomIvfPqWriter>(meta);
+    return std::make_unique<IndexIvfPqWriter>(meta);
   };
 
   static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {

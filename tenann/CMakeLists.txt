@@ -25,9 +25,9 @@ set(TENANN_SRC
     common/logging.cc
     factory/index_factory.cc
     factory/ann_searcher_factory.cc
-    index/internal/custom_ivfpq.cc
-    index/custom_ivfpq_writer.cc
-    index/custom_ivfpq_reader.cc
+    index/internal/index_ivfpq.cc
+    index/index_ivfpq_writer.cc
+    index/index_ivfpq_reader.cc
     index/index.cc
     index/index_cache.cc
     index/index_reader.cc

@@ -27,7 +27,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
-#include "tenann/index/internal/custom_ivfpq.h"
+#include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/index/internal/faiss_index_util.h"
 #include "tenann/index/parameter_serde.h"
 
@@ -46,21 +46,21 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
   try {
     // use bruteforce coarse quantizer by default
     auto quantizer = std::make_unique<faiss::IndexFlatL2>(common_params_.dim);
-    auto custom_ivfpq =
-        std::make_unique<CustomIvfPq>(quantizer.release(), common_params_.dim, index_params_.nlists,
+    auto index_ivfpq =
+        std::make_unique<IndexIvfPq>(quantizer.release(), common_params_.dim, index_params_.nlists,
                                       index_params_.M, index_params_.nbits);
-    custom_ivfpq->own_fields = true;
+    index_ivfpq->own_fields = true;
 
     // default search params
-    custom_ivfpq->nprobe = search_params_.nprobe;
-    custom_ivfpq->max_codes = search_params_.max_codes;
-    custom_ivfpq->scan_table_threshold = search_params_.scan_table_threshold;
-    custom_ivfpq->polysemous_ht = search_params_.polysemous_ht;
-    custom_ivfpq->range_search_confidence = search_params_.range_search_confidence;
+    index_ivfpq->nprobe = search_params_.nprobe;
+    index_ivfpq->max_codes = search_params_.max_codes;
+    index_ivfpq->scan_table_threshold = search_params_.scan_table_threshold;
+    index_ivfpq->polysemous_ht = search_params_.polysemous_ht;
+    index_ivfpq->range_search_confidence = search_params_.range_search_confidence;
 
-    return std::make_shared<Index>(custom_ivfpq.release(),  //
+    return std::make_shared<Index>(index_ivfpq.release(),  //
                                    IndexType::kFaissIvfPq,  //
-                                   [](void* index) { delete static_cast<CustomIvfPq*>(index); });
+                                   [](void* index) { delete static_cast<IndexIvfPq*>(index); });
   }
   CATCH_FAISS_ERROR
   CATCH_JSON_ERROR
