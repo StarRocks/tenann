@@ -23,23 +23,23 @@
 namespace tenann {
 
 AnnFilter::AnnFilter(idx_t min_id, idx_t max_id, bool assume_sorted) {
-  adapter = std::make_unique<AnnFilterRangeAdapter>(min_id, max_id, assume_sorted);
+  adapter_ = std::make_unique<AnnFilterRangeAdapter>(min_id, max_id, assume_sorted);
 }
 
 AnnFilter::AnnFilter(const idx_t* ids, size_t num_ids, bool use_bloom_and_set) {
   if (use_bloom_and_set) {
-    adapter = std::make_unique<AnnFilterBatchAdapter>(ids, num_ids);
+    adapter_ = std::make_unique<AnnFilterBatchAdapter>(ids, num_ids);
   } else {
-    adapter = std::make_unique<AnnFilterArrayAdapter>(ids, num_ids);
+    adapter_ = std::make_unique<AnnFilterArrayAdapter>(ids, num_ids);
   }
 }
 
 AnnFilter::AnnFilter(const uint8_t* bitmap, size_t bitmap_size) {
-  adapter = std::make_unique<AnnFilterBitmapAdapter>(bitmap, bitmap_size);
+  adapter_ = std::make_unique<AnnFilterBitmapAdapter>(bitmap, bitmap_size);
 }
 
 AnnFilter::~AnnFilter() {}
 
-bool AnnFilter::isMember(idx_t id) const { return adapter->isMember(id); }
+bool AnnFilter::isMember(idx_t id) const { return adapter_->is_member(id); }
 
 }  // namespace tenann

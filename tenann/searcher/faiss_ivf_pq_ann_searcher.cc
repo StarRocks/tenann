@@ -53,7 +53,7 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int6
   faiss_search_parameters.polysemous_ht = search_params_.polysemous_ht;
   faiss_search_parameters.scan_table_threshold = search_params_.scan_table_threshold;
   if (ann_filter) {
-    faiss_search_parameters.sel = ann_filter->getAdapter().getIDSelector();
+    faiss_search_parameters.sel = ann_filter->getAnnFilterAdapter();
   }
 
   faiss_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data),

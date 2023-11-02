@@ -54,8 +54,17 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   faiss::SearchParametersHNSW faiss_search_parameters;
   faiss_search_parameters.efSearch = search_params_.efSearch;
   faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
+  std::shared_ptr<IDTranslatedAdapter> id_translated_adapter;
   if (ann_filter) {
-    faiss_search_parameters.sel = ann_filter->getAdapter().getIDSelector();
+    // 判断是否是faiss_id_map_类型,如果是，则应该进行一次 IDMap 转化
+    if (faiss_id_map_ != nullptr) {
+      id_translated_adapter = std::make_shared<IDTranslatedAdapter>(
+          ann_filter->getAnnFilterAdapter(),
+          reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map);
+      faiss_search_parameters.sel = id_translated_adapter.get();
+    } else {
+      faiss_search_parameters.sel = ann_filter->getAnnFilterAdapter();
+    }
   }
   // transform the query vector first if a pre-transform is set
   const float* x = reinterpret_cast<const float*>(query_vector.data);

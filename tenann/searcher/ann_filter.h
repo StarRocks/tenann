@@ -74,10 +74,10 @@ class AnnFilter {
 
   bool isMember(idx_t id) const;  // 公共接口函数
 
-  const AnnFilterAdapterBase& getAdapter() const { return *adapter; }
+  AnnFilterAdapterBase* getAnnFilterAdapter() const { return adapter_.get(); }
 
  private:
-  std::unique_ptr<AnnFilterAdapterBase> adapter;
+  std::unique_ptr<AnnFilterAdapterBase> adapter_;
 };
 
 }  // namespace tenann

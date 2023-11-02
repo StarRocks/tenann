@@ -25,11 +25,10 @@
 
 namespace tenann {
 
-class AnnFilterAdapterBase {
+class AnnFilterAdapterBase : public faiss::IDSelector {
  public:
   virtual ~AnnFilterAdapterBase() {}
-  virtual bool isMember(idx_t id) const = 0;
-  virtual faiss::IDSelector* getIDSelector() const = 0;
+  virtual bool is_member(idx_t id) const = 0;
 };
 
 class AnnFilterRangeAdapter : public AnnFilterAdapterBase {
@@ -39,9 +38,7 @@ class AnnFilterRangeAdapter : public AnnFilterAdapterBase {
     id_selector_ = std::make_unique<faiss::IDSelectorRange>(min_id_, max_id_, assume_sorted_);
   }
 
-  bool isMember(idx_t id) const override { return id_selector_->is_member(id); }
-
-  faiss::IDSelector* getIDSelector() const override { return id_selector_.get(); }
+  bool is_member(idx_t id) const override { return id_selector_->is_member(id); }
 
  private:
   idx_t min_id_;
@@ -57,9 +54,7 @@ class AnnFilterArrayAdapter : public AnnFilterAdapterBase {
     id_selector_ = std::make_unique<faiss::IDSelectorArray>(id_array_.size(), id_array_.data());
   }
 
-  bool isMember(idx_t id) const override { return id_selector_->is_member(id); }
-
-  faiss::IDSelector* getIDSelector() const override { return id_selector_.get(); }
+  bool is_member(idx_t id) const override { return id_selector_->is_member(id); }
 
  private:
   std::vector<idx_t> id_array_;
@@ -72,9 +67,7 @@ class AnnFilterBatchAdapter : public AnnFilterAdapterBase {
     id_selector_ = std::make_unique<faiss::IDSelectorBatch>(num_ids, ids);
   }
 
-  bool isMember(idx_t id) const override { return id_selector_->is_member(id); }
-
-  faiss::IDSelector* getIDSelector() const override { return id_selector_.get(); }
+  bool is_member(idx_t id) const override { return id_selector_->is_member(id); }
 
  private:
   std::unique_ptr<faiss::IDSelectorBatch> id_selector_;
@@ -87,12 +80,22 @@ class AnnFilterBitmapAdapter : public AnnFilterAdapterBase {
     id_selector_ = std::make_unique<faiss::IDSelectorBitmap>(bitmap_.size() * 8, bitmap_.data());
   }
 
-  bool isMember(idx_t id) const override { return id_selector_->is_member(id); }
-
-  faiss::IDSelector* getIDSelector() const override { return id_selector_.get(); }
+  bool is_member(idx_t id) const override { return id_selector_->is_member(id); }
 
  private:
   std::vector<uint8_t> bitmap_;
   std::unique_ptr<faiss::IDSelectorBitmap> id_selector_;
+};
+
+class IDTranslatedAdapter : public faiss::IDSelector {
+ public:
+  IDTranslatedAdapter(const IDSelector* sel, const std::vector<int64_t>& id_map)
+      : id_selector_(sel), id_map_(id_map) {}
+
+  bool is_member(idx_t id) const override { return id_selector_->is_member(id_map_[id]); }
+
+ private:
+  const IDSelector* id_selector_;
+  const std::vector<int64_t>& id_map_;
 };
 }  // namespace tenann
