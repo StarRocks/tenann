@@ -56,8 +56,7 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
     custom_ivfpq->max_codes = search_params_.max_codes;
     custom_ivfpq->scan_table_threshold = search_params_.scan_table_threshold;
     custom_ivfpq->polysemous_ht = search_params_.polysemous_ht;
-    // TODO: set correct range_search_confidence
-    custom_ivfpq->range_search_confidence = 0;
+    custom_ivfpq->range_search_confidence = search_params_.range_search_confidence;
 
     return std::make_shared<Index>(custom_ivfpq.release(),  //
                                    IndexType::kFaissIvfPq,  //

@@ -103,6 +103,7 @@ inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_p
   GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, max_codes);
   GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, scan_table_threshold);
   GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, polysemous_ht);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, range_search_confidence)
 
   out_params->Validate();
 }

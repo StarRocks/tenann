@@ -77,8 +77,12 @@ struct FaissIvfPqSearchParams {
   DEFINE_OPTIONAL_PARAM(size_t, max_codes, 0);
   DEFINE_OPTIONAL_PARAM(size_t, scan_table_threshold, 0);
   DEFINE_OPTIONAL_PARAM(int, polysemous_ht, 0);
+  DEFINE_OPTIONAL_PARAM(float, range_search_confidence, 0);
 
-  void Validate() { ASSERT_PARAM_IN_RANGE(nprobe, 1, INT_MAX); }
+  void Validate() {
+    ASSERT_PARAM_IN_RANGE(nprobe, 1, INT_MAX);
+    ASSERT_PARAM_IN_RANGE(range_search_confidence, 0, 1);
+  }
 };
 
 /** Parameters for faiss HSNW */
