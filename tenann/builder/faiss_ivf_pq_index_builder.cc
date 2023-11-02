@@ -27,6 +27,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
+#include "tenann/index/internal/custom_ivfpq.h"
 #include "tenann/index/internal/faiss_index_util.h"
 #include "tenann/index/parameter_serde.h"
 
@@ -35,29 +36,32 @@ FaissIvfPqIndexBuilder::FaissIvfPqIndexBuilder(const IndexMeta& meta)
     : FaissIndexBuilderWithBuffer(meta) {
   FetchParameters(meta, &index_params_);
   FetchParameters(meta, &search_params_);
-  T_CHECK(common_params_.metric_type != MetricType::kCosineSimilarity)
-      << "IVF PQ does not support cosine similarity now";
+  T_CHECK(common_params_.metric_type == MetricType::kL2Distance)
+      << "got unsupported metric, only l2_distance is supported for IVF-PQ";
 }
 
 FaissIvfPqIndexBuilder::~FaissIvfPqIndexBuilder() = default;
 
 IndexRef FaissIvfPqIndexBuilder::InitIndex() {
   try {
-    auto factory_string = faiss_util::GetIvfPqRepr(common_params_, index_params_);
-    auto index = std::unique_ptr<faiss::Index>(
-        faiss::index_factory(common_params_.dim, factory_string.c_str(), faiss::METRIC_L2));
-
-    faiss::IndexIVFPQ* index_ivf_pq = static_cast<faiss::IndexIVFPQ*>(index.get());
+    // use bruteforce coarse quantizer by default
+    auto quantizer = std::make_unique<faiss::IndexFlatL2>(common_params_.dim);
+    auto custom_ivfpq =
+        std::make_unique<CustomIvfPq>(quantizer.release(), common_params_.dim, index_params_.nlists,
+                                      index_params_.M, index_params_.nbits);
+    custom_ivfpq->own_fields = true;
 
     // default search params
-    index_ivf_pq->nprobe = search_params_.nprobe;
-    index_ivf_pq->max_codes = search_params_.max_codes;
-    index_ivf_pq->scan_table_threshold = search_params_.scan_table_threshold;
-    index_ivf_pq->polysemous_ht = search_params_.polysemous_ht;
+    custom_ivfpq->nprobe = search_params_.nprobe;
+    custom_ivfpq->max_codes = search_params_.max_codes;
+    custom_ivfpq->scan_table_threshold = search_params_.scan_table_threshold;
+    custom_ivfpq->polysemous_ht = search_params_.polysemous_ht;
+    // TODO: set correct range_search_confidence
+    custom_ivfpq->range_search_confidence = 0;
 
-    return std::make_shared<Index>(index.release(),         //
+    return std::make_shared<Index>(custom_ivfpq.release(),  //
                                    IndexType::kFaissIvfPq,  //
-                                   [](void* index) { delete static_cast<faiss::Index*>(index); });
+                                   [](void* index) { delete static_cast<CustomIvfPq*>(index); });
   }
   CATCH_FAISS_ERROR
   CATCH_JSON_ERROR

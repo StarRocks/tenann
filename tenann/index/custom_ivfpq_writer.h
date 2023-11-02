@@ -20,19 +20,20 @@
 #pragma once
 
 #include "tenann/common/json.h"
-#include "tenann/index/index_reader.h"
+#include "tenann/index/index_writer.h"
 
 namespace tenann {
 
-class FaissIndexReader : public IndexReader {
+class CustomIvfPqWriter: public IndexWriter {
  public:
-  using IndexReader::IndexReader;
-  virtual ~FaissIndexReader();
-  T_FORBID_COPY_AND_ASSIGN(FaissIndexReader);
-  T_FORBID_MOVE(FaissIndexReader);
+  using IndexWriter::IndexWriter;
+  virtual ~CustomIvfPqWriter();
+  
+  T_FORBID_COPY_AND_ASSIGN(CustomIvfPqWriter);
+  T_FORBID_MOVE(CustomIvfPqWriter);
 
-  // Read index file
-  IndexRef ReadIndex(const std::string& path) override;
+  // Write index file
+  void WriteIndex(IndexRef index, const std::string& path) override;
 };
 
 }  // namespace tenann

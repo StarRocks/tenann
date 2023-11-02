@@ -106,6 +106,7 @@ class FaissTestBase : public ::testing::Test {
   // used for testing IdFliter, ids 有效范围: [0, id_filter_count_)
   int id_filter_count_;
   // index save path
+  // TODO: don't share the same index_path for all indexes!!!
   const char* index_path_ = "/tmp/faiss_index";
   const char* index_with_primary_key_path_ = "/tmp/faiss_index_with_ids";
 

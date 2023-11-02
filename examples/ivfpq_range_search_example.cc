@@ -27,7 +27,6 @@
 #include "faiss/utils/distances.h"
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
-#include "tenann/index/internal/IndexIVFPQ.h"
 #include "tenann/index/internal/custom_ivfpq.h"
 #include "tenann/util/runtime_profile_macros.h"
 #include "tenann/util/threads.h"

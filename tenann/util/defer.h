@@ -17,22 +17,24 @@
  * under the License.
  */
 
-#pragma once
+#include <functional>
 
-#include "tenann/common/json.h"
-#include "tenann/index/index_reader.h"
+#include "tenann/common/macros.h"
 
 namespace tenann {
 
-class FaissIndexReader : public IndexReader {
+class Defer {
  public:
-  using IndexReader::IndexReader;
-  virtual ~FaissIndexReader();
-  T_FORBID_COPY_AND_ASSIGN(FaissIndexReader);
-  T_FORBID_MOVE(FaissIndexReader);
+  template <typename F>
+  explicit Defer(F&& defer_func) : defer_func_(std::forward<F>(defer_func)) {}
+  ~Defer() noexcept { defer_func_(); }
 
-  // Read index file
-  IndexRef ReadIndex(const std::string& path) override;
+  T_FORBID_DEFAULT_CTOR(Defer);
+  T_FORBID_COPY_AND_ASSIGN(Defer);
+  T_FORBID_MOVE(Defer);
+
+ private:
+  std::function<void()> defer_func_;
 };
 
 }  // namespace tenann

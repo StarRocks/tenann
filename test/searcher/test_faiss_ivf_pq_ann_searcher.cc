@@ -65,6 +65,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_InvalidArgs) {
   }
 
   {
+    CreateAndWriteFaissIvfPqIndex();
     // query_vector.elem_type != PrimitiveType::kFloatType
     auto double_type_query_view =
         PrimitiveSeqView{.data = reinterpret_cast<uint8_t*>(query_data().data()),

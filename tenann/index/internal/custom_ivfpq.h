@@ -30,6 +30,9 @@ struct CustomIvfPqSearchParameters : faiss::IVFPQSearchParameters {
 };
 
 struct CustomIvfPq : faiss::IndexIVFPQ {
+  CustomIvfPq();
+  ~CustomIvfPq() override;
+
   std::vector<std::vector<float>> reconstruction_errors;
 
   /// @brief Default search parameter used for range search.
@@ -59,8 +62,8 @@ struct CustomIvfPq : faiss::IndexIVFPQ {
                                        faiss::IndexIVFStats* stats = nullptr) const;
 
   faiss::InvertedListScanner* custom_get_InvertedListScanner(bool store_pairs,
-                                                      const faiss::IDSelector* sel,
-                                                      float range_search_confidence) const;
+                                                             const faiss::IDSelector* sel,
+                                                             float range_search_confidence) const;
 };
 
 }  // namespace tenann

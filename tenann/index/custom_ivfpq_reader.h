@@ -24,14 +24,14 @@
 
 namespace tenann {
 
-class FaissIndexReader : public IndexReader {
+class CustomIvfPqReader : public IndexReader {
  public:
   using IndexReader::IndexReader;
-  virtual ~FaissIndexReader();
-  T_FORBID_COPY_AND_ASSIGN(FaissIndexReader);
-  T_FORBID_MOVE(FaissIndexReader);
+  virtual ~CustomIvfPqReader();
 
-  // Read index file
+  T_FORBID_COPY_AND_ASSIGN(CustomIvfPqReader);
+  T_FORBID_MOVE(CustomIvfPqReader);
+
   IndexRef ReadIndex(const std::string& path) override;
 };
 

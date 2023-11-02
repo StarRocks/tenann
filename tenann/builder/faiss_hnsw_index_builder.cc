@@ -36,7 +36,6 @@ namespace tenann {
 FaissHnswIndexBuilder::~FaissHnswIndexBuilder() {}
 
 IndexRef FaissHnswIndexBuilder::InitIndex() {
-  // TODO: add "M", "efConstruction", "efSearch" limit check
   try {
     // init index/search parameters from meta
     FetchParameters(index_meta_, &index_params_);
