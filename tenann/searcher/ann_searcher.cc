@@ -28,4 +28,10 @@ AnnSearcher::AnnSearcher(const IndexMeta& meta) : Searcher<AnnSearcher>(meta) {
 
 AnnSearcher::~AnnSearcher() = default;
 
+void AnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float range, int64_t limit,
+                              ResultOrder result_order, std::vector<int64_t>* result_ids,
+                              std::vector<float>* result_distances) {
+  T_LOG(ERROR) << "range search not implemented";
+}
+
 }  // namespace tenann

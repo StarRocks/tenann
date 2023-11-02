@@ -40,6 +40,9 @@ class FaissIvfPqAnnSearcher : public AnnSearcher {
   void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
                  uint8_t* result_distances, IdFilter* id_filter = nullptr) override;
 
+  void RangeSearch(PrimitiveSeqView query_vector, float range, int64_t limit, ResultOrder result_order,
+                   std::vector<int64_t>* result_ids, std::vector<float>* result_distances) override;
+
  protected:
   void OnSearchParamItemChange(const std::string& key, const json& value) override;
   void OnSearchParamsChange(const json& value) override;
