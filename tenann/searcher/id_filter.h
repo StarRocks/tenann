@@ -19,16 +19,27 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include "tenann/common/type_traits.h"
 
 namespace tenann {
-class AnnFilterAdapterBase;  // 前向声明适配器基类
 
-class AnnFilter {
+class IDSelectorRangeAdapter;
+class IDSelectorArrayAdapter;
+class IDSelectorBatchAdapter;
+class IDSelectorBitmapAdapter;
+
+class IDFilter {
+ public:
+  virtual ~IDFilter() = 0;
+  virtual bool isMember(idx_t id) const = 0;
+};
+
+class RangeIdFilter : public IDFilter {
  public:
   /**
-   * @brief 构造函数，适配 IDSelectorRange
+   * @brief 构造函数，适配 IDSelectorRangeAdapter
    *
    * @param min_id 范围的起始 ID（包含）
    * @param max_id 范围的结束 ID（不包含）
@@ -38,27 +49,60 @@ class AnnFilter {
    * 在这种情况下，构造函数将查找存储有效 ID 的列表索引范围。
    * 返回的范围表示列表中有效 ID 存储的起始索引和结束索引（不包含结束索引）。
    */
-  AnnFilter(idx_t min_id, idx_t max_id, bool assume_sorted = false);
+  RangeIdFilter(idx_t min_id, idx_t max_id, bool assume_sorted = false);
+  ~RangeIdFilter() = default;
 
+  bool isMember(idx_t id) const override;
+
+ private:
+  std::unique_ptr<IDSelectorRangeAdapter> adapter_;
+};
+
+class ArrayIdFilter : public IDFilter {
   /**
-   * @brief 构造函数，适配 IDSelectorArray, IDSelectorBatch
+   * @brief 构造函数，适配 IDSelectorArrayAdapter
    *
-   * @param n 要存储的 ID 数量
    * @param ids 要存储的元素。构造函数完成后，可以释放该指针
-   * @param use_bloom_and_set 是否使用布隆过滤器和集合
+   * @param num_ids 要存储的 ID 数量
    *
-   * 如果 use_bloom_and_set 为 false，则构造函数将使用简单的元素数组(IDSelectorArray)。
+   * 构造函数将使用简单的元素数组
    * 在这种情况下，is_member 调用的效率较低，但某些操作可以直接使用 ID。
+   */
+  ArrayIdFilter(const idx_t* ids, size_t num_ids);
+  ~ArrayIdFilter() = default;
+
+  bool isMember(idx_t id) const override;
+
+ private:
+  std::vector<idx_t> id_array_;
+  std::unique_ptr<IDSelectorArrayAdapter> adapter_;
+};
+
+class BatchIdFilter : public IDFilter {
+  /**
+   * @brief 构造函数，适配IDSelectorBatchAdapter
    *
-   * 如果 use_bloom_and_set 为 true，则构造函数将使用集合中的 ID(IDSelectorBatch)。
+   * @param ids 要存储的元素。构造函数完成后，可以释放该指针
+   * @param num_ids 要存储的 ID 数量
+   *
+   * 构造函数将使用集合中的 ID(IDSelectorBatchAdapter)。
    * 在使用布隆过滤器和集合时，重复的 ID 不会影响性能。
    * 布隆过滤器和 GCC 的 unordered_set 实现使用的哈希函数只是 ID 的最低有效位。
    * 这对于随机 ID 或连续序列中的 ID 是有效的，但如果最低有效位始终相同，则会产生许多哈希冲突。
    */
-  AnnFilter(const idx_t* ids, size_t num_ids, bool use_bloom_and_set = false);
+  BatchIdFilter(const idx_t* ids, size_t num_ids);
+  ~BatchIdFilter() = default;
 
+  bool isMember(idx_t id) const override;
+
+ private:
+  std::unique_ptr<IDSelectorBatchAdapter> adapter_;
+};
+
+class BitmapIdFilter : public IDFilter {
+ public:
   /**
-   * @brief 构造函数，适配 IDSelectorBitmap
+   * @brief 构造函数，适配 IDSelectorBitmapAdapter
    *
    * @param bitmap 二进制掩码数组
    * @param bitmap_size 二进制掩码数组的大小（ceil(n / 8)）
@@ -68,16 +112,14 @@ class AnnFilter {
    * 注意：每个元素对应一个位。构造函数使用一个二进制掩码数组，大小为 ceil(n / 8)。
    * 当且仅当 id / 8 < n 且 bitmap[floor(i / 8)] 的第 (i%8) 位为 1 时，该 id 会被选择。
    */
-  AnnFilter(const uint8_t* bitmap, size_t bitmap_size);  // 构造函数，适配 IDSelectorBitmap
+  BitmapIdFilter(const uint8_t* bitmap,
+                 size_t bitmap_size);  // 构造函数，适配 IDSelectorBitmapAdapter
+  ~BitmapIdFilter() = default;         // 析构函数
 
-  ~AnnFilter();  // 析构函数
-
-  bool isMember(idx_t id) const;  // 公共接口函数
-
-  AnnFilterAdapterBase* getAnnFilterAdapter() const { return adapter_.get(); }
+  bool isMember(idx_t id) const override;  // 公共接口函数
 
  private:
-  std::unique_ptr<AnnFilterAdapterBase> adapter_;
+  std::unique_ptr<IDSelectorBitmapAdapter> adapter_;
 };
 
 }  // namespace tenann

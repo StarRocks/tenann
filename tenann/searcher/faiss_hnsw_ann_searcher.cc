@@ -26,7 +26,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/index/internal/faiss_index_util.h"
 #include "tenann/index/parameter_serde.h"
-#include "tenann/searcher/internal/ann_filter_adapter.h"
+#include "tenann/searcher/internal/id_filter_adapter.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/util/distance_util.h"
 
@@ -39,13 +39,13 @@ FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(
 FaissHnswAnnSearcher::~FaissHnswAnnSearcher() = default;
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
-                                     AnnFilter* ann_filter) {
+                                     IDFilter* id_filter) {
   std::vector<float> distances(k);
-  AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()), ann_filter);
+  AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()), id_filter);
 }
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                                     uint8_t* result_distances, AnnFilter* ann_filter) {
+                                     uint8_t* result_distances, IDFilter* id_filter) {
   T_CHECK_NOTNULL(index_ref_);
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
@@ -54,17 +54,15 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   faiss::SearchParametersHNSW faiss_search_parameters;
   faiss_search_parameters.efSearch = search_params_.efSearch;
   faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
-  std::shared_ptr<IDTranslatedAdapter> id_translated_adapter;
-  if (ann_filter) {
-    // 判断是否是faiss_id_map_类型,如果是，则应该进行一次 IDMap 转化
+  std::shared_ptr<IDFilterAdapter> id_filter_adapter;
+  if (id_filter) {
     if (faiss_id_map_ != nullptr) {
-      id_translated_adapter = std::make_shared<IDTranslatedAdapter>(
-          ann_filter->getAnnFilterAdapter(),
-          reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map);
-      faiss_search_parameters.sel = id_translated_adapter.get();
+      id_filter_adapter = IDFilterAdapterFactory::createIDFilterAdapter(
+          id_filter, &reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map);
     } else {
-      faiss_search_parameters.sel = ann_filter->getAnnFilterAdapter();
+      id_filter_adapter = IDFilterAdapterFactory::createIDFilterAdapter(id_filter);
     }
+    faiss_search_parameters.sel = id_filter_adapter.get();
   }
   // transform the query vector first if a pre-transform is set
   const float* x = reinterpret_cast<const float*>(query_vector.data);

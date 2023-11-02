@@ -23,7 +23,7 @@
 #include "faiss_ivf_pq_ann_searcher.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/parameters.h"
-#include "tenann/searcher/internal/ann_filter_adapter.h"
+#include "tenann/searcher/internal/id_filter_adapter.h"
 #include "tenann/util/distance_util.h"
 
 namespace tenann {
@@ -33,13 +33,13 @@ FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher(const IndexMeta& meta) : AnnSearche
 FaissIvfPqAnnSearcher::~FaissIvfPqAnnSearcher() = default;
 
 void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
-                                      AnnFilter* ann_filter) {
+                                      IDFilter* id_filter) {
   std::vector<float> distances(k);
-  AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()), ann_filter);
+  AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()), id_filter);
 }
 
 void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                                      uint8_t* result_distances, AnnFilter* ann_filter) {
+                                      uint8_t* result_distances, IDFilter* id_filter) {
   T_CHECK_NOTNULL(index_ref_);
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissIvfPq);
@@ -52,8 +52,10 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int6
   faiss_search_parameters.max_codes = search_params_.max_codes;
   faiss_search_parameters.polysemous_ht = search_params_.polysemous_ht;
   faiss_search_parameters.scan_table_threshold = search_params_.scan_table_threshold;
-  if (ann_filter) {
-    faiss_search_parameters.sel = ann_filter->getAnnFilterAdapter();
+  std::shared_ptr<IDFilterAdapter> id_filter_adapter;
+  if (id_filter) {
+    id_filter_adapter = IDFilterAdapterFactory::createIDFilterAdapter(id_filter);
+    faiss_search_parameters.sel = id_filter_adapter.get();
   }
 
   faiss_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data),
