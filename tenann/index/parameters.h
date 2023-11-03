@@ -62,12 +62,12 @@ struct VectorIndexExtraParams {
 
 /** Parameters for Faiss IVF-PQ */
 struct FaissIvfPqIndexParams {
-  DEFINE_OPTIONAL_PARAM(size_t, nlists, 16);
+  DEFINE_OPTIONAL_PARAM(size_t, nlist, 16);
   DEFINE_OPTIONAL_PARAM(size_t, M, 2);
   DEFINE_OPTIONAL_PARAM(size_t, nbits, 8);
 
   void Validate() {
-    ASSERT_PARAM_IN_RANGE(nlists, 1, INT_MAX);
+    ASSERT_PARAM_IN_RANGE(nlist, 1, INT_MAX);
     ASSERT_PARAM_IN_RANGE(M, 1, INT_MAX);
   }
 };

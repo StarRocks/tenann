@@ -23,7 +23,12 @@
 
 namespace tenann {
 
-IndexMeta::IndexMeta() = default;
+IndexMeta::IndexMeta() {
+  meta_json_[kCommonKey] = {};
+  meta_json_[kIndexKey] = {};
+  meta_json_[kSearchKey] = {};
+  meta_json_[kExtraKey] = {};
+};
 
 IndexMeta::IndexMeta(const json& meta_json) : meta_json_(meta_json) {}
 

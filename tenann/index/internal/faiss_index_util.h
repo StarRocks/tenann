@@ -115,7 +115,7 @@ inline std::string GetIvfPqRepr(const VectorIndexCommonParams& common_params,
       !common_params.is_vector_normed) {
     oss << "L2Norm,";
   }
-  oss << "IVF" << index_params.nlists << ",";
+  oss << "IVF" << index_params.nlist << ",";
   oss << "PQ" << index_params.M << "x" << index_params.nbits;
 
   return oss.str();

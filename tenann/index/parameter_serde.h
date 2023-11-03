@@ -91,7 +91,7 @@ inline void FetchParameters(const IndexMeta& meta, FaissHnswSearchParams* out_pa
 }
 
 inline void FetchParameters(const IndexMeta& meta, FaissIvfPqIndexParams* out_params) {
-  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nlists);
+  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nlist);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, M);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nbits);
 

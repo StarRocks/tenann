@@ -17,6 +17,9 @@
 
 set(TENANN_SRC
     version.cc
+    bench/evaluator.cc
+    bench/range_search_evaluator.cc
+    bench/topk_search_evaluator.cc
     builder/index_builder.cc
     builder/faiss_index_builder.cc
     builder/faiss_index_builder_with_buffer.cc

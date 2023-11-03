@@ -175,7 +175,7 @@ IndexRef IndexIvfPqReader::ReadIndex(const std::string& path) {
     uint32_t h;
     READ1(h);
     T_LOG_IF(ERROR, h != fourcc("IwPQ"))
-        << "could not read read ivfpq from file " << path << ": "
+        << "could not read ivfpq from file " << path << ": "
         << "expect magic number `IwPQ` but got " << fourcc_inv_printable(h);
 
     auto index_ivfpq = std::make_unique<IndexIvfPq>();

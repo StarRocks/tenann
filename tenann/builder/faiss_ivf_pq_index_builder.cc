@@ -47,7 +47,7 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
     // use bruteforce coarse quantizer by default
     auto quantizer = std::make_unique<faiss::IndexFlatL2>(common_params_.dim);
     auto index_ivfpq =
-        std::make_unique<IndexIvfPq>(quantizer.release(), common_params_.dim, index_params_.nlists,
+        std::make_unique<IndexIvfPq>(quantizer.release(), common_params_.dim, index_params_.nlist,
                                       index_params_.M, index_params_.nbits);
     index_ivfpq->own_fields = true;
 
