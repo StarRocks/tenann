@@ -103,29 +103,97 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_IDMap_HNSW_IsWork) {
   }
 
   {
-    // TODO: hnsw 暂未支持传入 searchParams, 预备 ut
     // efSearch = 40, recall rate > 0.8
     ann_searcher_->SetSearchParamItem(FaissHnswSearchParams::efSearch_key, int(40));
-    ann_searcher_->SetSearchParamItem(FaissHnswSearchParams::check_relative_distance_key,
-                                             true);
+    ann_searcher_->SetSearchParamItem(FaissHnswSearchParams::check_relative_distance_key, true);
 
     // search index
     result_ids_.clear();
     for (int i = 0; i < nq_; i++) {
       ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
     }
-    // TODO: fix this test
-    // EXPECT_TRUE(RecallCheckResult_80Percent());
+    EXPECT_TRUE(RecallCheckResult_80Percent());
   }
 }
 
-// TODO: 不使用 IDMap 的情况下召回率为 0，需要排查原因
+TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
+  {
+    CreateAndWriteFaissHnswIndex(true, id_filter_count_);
+    ReadIndexAndDefaultSearch();
+  }
+
+  {
+    // 构造 IDFilter 对所有 ids 不感兴趣，搜索返回值应全为 -1
+    class DerivedIDFilter : public IDFilter {
+     public:
+      bool isMember(idx_t id) const override { return false; }
+      ~DerivedIDFilter() override = default;
+    } id_filter;  // 实例化匿名类的对象
+    // search index
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
+    EXPECT_TRUE(std::all_of(result_ids_.data(), result_ids_.data() + nq_ * k_,
+                            [](int64_t element) { return element == -1; }));
+  }
+
+  // test RangeIdFilter
+  {
+    // 构造 RangeIdFilter 只对[0, id_filter_count_)范围的 ids 感兴趣
+    RangeIdFilter id_filter(0, id_filter_count_, false);
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+  }
+
+  // test ArrayIdFilter
+  {
+    // 构造 ArrayIdFilter 只对[0, id_filter_count_)范围的 ids 感兴趣
+    ArrayIdFilter id_filter(ids_.data(), id_filter_count_);
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+  }
+
+  // test BatchIdFilter
+  {
+    // 构造 BatchIdFilter 只对[0, id_filter_count_)范围的 ids 感兴趣
+    BatchIdFilter id_filter(ids_.data(), id_filter_count_);
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+  }
+
+  // test BitmapIdFilter
+  {
+    // 构造 BitmapIdFilter 只对[0, id_filter_count_)范围的 ids 感兴趣
+    std::vector<uint8_t> bitmap((nb_ + 7) / 8, 0);
+    for (int i = 0; i < id_filter_count_ && i < nb_; ++i) {
+      uint64_t id = ids_[i];
+      bitmap[id >> 3] |= (1 << (id & 7));
+    }
+    BitmapIdFilter id_filter(bitmap.data(), bitmap.size());
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+  }
+}
+
 TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_IndexHNSW_IsWork) {
   CreateAndWriteFaissHnswIndex(false);
 
   {
     ReadIndexAndDefaultSearch();
-    EXPECT_FALSE(RecallCheckResult_80Percent());
+    EXPECT_TRUE(RecallCheckResult_80Percent());
   }
 }
 

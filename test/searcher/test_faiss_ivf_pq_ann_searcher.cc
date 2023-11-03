@@ -83,7 +83,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_InvalidArgs) {
 TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
   // Training and building take a lot of time.
   auto start = std::chrono::high_resolution_clock::now();
-  CreateAndWriteFaissIvfPqIndex();
+  CreateAndWriteFaissIvfPqIndex(true);
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
   printf("IVFPQ创建索引执行时间:  %d 毫秒\n", duration.count());
@@ -91,13 +91,15 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
   {
     // default search
     ReadIndexAndDefaultSearch();
-    // @TODO: fix this test
-    // EXPECT_TRUE(RecallCheckResult_80Percent());
+    EXPECT_TRUE(RecallCheckResult_80Percent());
   }
 
   {
     // nprobe = 1, recall rate < 0.8
     faiss_ivf_pq_meta().search_params()["nprobe"] = size_t(4 * sqrt(nb_));
+    faiss_ivf_pq_meta().search_params()["max_codes"] = 0;
+    faiss_ivf_pq_meta().search_params()["scan_table_threshold"] = 0;
+    faiss_ivf_pq_meta().search_params()["polysemous_ht"] = 0;
     ann_searcher_->SetSearchParams(faiss_ivf_pq_meta().search_params());
 
     // search index
@@ -110,11 +112,9 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
 
   {
     // nprobe = 4 * sqrt(nb_), recall rate > 0.8
-    ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::nprobe_key,
-                                             size_t(4 * sqrt(nb_)));
+    ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::nprobe_key, size_t(4 * sqrt(nb_)));
     ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::max_codes_key, size_t(0));
-    ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::scan_table_threshold_key,
-                                             size_t(0));
+    ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::scan_table_threshold_key, size_t(0));
     ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::polysemous_ht_key, int(0));
 
     // search index
@@ -123,6 +123,81 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
       ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
     }
 
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+  }
+}
+
+TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
+  // Training and building take a lot of time.
+  auto start = std::chrono::high_resolution_clock::now();
+  CreateAndWriteFaissIvfPqIndex(true, id_filter_count_);
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  printf("IVFPQ创建索引执行时间:  %d 毫秒\n", duration.count());
+  ReadIndexAndDefaultSearch();
+
+  {
+    // IDFilter 判定全为不感兴趣的，返回值应全为 -1
+    class DerivedIDFilter : public IDFilter {
+     public:
+      bool isMember(idx_t id) const override { return false; }
+      ~DerivedIDFilter() override = default;
+    } id_filter;  // 实例化匿名类的对象
+    // search index
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
+    EXPECT_TRUE(std::all_of(result_ids_.data(), result_ids_.data() + nq_ * k_,
+                            [](int64_t element) { return element == -1; }));
+  }
+
+  // test RangeIdFilter
+  {
+    // ArrayIdFilter 只对前 id_filter_count_ 个 ids 感兴趣，应完全匹配
+    RangeIdFilter id_filter(0, id_filter_count_, false);
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+  }
+
+  // test ArrayIdFilter
+  {
+    // ArrayIdFilter 只对前 id_filter_count_ 个 ids 感兴趣，应完全匹配
+    ArrayIdFilter id_filter(ids_.data(), id_filter_count_);
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+  }
+
+  // test BatchIdFilter
+  {
+    // BatchIdFilter 只对前 id_filter_count_ 个 ids 感兴趣，应完全匹配
+    BatchIdFilter id_filter(ids_.data(), id_filter_count_);
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+  }
+
+  // test BitmapIdFilter
+  {
+    // BitmapIdFilter 只对前 id_filter_count_ 个 ids 感兴趣
+    std::vector<uint8_t> bitmap((nb_ + 7) / 8, 0);
+    for (int i = 0; i < id_filter_count_ && i < nb_; ++i) {
+      uint64_t id = ids_[i];
+      bitmap[id >> 3] |= (1 << (id & 7));
+    }
+    BitmapIdFilter id_filter(bitmap.data(), bitmap.size());
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_, &id_filter);
+    }
     EXPECT_TRUE(RecallCheckResult_80Percent());
   }
 }

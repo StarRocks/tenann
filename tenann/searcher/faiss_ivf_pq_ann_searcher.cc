@@ -22,13 +22,16 @@
 #include "faiss/IndexIVFPQ.h"
 #include "faiss_ivf_pq_ann_searcher.h"
 #include "tenann/common/logging.h"
+#include "tenann/index/parameter_serde.h"
 #include "tenann/index/parameters.h"
 #include "tenann/searcher/internal/id_filter_adapter.h"
 #include "tenann/util/distance_util.h"
 
 namespace tenann {
 
-FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {}
+FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {
+  FetchParameters(meta, &search_params_);
+}
 
 FaissIvfPqAnnSearcher::~FaissIvfPqAnnSearcher() = default;
 

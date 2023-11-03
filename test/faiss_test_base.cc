@@ -65,8 +65,7 @@ void FaissTestBase::SetUp() {
 
   result_ids_.resize(nq_ * k_);
   accurate_query_result_ids_.resize(nq_ * k_);
-
-  InitAccurateQueryResult();
+  id_filter_count_ = int(4 * sqrt(nb_));
 }
 
 void FaissTestBase::InitFaissHnswMeta() {
@@ -94,9 +93,9 @@ void FaissTestBase::InitFaissIvfPqMeta() {
   faiss_ivf_pq_meta_.common_params()["is_vector_normed"] = false;
   faiss_ivf_pq_meta_.common_params()["metric_type"] = MetricType::kL2Distance;
   faiss_ivf_pq_meta_.index_params()["nlist"] = int(4 * sqrt(nb_));
-  faiss_ivf_pq_meta_.index_params()["nprobe"] = int(4 * sqrt(nb_));
   faiss_ivf_pq_meta_.index_params()["M"] = 4;
   faiss_ivf_pq_meta_.index_params()["nbits"] = 6;
+  faiss_ivf_pq_meta_.search_params()["nprobe"] = int(4 * sqrt(nb_));
   faiss_ivf_pq_meta_.search_params()["max_codes"] = size_t(0);
   faiss_ivf_pq_meta_.search_params()["scan_table_threshold"] = size_t(0);
   faiss_ivf_pq_meta_.search_params()["polysemous_ht"] = int(0);
@@ -135,15 +134,18 @@ float FaissTestBase::EuclideanDistance(const float* v1, const float* v2) {
   return sum;
 }
 
-// Note: Do not share the same groud-truth set for all tests !!!
-void FaissTestBase::InitAccurateQueryResult() {
+// 针对不同 testCase 初始化不同的accurate_query_result_ids_
+// use_custom_row_id为 true 时， null_flags_将生效
+// id_filter_count 限制那些 id 是被认为有效的: [0, id_filter_count)
+void FaissTestBase::InitAccurateQueryResult(bool use_custom_row_id, int id_filter_count) {
+  accurate_query_result_ids_.clear();
   // search index
   for (int i = 0; i < nq_; i++) {
     std::vector<std::pair<int, double>> distances;
-    for (int j = 0; j < nb_; j++) {
-      // TODO: null_flags_ is invalid if we do not use custom rowid
-      // thus we shouldn't share the same groud-truth set for all tests !!!
-      if (null_flags_[j] == 0) {
+    for (int j = 0; j < nb_ && j < id_filter_count; j++) {
+      // null_flags_ is invalid if we do not use custom rowid
+      // thus we shouldn't share the same groud-truth set for all tests.
+      if (!use_custom_row_id || null_flags_[j] == 0) {
         float distance = EuclideanDistance(query_.data() + i * d_, base_.data() + j * d_);
         distances.push_back(std::make_pair(j, distance));
       }
@@ -151,7 +153,13 @@ void FaissTestBase::InitAccurateQueryResult() {
 
     std::sort(distances.begin(), distances.end(),
               [](const auto& a, const auto& b) { return a.second < b.second; });
+
+    // 如果 distances 不足 k_个，扩容元素应初始化为<-1, />
+    int original_size = distances.size();
     distances.resize(k_);
+    for (int i = original_size; i < distances.size(); i++) {
+      distances[i] = std::make_pair(-1, 0);
+    }
 
     for (int j = 0; j < k_; j++) {
       accurate_query_result_ids_[i * k_ + j] = distances[j].first;
@@ -159,7 +167,9 @@ void FaissTestBase::InitAccurateQueryResult() {
   }
 }
 
-void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id) {
+// 不同的Index创建方式，预期查询结果也是不同的
+void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id, int id_filter_count) {
+  InitAccurateQueryResult(use_custom_row_id, id_filter_count);
   index_writer_ = IndexFactory::CreateWriterFromMeta(faiss_hnsw_meta_);
 
   if (use_custom_row_id) {
@@ -181,16 +191,28 @@ void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id) {
   meta_ = faiss_hnsw_meta_;
 }
 
-void FaissTestBase::CreateAndWriteFaissIvfPqIndex() {
+// 不同的Index创建方式，预期查询结果也是不同的
+void FaissTestBase::CreateAndWriteFaissIvfPqIndex(bool use_custom_row_id, int id_filter_count) {
+  InitAccurateQueryResult(use_custom_row_id, id_filter_count);
   index_writer_ = IndexFactory::CreateWriterFromMeta(faiss_ivf_pq_meta_);
 
-  faiss_ivf_pq_index_builder_->SetIndexWriter(index_writer_)
-      .SetIndexCache(IndexCache::GetGlobalInstance())
-      .EnableCustomRowId()
-      .Open(index_with_primary_key_path_)
-      .Add({base_view_}, ids_.data(), null_flags_.data())
-      .Flush(/*write_index_cache=*/true)
-      .Close();
+  // use_custom_row_id还有一个作用是判断是否使用 null_flags
+  if (use_custom_row_id) {
+    faiss_ivf_pq_index_builder_->SetIndexWriter(index_writer_)
+        .SetIndexCache(IndexCache::GetGlobalInstance())
+        .EnableCustomRowId()
+        .Open(index_with_primary_key_path_)
+        .Add({base_view_}, ids_.data(), null_flags_.data())
+        .Flush(/*write_index_cache=*/true)
+        .Close();
+  } else {
+    faiss_ivf_pq_index_builder_->SetIndexWriter(index_writer_)
+        .SetIndexCache(IndexCache::GetGlobalInstance())
+        .Open(index_with_primary_key_path_)
+        .Add({base_view_}, nullptr, nullptr)
+        .Flush(/*write_index_cache=*/true)
+        .Close();
+  }
 
   meta_ = faiss_ivf_pq_meta_;
 }
@@ -212,38 +234,25 @@ void FaissTestBase::ReadIndexAndDefaultSearch() {
   }
 }
 
-bool FaissTestBase::RecallCheckResult_80Percent() {
-  for (int i = 0; i < nq_; i++) {
-    std::set<int> accurate_set;
-    for (int j = 0; j < k_; j++) {
-      auto accurate_id = accurate_query_result_ids_[i * k_ + j];
-      accurate_set.insert(accurate_id);
-    }
-    int hit = 0;
-    for (int j = 0; j < k_; j++) {
-      if (accurate_set.find(result_ids_[i * k_ + j]) != accurate_set.end()) {
-        hit++;
-      }
-    }
-    printf("query %d: recall rate:%f\n", i, hit * 1.0 / k_);
-    if (hit < k_ * 0.8) {
-      return false;
-    }
-  }
-  return true;
-}
+bool FaissTestBase::RecallCheckResult_80Percent() { return ComputeRecall() > 0.8; }
 
 float FaissTestBase::ComputeRecall() {
   float recall_sum;
   for (int i = 0; i < nq_; i++) {
+    printf("accurate_id(%d): \n", i);
     std::set<int> accurate_set;
     for (int j = 0; j < k_; j++) {
       auto accurate_id = accurate_query_result_ids_[i * k_ + j];
       accurate_set.insert(accurate_id);
+      printf("%d ", accurate_id);
     }
     int hit = 0;
+
+    printf("\nresult_ids(%d): \n", i);
     for (int j = 0; j < k_; j++) {
-      if (accurate_set.find(result_ids_[i * k_ + j]) != accurate_set.end()) {
+      auto result_id = result_ids_[i * k_ + j];
+      printf("%d ", result_id);
+      if (accurate_set.find(result_id) != accurate_set.end()) {
         hit++;
       }
     }
@@ -251,7 +260,9 @@ float FaissTestBase::ComputeRecall() {
     printf("query %d: recall rate:%f\n", i, recall_i);
     recall_sum += recall_i;
   }
-  return recall_sum / nq_;
+  float result = recall_sum / nq_;
+  printf("Aggregate Recall:%f\n", result);
+  return result;
 }
 
 }  // namespace tenann

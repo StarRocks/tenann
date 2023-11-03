@@ -21,10 +21,12 @@
 
 #include <sys/time.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <iostream>
 #include <random>
+#include <unordered_set>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -35,6 +37,7 @@
 #include "tenann/factory/index_factory.h"
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 #include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
+#include "tenann/searcher/id_filter.h"
 #include "tenann/util/bruteforce_ann.h"
 
 namespace tenann {
@@ -81,9 +84,9 @@ class FaissTestBase : public ::testing::Test {
   std::vector<uint8_t> RandomBoolVectors(uint32_t n, int seed);
   std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0);
   float EuclideanDistance(const float* v1, const float* v2);
-  void InitAccurateQueryResult();
-  void CreateAndWriteFaissHnswIndex(bool use_custom_row_id = false);
-  void CreateAndWriteFaissIvfPqIndex();
+  void InitAccurateQueryResult(bool use_custom_row_id, int id_filter_count);
+  void CreateAndWriteFaissHnswIndex(bool use_custom_row_id = false, int id_filter_count = INT_MAX);
+  void CreateAndWriteFaissIvfPqIndex(bool use_custom_row_id = false, int id_filter_count = INT_MAX);
   void ReadIndexAndDefaultSearch();
 
   // log output: build_Release/Testing/Temporary/LastTest.log
@@ -100,6 +103,8 @@ class FaissTestBase : public ::testing::Test {
   size_t nq_ = 10;
   // top k
   uint32_t k_ = 10;
+  // used for testing IdFliter, ids 有效范围: [0, id_filter_count_)
+  int id_filter_count_;
   // index save path
   const char* index_path_ = "/tmp/faiss_index";
   const char* index_with_primary_key_path_ = "/tmp/faiss_index_with_ids";

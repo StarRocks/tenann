@@ -55,10 +55,11 @@ class RangeIdFilter : public IDFilter {
   bool isMember(idx_t id) const override;
 
  private:
-  std::unique_ptr<IDSelectorRangeAdapter> adapter_;
+  std::shared_ptr<IDSelectorRangeAdapter> adapter_;
 };
 
 class ArrayIdFilter : public IDFilter {
+ public:
   /**
    * @brief 构造函数，适配 IDSelectorArrayAdapter
    *
@@ -75,10 +76,11 @@ class ArrayIdFilter : public IDFilter {
 
  private:
   std::vector<idx_t> id_array_;
-  std::unique_ptr<IDSelectorArrayAdapter> adapter_;
+  std::shared_ptr<IDSelectorArrayAdapter> adapter_;
 };
 
 class BatchIdFilter : public IDFilter {
+ public:
   /**
    * @brief 构造函数，适配IDSelectorBatchAdapter
    *
@@ -96,7 +98,7 @@ class BatchIdFilter : public IDFilter {
   bool isMember(idx_t id) const override;
 
  private:
-  std::unique_ptr<IDSelectorBatchAdapter> adapter_;
+  std::shared_ptr<IDSelectorBatchAdapter> adapter_;
 };
 
 class BitmapIdFilter : public IDFilter {
@@ -119,7 +121,7 @@ class BitmapIdFilter : public IDFilter {
   bool isMember(idx_t id) const override;  // 公共接口函数
 
  private:
-  std::unique_ptr<IDSelectorBitmapAdapter> adapter_;
+  std::shared_ptr<IDSelectorBitmapAdapter> adapter_;
 };
 
 }  // namespace tenann
