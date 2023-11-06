@@ -140,7 +140,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
     // IDFilter 判定全为不感兴趣的，返回值应全为 -1
     class DerivedIDFilter : public IDFilter {
      public:
-      bool isMember(idx_t id) const override { return false; }
+      bool IsMember(idx_t id) const override { return false; }
       ~DerivedIDFilter() override = default;
     } id_filter;  // 实例化匿名类的对象
     // search index

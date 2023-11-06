@@ -33,7 +33,7 @@ class IDSelectorBitmapAdapter;
 class IDFilter {
  public:
   virtual ~IDFilter() = 0;
-  virtual bool isMember(idx_t id) const = 0;
+  virtual bool IsMember(idx_t id) const = 0;
 };
 
 class RangeIdFilter : public IDFilter {
@@ -52,7 +52,7 @@ class RangeIdFilter : public IDFilter {
   RangeIdFilter(idx_t min_id, idx_t max_id, bool assume_sorted = false);
   ~RangeIdFilter() = default;
 
-  bool isMember(idx_t id) const override;
+  bool IsMember(idx_t id) const override;
 
  private:
   std::shared_ptr<IDSelectorRangeAdapter> adapter_;
@@ -72,7 +72,7 @@ class ArrayIdFilter : public IDFilter {
   ArrayIdFilter(const idx_t* ids, size_t num_ids);
   ~ArrayIdFilter() = default;
 
-  bool isMember(idx_t id) const override;
+  bool IsMember(idx_t id) const override;
 
  private:
   std::vector<idx_t> id_array_;
@@ -95,7 +95,7 @@ class BatchIdFilter : public IDFilter {
   BatchIdFilter(const idx_t* ids, size_t num_ids);
   ~BatchIdFilter() = default;
 
-  bool isMember(idx_t id) const override;
+  bool IsMember(idx_t id) const override;
 
  private:
   std::shared_ptr<IDSelectorBatchAdapter> adapter_;
@@ -118,7 +118,7 @@ class BitmapIdFilter : public IDFilter {
                  size_t bitmap_size);  // 构造函数，适配 IDSelectorBitmapAdapter
   ~BitmapIdFilter() = default;         // 析构函数
 
-  bool isMember(idx_t id) const override;  // 公共接口函数
+  bool IsMember(idx_t id) const override;  // 公共接口函数
 
  private:
   std::shared_ptr<IDSelectorBitmapAdapter> adapter_;

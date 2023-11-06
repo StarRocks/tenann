@@ -36,9 +36,9 @@ class IDFilterAdapter : public faiss::IDSelector {
     }
 
     if (id_map_) {
-      return id_filter_->isMember((*id_map_)[id]);
+      return id_filter_->IsMember((*id_map_)[id]);
     }
-    return id_filter_->isMember(id);
+    return id_filter_->IsMember(id);
   }
 
  private:
