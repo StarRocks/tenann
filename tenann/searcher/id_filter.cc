@@ -22,7 +22,7 @@
 
 namespace tenann {
 
-IDFilter::~IDFilter() = default;
+IdFilter::~IdFilter() = default;
 
 // RangeIdFilter
 RangeIdFilter::RangeIdFilter(idx_t min_id, idx_t max_id, bool assume_sorted) {

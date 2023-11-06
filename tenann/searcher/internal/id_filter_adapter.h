@@ -25,9 +25,9 @@
 
 namespace tenann {
 
-class IDFilterAdapter : public faiss::IDSelector {
+class IdFilterAdapter : public faiss::IDSelector {
  public:
-  IDFilterAdapter(const IDFilter* id_filter, const std::vector<int64_t>* id_map = nullptr)
+  IdFilterAdapter(const IdFilter* id_filter, const std::vector<int64_t>* id_map = nullptr)
       : id_filter_(id_filter), id_map_(id_map) {}
 
   bool is_member(int64_t id) const override {
@@ -42,15 +42,15 @@ class IDFilterAdapter : public faiss::IDSelector {
   }
 
  private:
-  const IDFilter* id_filter_;
+  const IdFilter* id_filter_;
   const std::vector<int64_t>* id_map_;
 };
 
-class IDFilterAdapterFactory {
+class IdFilterAdapterFactory {
  public:
-  static std::shared_ptr<IDFilterAdapter> createIDFilterAdapter(
-      IDFilter* id_filter, const std::vector<int64_t>* id_map = nullptr) {
-    return std::make_shared<IDFilterAdapter>(id_filter, id_map);
+  static std::shared_ptr<IdFilterAdapter> createIdFilterAdapter(
+      IdFilter* id_filter, const std::vector<int64_t>* id_map = nullptr) {
+    return std::make_shared<IdFilterAdapter>(id_filter, id_map);
   }
 };
 

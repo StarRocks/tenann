@@ -39,13 +39,13 @@ FaissHnswAnnSearcher::FaissHnswAnnSearcher(const IndexMeta& meta) : AnnSearcher(
 FaissHnswAnnSearcher::~FaissHnswAnnSearcher() = default;
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
-                                     IDFilter* id_filter) {
+                                     IdFilter* id_filter) {
   std::vector<float> distances(k);
   AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()), id_filter);
 }
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                                     uint8_t* result_distances, IDFilter* id_filter) {
+                                     uint8_t* result_distances, IdFilter* id_filter) {
   T_CHECK_NOTNULL(index_ref_);
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
@@ -54,13 +54,13 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   faiss::SearchParametersHNSW faiss_search_parameters;
   faiss_search_parameters.efSearch = search_params_.efSearch;
   faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
-  std::shared_ptr<IDFilterAdapter> id_filter_adapter;
+  std::shared_ptr<IdFilterAdapter> id_filter_adapter;
   if (id_filter) {
     if (faiss_id_map_ != nullptr) {
-      id_filter_adapter = IDFilterAdapterFactory::createIDFilterAdapter(
+      id_filter_adapter = IdFilterAdapterFactory::createIdFilterAdapter(
           id_filter, &reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map);
     } else {
-      id_filter_adapter = IDFilterAdapterFactory::createIDFilterAdapter(id_filter);
+      id_filter_adapter = IdFilterAdapterFactory::createIdFilterAdapter(id_filter);
     }
     faiss_search_parameters.sel = id_filter_adapter.get();
   }

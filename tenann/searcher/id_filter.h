@@ -30,13 +30,13 @@ class IDSelectorArrayAdapter;
 class IDSelectorBatchAdapter;
 class IDSelectorBitmapAdapter;
 
-class IDFilter {
+class IdFilter {
  public:
-  virtual ~IDFilter() = 0;
+  virtual ~IdFilter() = 0;
   virtual bool IsMember(idx_t id) const = 0;
 };
 
-class RangeIdFilter : public IDFilter {
+class RangeIdFilter : public IdFilter {
  public:
   /**
    * @brief 构造函数，适配 IDSelectorRangeAdapter
@@ -58,7 +58,7 @@ class RangeIdFilter : public IDFilter {
   std::shared_ptr<IDSelectorRangeAdapter> adapter_;
 };
 
-class ArrayIdFilter : public IDFilter {
+class ArrayIdFilter : public IdFilter {
  public:
   /**
    * @brief 构造函数，适配 IDSelectorArrayAdapter
@@ -79,7 +79,7 @@ class ArrayIdFilter : public IDFilter {
   std::shared_ptr<IDSelectorArrayAdapter> adapter_;
 };
 
-class BatchIdFilter : public IDFilter {
+class BatchIdFilter : public IdFilter {
  public:
   /**
    * @brief 构造函数，适配IDSelectorBatchAdapter
@@ -101,7 +101,7 @@ class BatchIdFilter : public IDFilter {
   std::shared_ptr<IDSelectorBatchAdapter> adapter_;
 };
 
-class BitmapIdFilter : public IDFilter {
+class BitmapIdFilter : public IdFilter {
  public:
   /**
    * @brief 构造函数，适配 IDSelectorBitmapAdapter
