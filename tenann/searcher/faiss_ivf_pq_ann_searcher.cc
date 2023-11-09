@@ -26,8 +26,8 @@
 #include "faiss/impl/AuxIndexStructures.h"
 #include "faiss_ivf_pq_ann_searcher.h"
 #include "tenann/common/logging.h"
-#include "tenann/index/parameter_serde.h"
 #include "tenann/index/internal/index_ivfpq.h"
+#include "tenann/index/parameter_serde.h"
 #include "tenann/index/parameters.h"
 #include "tenann/searcher/internal/id_filter_adapter.h"
 #include "tenann/util/distance_util.h"
@@ -103,15 +103,15 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
   // number of results returned by index search
   int64_t num_results = results.lims[1];
   // number of results to preserve
-  auto num_preserve_results = std::min(num_results, limit);
-  result_ids->reserve(num_preserve_results);
-  result_distances->reserve(num_preserve_results);
+  auto num_preserve_results = limit < 0 ? num_results : std::min(num_results, limit);
+  result_ids->resize(num_preserve_results);
+  result_distances->resize(num_preserve_results);
 
   const auto* result_id_data = results.labels;
   const auto* result_distance_data = results.distances;
 
-  std::vector<int64_t> indices(num_results);
-  std::iota(indices.begin(), indices.end(), num_results);
+  std::vector<int64_t> indices(num_preserve_results);
+  std::iota(indices.begin(), indices.end(), num_preserve_results);
 
   if (ResultOrder::kAsending == result_order) {
     auto compare = [result_id_data, result_distance_data](int64_t a, int64_t b) {
@@ -145,7 +145,7 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
   // fetch results by the sorted indices
   for (int64_t i = 0; i < num_preserve_results; i++) {
     auto idx = indices[i];
-    (*result_ids) = result_ids[i];
+    (*result_ids)[i] = result_id_data[i];
     (*result_distances)[i] = result_distance_data[i];
   }
 }
