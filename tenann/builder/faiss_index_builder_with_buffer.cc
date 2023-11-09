@@ -115,11 +115,13 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush(bool write_index_cache,
       }
     }
 
-    if (memory_only_) return *this;
-
     // write index file
-    index_writer_->WriteIndex(index_ref_, index_save_path_);
-    // write index cache
+    if (!memory_only_) {
+      index_writer_->WriteIndex(index_ref_, index_save_path_);
+    }
+
+    // Write index cache.
+    // The cache must be written after the index file is successfully written to disk.
     if (write_index_cache) {
       T_CHECK(index_cache_ != nullptr);
       std::string cache_key = custom_cache_key ? custom_cache_key : index_save_path_;
