@@ -1,5 +1,14 @@
 # TenANN v0.3.x
 
+## v0.3.0-RC2
+Download URL: [tenann-v0.3.0-RC2.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.0-RC2.tar.gz)
+
+##  New Features
+- 新增IVF-PQ索引的范围查询支持
+
+## Bug Fix
+- 修复IVF-PQ索引的参数`nlist`（之前的`nlists`为拼写错误）
+
 ## v0.3.0-RC1
 Download URL: [tenann-v0.3.0-RC1.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.0-RC1.tar.gz)
 
