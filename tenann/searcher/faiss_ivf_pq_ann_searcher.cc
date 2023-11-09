@@ -111,18 +111,18 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
   const auto* result_distance_data = results.distances;
 
   std::vector<int64_t> indices(num_preserve_results);
-  std::iota(indices.begin(), indices.end(), num_preserve_results);
+  std::iota(indices.begin(), indices.end(), 0);
 
   if (ResultOrder::kAsending == result_order) {
-    auto compare = [result_id_data, result_distance_data](int64_t a, int64_t b) {
-      if (result_distance_data[a] > result_distance_data[b])
+    auto distance_less = [result_id_data, result_distance_data](int64_t left, int64_t right) {
+      if (result_distance_data[left] < result_distance_data[right])
         return true;
-      else if (result_distance_data[a] < result_distance_data[b])
+      else if (result_distance_data[left] > result_distance_data[right])
         return false;
       else
-        return result_id_data[a] > result_id_data[b];
+        return result_id_data[left] < result_id_data[right];
     };
-    std::priority_queue<int64_t, std::vector<int64_t>, decltype(compare)> heap(compare);
+    std::priority_queue<int64_t, std::vector<int64_t>, decltype(distance_less)> heap(distance_less);
 
     // insert indices to the heap and only preserve top-n results,
     // where n = num_preserve_results
@@ -133,7 +133,7 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
 
     // recording the sorted indices
     indices.resize(num_preserve_results);
-    int64_t j = num_results - 1;
+    int64_t j = num_preserve_results - 1;
     while (j >= 0) {
       auto idx = heap.top();
       heap.pop();
@@ -145,8 +145,8 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
   // fetch results by the sorted indices
   for (int64_t i = 0; i < num_preserve_results; i++) {
     auto idx = indices[i];
-    (*result_ids)[i] = result_id_data[i];
-    (*result_distances)[i] = result_distance_data[i];
+    (*result_ids)[i] = result_id_data[idx];
+    (*result_distances)[i] = result_distance_data[idx];
   }
 }
 
