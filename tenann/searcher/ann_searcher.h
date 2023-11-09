@@ -55,7 +55,7 @@ class AnnSearcher : public Searcher<AnnSearcher> {
   /// @brief Range search.
   /// @param query_vector     The query vector to search for.
   /// @param range            Range threshold.
-  /// @param limit            The maximum number of results to return
+  /// @param limit            The maximum number of results to return. Set -1 to disable limit.
   /// @param result_order     The result_order of results: asending, desending, or unordered.
   /// @param result_ids       A pointer to an array where the result ID will be stored.
   /// @param result_distances A pointer to an array where the result distance will be stored.
