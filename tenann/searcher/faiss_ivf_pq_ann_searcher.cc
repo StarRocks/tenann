@@ -172,6 +172,12 @@ void FaissIvfPqAnnSearcher::OnSearchParamItemChange(const std::string& key, cons
       search_params_.polysemous_ht = value.get<FaissIvfPqSearchParams::polysemous_ht_type>();
       return;
     }
+
+    if (key == FaissIvfPqSearchParams::range_search_confidence_key) {
+      search_params_.range_search_confidence =
+          value.get<FaissIvfPqSearchParams::range_search_confidence_type>();
+      return;
+    }
   } catch (json::exception& e) {
     T_LOG(ERROR) << "failed to get search parameter from json: " << e.what();
   }
