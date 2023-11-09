@@ -25,7 +25,7 @@
 
 const float float_diff_threshold = 0.000001;
 
-TEST(InternalIvfPq, test_reconstruction_error) {
+TEST(IndexIvfPqTest, test_reconstruction_error) {
   const int dim = 8;
   const int m = 2;
   const int nlist = 2;
