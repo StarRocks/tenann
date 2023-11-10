@@ -35,13 +35,15 @@ class FaissIvfPqAnnSearcher : public AnnSearcher {
 
   /// ANN搜索接口，只返回k近邻的id
   void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
-                 IdFilter* id_filter = nullptr) override;
+                 const IdFilter* id_filter = nullptr) override;
 
   void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                 uint8_t* result_distances, IdFilter* id_filter = nullptr) override;
+                 uint8_t* result_distances, const IdFilter* id_filter = nullptr) override;
 
-  void RangeSearch(PrimitiveSeqView query_vector, float range, int64_t limit, ResultOrder result_order,
-                   std::vector<int64_t>* result_ids, std::vector<float>* result_distances) override;
+  void RangeSearch(PrimitiveSeqView query_vector, float range, int64_t limit,
+                   ResultOrder result_order, std::vector<int64_t>* result_ids,
+                   std::vector<float>* result_distances,
+                   const IdFilter* id_filter = nullptr) override;
 
  protected:
   void OnSearchParamItemChange(const std::string& key, const json& value) override;

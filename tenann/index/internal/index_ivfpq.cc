@@ -68,7 +68,7 @@ static float* compute_residuals(const Index* quantizer, Index::idx_t n, const fl
 }
 
 IndexIvfPq::IndexIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M,
-                         size_t nbits_per_idx)
+                       size_t nbits_per_idx)
     : IndexIVFPQ(quantizer, d, nlist, M, nbits_per_idx, faiss::METRIC_L2) {
   /* The following lines are added by tenann */
   reconstruction_errors.resize(nlist);
@@ -87,14 +87,13 @@ void IndexIvfPq::add_core(idx_t n, const float* x, const idx_t* xids, const idx_
 static int index_ivfpq_add_core_o_bs = 32768;
 
 void IndexIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, float* residuals_2,
-                                    const idx_t* precomputed_idx) {
+                                   const idx_t* precomputed_idx) {
   idx_t bs = index_ivfpq_add_core_o_bs;
   if (n > bs) {
     for (idx_t i0 = 0; i0 < n; i0 += bs) {
       idx_t i1 = std::min(i0 + bs, n);
       if (verbose) {
-        printf("IndexIvfPq::add_core_o: adding %" PRId64 ":%" PRId64 " / %" PRId64 "\n", i0, i1,
-               n);
+        printf("IndexIvfPq::add_core_o: adding %" PRId64 ":%" PRId64 " / %" PRId64 "\n", i0, i1, n);
       }
       custom_add_core_o(i1 - i0, x + i0 * d, xids ? xids + i0 : nullptr,
                         residuals_2 ? residuals_2 + i0 * d : nullptr,
@@ -180,7 +179,7 @@ void IndexIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, f
 
 // Ported from faiss/IndexIVFPQ.cpp
 void IndexIvfPq::range_search(idx_t nx, const float* x, float radius, RangeSearchResult* result,
-                               const SearchParameters* params_in) const {
+                              const SearchParameters* params_in) const {
   const IndexIvfPqSearchParameters* params = nullptr;
   const SearchParameters* quantizer_params = nullptr;
   if (params_in) {
@@ -206,10 +205,10 @@ void IndexIvfPq::range_search(idx_t nx, const float* x, float radius, RangeSearc
 }
 
 void IndexIvfPq::custom_range_search_preassigned(idx_t nx, const float* x, float radius,
-                                                  const idx_t* keys, const float* coarse_dis,
-                                                  RangeSearchResult* result, bool store_pairs,
-                                                  const IndexIvfPqSearchParameters* params,
-                                                  IndexIVFStats* stats) const {
+                                                 const idx_t* keys, const float* coarse_dis,
+                                                 RangeSearchResult* result, bool store_pairs,
+                                                 const IndexIvfPqSearchParameters* params,
+                                                 IndexIVFStats* stats) const {
   idx_t nprobe = params ? params->nprobe : this->nprobe;
 
   /* The following lines are added by tenann */
@@ -626,38 +625,12 @@ struct QueryTables {
   }
 };
 
-// This way of handling the sleector is not optimal since all distances
-// are computed even if the id would filter it out.
-template <class C, bool use_sel>
-struct KnnSearchResults {
-  idx_t key;
-  const idx_t* ids;
-  const IDSelector* sel;
-
-  // heap params
-  size_t k;
-  float* heap_sim;
-  idx_t* heap_ids;
-
-  size_t nup;
-
-  inline bool skip_entry(idx_t j) { return use_sel && !sel->is_member(ids[j]); }
-
-  inline void add(idx_t j, float dis) {
-    if (C::cmp(heap_sim[0], dis)) {
-      idx_t id = ids ? ids[j] : lo_build(key, j);
-      heap_replace_top<C>(k, heap_sim, heap_ids, dis, id);
-      nup++;
-    }
-  }
-};
-
 template <class C, bool use_sel, bool use_range_search_confidence>
 struct RangeSearchResults {
   idx_t key;
   const idx_t* ids;
   const IDSelector* sel;
-  const IndexIvfPq* ivfpq;                 // added by tenann
+  const IndexIvfPq* ivfpq;                  // added by tenann
   const float range_search_confidence = 0;  // added by tenann
 
   // wrapped result structure
@@ -860,112 +833,6 @@ struct IVFPQScannerT : QueryTables {
       res.add(j, dis);
     }
   }
-
-  /// tables are not precomputed, but pointers are provided to the
-  /// relevant X_c|x_r tables
-  template <class SearchResultType>
-  void scan_list_with_pointer(size_t ncode, const uint8_t* codes, SearchResultType& res) const {
-    for (size_t j = 0; j < ncode; j++, codes += pq.code_size) {
-      if (res.skip_entry(j)) {
-        continue;
-      }
-      PQDecoder decoder(codes, pq.nbits);
-      float dis = dis0;
-      const float* tab = sim_table_2;
-
-      for (size_t m = 0; m < pq.M; m++) {
-        int ci = decoder.decode();
-        dis += sim_table_ptrs[m][ci] - 2 * tab[ci];
-        tab += pq.ksub;
-      }
-      res.add(j, dis);
-    }
-  }
-
-  /// nothing is precomputed: access residuals on-the-fly
-  template <class SearchResultType>
-  void scan_on_the_fly_dist(size_t ncode, const uint8_t* codes, SearchResultType& res) const {
-    const float* dvec;
-    float dis0 = 0;
-    if (by_residual) {
-      if (METRIC_TYPE == METRIC_INNER_PRODUCT) {
-        ivfpq.quantizer->reconstruct(key, residual_vec);
-        dis0 = fvec_inner_product(residual_vec, qi, d);
-      } else {
-        ivfpq.quantizer->compute_residual(qi, residual_vec, key);
-      }
-      dvec = residual_vec;
-    } else {
-      dvec = qi;
-      dis0 = 0;
-    }
-
-    for (size_t j = 0; j < ncode; j++, codes += pq.code_size) {
-      if (res.skip_entry(j)) {
-        continue;
-      }
-      pq.decode(codes, decoded_vec);
-
-      float dis;
-      if (METRIC_TYPE == METRIC_INNER_PRODUCT) {
-        dis = dis0 + fvec_inner_product(decoded_vec, qi, d);
-      } else {
-        dis = fvec_L2sqr(decoded_vec, dvec, d);
-      }
-      res.add(j, dis);
-    }
-  }
-
-  /*****************************************************
-   * Scanning codes with polysemous filtering
-   *****************************************************/
-
-  template <class HammingComputer, class SearchResultType>
-  void scan_list_polysemous_hc(size_t ncode, const uint8_t* codes, SearchResultType& res) const {
-    int ht = ivfpq.polysemous_ht;
-    size_t n_hamming_pass = 0, nup = 0;
-
-    int code_size = pq.code_size;
-
-    HammingComputer hc(q_code.data(), code_size);
-
-    for (size_t j = 0; j < ncode; j++, codes += code_size) {
-      if (res.skip_entry(j)) {
-        continue;
-      }
-      const uint8_t* b_code = codes;
-      int hd = hc.hamming(b_code);
-      if (hd < ht) {
-        n_hamming_pass++;
-
-        float dis = dis0 + distance_single_code<SearchResultType>(codes);
-
-        res.add(j, dis);
-      }
-    }
-#pragma omp critical
-    { indexIVFPQ_stats.n_hamming_pass += n_hamming_pass; }
-  }
-
-  template <class SearchResultType>
-  void scan_list_polysemous(size_t ncode, const uint8_t* codes, SearchResultType& res) const {
-    switch (pq.code_size) {
-#define HANDLE_CODE_SIZE(cs)                                                           \
-  case cs:                                                                             \
-    scan_list_polysemous_hc<HammingComputer##cs, SearchResultType>(ncode, codes, res); \
-    break
-      HANDLE_CODE_SIZE(4);
-      HANDLE_CODE_SIZE(8);
-      HANDLE_CODE_SIZE(16);
-      HANDLE_CODE_SIZE(20);
-      HANDLE_CODE_SIZE(32);
-      HANDLE_CODE_SIZE(64);
-#undef HANDLE_CODE_SIZE
-      default:
-        scan_list_polysemous_hc<HammingComputerDefault, SearchResultType>(ncode, codes, res);
-        break;
-    }
-  }
 };
 
 /* We put as many parameters as possible in template. Hopefully the
@@ -983,7 +850,7 @@ template <MetricType METRIC_TYPE, class C, class PQDecoder, bool use_sel>
 struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, InvertedListScanner {
   int precompute_mode;
   const IDSelector* sel;
-  const IndexIvfPq* ivfpq;           // modifiled by tenann
+  const IndexIvfPq* ivfpq;            // modifiled by tenann
   float range_search_confidence = 0;  // added by tenann
 
   IVFPQScanner(const IndexIvfPq& ivfpq, bool store_pairs, int precompute_mode,
@@ -1015,31 +882,6 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
     return dis;
   }
 
-  size_t scan_codes(size_t ncode, const uint8_t* codes, const idx_t* ids, float* heap_sim,
-                    idx_t* heap_ids, size_t k) const override {
-    KnnSearchResults<C, use_sel> res = {/* key */ this->key,
-                                        /* ids */ this->store_pairs ? nullptr : ids,
-                                        /* sel */ this->sel,
-                                        /* k */ k,
-                                        /* heap_sim */ heap_sim,
-                                        /* heap_ids */ heap_ids,
-                                        /* nup */ 0};
-
-    if (this->polysemous_ht > 0) {
-      assert(precompute_mode == 2);
-      this->scan_list_polysemous(ncode, codes, res);
-    } else if (precompute_mode == 2) {
-      this->scan_list_with_table(ncode, codes, res);
-    } else if (precompute_mode == 1) {
-      this->scan_list_with_pointer(ncode, codes, res);
-    } else if (precompute_mode == 0) {
-      this->scan_on_the_fly_dist(ncode, codes, res);
-    } else {
-      FAISS_THROW_MSG("bad precomp mode");
-    }
-    return res.nup;
-  }
-
   void scan_codes_range(size_t ncode, const uint8_t* codes, const idx_t* ids, float radius,
                         RangeQueryResult& rres) const override {
     /* The following lines are added by tenann */
@@ -1056,13 +898,13 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
 
       if (this->polysemous_ht > 0) {
         assert(precompute_mode == 2);
-        this->scan_list_polysemous(ncode, codes, res);
+        FAISS_THROW_MSG("polymous_ht is not supported for range search");
       } else if (precompute_mode == 2) {
         this->scan_list_with_table(ncode, codes, res);
       } else if (precompute_mode == 1) {
-        this->scan_list_with_pointer(ncode, codes, res);
+        FAISS_THROW_MSG("precompute_mode == 1 is not supported for range search");
       } else if (precompute_mode == 0) {
-        this->scan_on_the_fly_dist(ncode, codes, res);
+        FAISS_THROW_MSG("precompute_mode == 0 is not supported for range search");
       } else {
         FAISS_THROW_MSG("bad precomp mode");
       }
@@ -1079,13 +921,13 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
 
       if (this->polysemous_ht > 0) {
         assert(precompute_mode == 2);
-        this->scan_list_polysemous(ncode, codes, res);
+        FAISS_THROW_MSG("polymous_ht is not supported for range search");
       } else if (precompute_mode == 2) {
         this->scan_list_with_table(ncode, codes, res);
       } else if (precompute_mode == 1) {
-        this->scan_list_with_pointer(ncode, codes, res);
+        FAISS_THROW_MSG("precompute_mode == 1 is not supported for range search");
       } else if (precompute_mode == 0) {
-        this->scan_on_the_fly_dist(ncode, codes, res);
+        FAISS_THROW_MSG("precompute_mode == 0 is not supported for range search");
       } else {
         FAISS_THROW_MSG("bad precomp mode");
       }

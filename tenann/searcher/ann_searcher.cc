@@ -30,8 +30,15 @@ AnnSearcher::~AnnSearcher() = default;
 
 void AnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float range, int64_t limit,
                               ResultOrder result_order, std::vector<int64_t>* result_ids,
-                              std::vector<float>* result_distances) {
+                              std::vector<float>* result_distances, const IdFilter* filter) {
   T_LOG(ERROR) << "range search not implemented";
+}
+
+void AnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float range, int64_t limit,
+                              ResultOrder result_order, std::vector<int64_t>* result_ids,
+                              const IdFilter* id_filter) {
+  std::vector<float> distanes;
+  RangeSearch(query_vector, range, limit, result_order, result_ids, &distanes);
 }
 
 }  // namespace tenann

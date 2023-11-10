@@ -25,6 +25,7 @@
 #include <random>
 
 #include "tenann/index/parameters.h"
+#include "tenann/searcher/internal/id_filter_adapter.h"
 #include "test/faiss_test_base.h"
 
 namespace tenann {
@@ -132,6 +133,25 @@ TEST_F(IvfPqRangeSearchTest, test_range_search_desending) {
       searcher->RangeSearch(query_view()[0], radius, limit, AnnSearcher::ResultOrder::kDescending,
                             &result_ids, &result_distances),
       Error);
+}
+
+TEST_F(IvfPqRangeSearchTest, test_range_search_with_filter) {
+  BuildInMemoryIvfPq();
+  auto searcher = GetAnnSearcher();
+
+  std::vector<int64_t> result_ids;
+  std::vector<float> result_distances;
+  int64_t limit = 10;
+
+  int64_t start = 0, end = 10;
+  RangeIdFilter filter(start, end);
+  searcher->RangeSearch(query_view()[0], INFINITY, limit, AnnSearcher::ResultOrder::kUnordered,
+                        &result_ids, &result_distances, &filter);
+
+  for (auto id : result_ids) {
+    EXPECT_GE(id, start);
+    EXPECT_LT(id, end);
+  }
 }
 
 }  // namespace tenann

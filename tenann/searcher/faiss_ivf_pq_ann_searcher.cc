@@ -41,13 +41,13 @@ FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher(const IndexMeta& meta) : AnnSearche
 FaissIvfPqAnnSearcher::~FaissIvfPqAnnSearcher() = default;
 
 void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
-                                      IdFilter* id_filter) {
+                                      const IdFilter* id_filter) {
   std::vector<float> distances(k);
   AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()), id_filter);
 }
 
 void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                                      uint8_t* result_distances, IdFilter* id_filter) {
+                                      uint8_t* result_distances, const IdFilter* id_filter) {
   T_CHECK_NOTNULL(index_ref_);
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissIvfPq);
@@ -62,7 +62,7 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int6
   faiss_search_parameters.scan_table_threshold = search_params_.scan_table_threshold;
   std::shared_ptr<IdFilterAdapter> id_filter_adapter;
   if (id_filter) {
-    id_filter_adapter = IdFilterAdapterFactory::createIdFilterAdapter(id_filter);
+    id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(id_filter);
     faiss_search_parameters.sel = id_filter_adapter.get();
   }
 
@@ -78,7 +78,8 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int6
 
 void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float range, int64_t limit,
                                         ResultOrder result_order, std::vector<int64_t>* result_ids,
-                                        std::vector<float>* result_distances) {
+                                        std::vector<float>* result_distances,
+                                        const IdFilter* id_filter) {
   // TODO: add desending order support
   T_CHECK(result_order != ResultOrder::kDescending) << "descending order not implemented";
   T_CHECK_NOTNULL(index_ref_);
@@ -94,6 +95,11 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
   dynamic_search_parameters.polysemous_ht = search_params_.polysemous_ht;
   dynamic_search_parameters.scan_table_threshold = search_params_.scan_table_threshold;
   dynamic_search_parameters.range_search_confidence = search_params_.range_search_confidence;
+  std::shared_ptr<IdFilterAdapter> id_filter_adapter;
+  if (id_filter) {
+    id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(id_filter);
+    dynamic_search_parameters.sel = id_filter_adapter.get();
+  }
 
   faiss::RangeSearchResult results(ANN_SEARCHER_QUERY_COUNT);
   index_ivfpq->range_search(ANN_SEARCHER_QUERY_COUNT,

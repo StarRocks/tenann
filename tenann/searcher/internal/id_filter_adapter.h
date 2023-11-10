@@ -23,6 +23,8 @@
 #include <memory>
 #include <vector>
 
+#include "tenann/searcher/id_filter.h"
+
 namespace tenann {
 
 class IdFilterAdapter : public faiss::IDSelector {
@@ -48,8 +50,8 @@ class IdFilterAdapter : public faiss::IDSelector {
 
 class IdFilterAdapterFactory {
  public:
-  static std::shared_ptr<IdFilterAdapter> createIdFilterAdapter(
-      IdFilter* id_filter, const std::vector<int64_t>* id_map = nullptr) {
+  static std::shared_ptr<IdFilterAdapter> CreateIdFilterAdapter(
+      const IdFilter* id_filter, const std::vector<int64_t>* id_map = nullptr) {
     return std::make_shared<IdFilterAdapter>(id_filter, id_map);
   }
 };
