@@ -7,6 +7,9 @@ Download URL: [tenann-v0.3.0-RC3.tar.gz](https://mirrors.tencent.com/repository/
 - 范围查询接口新增IdFilter支持
 - 新增只返回ID，不返回距离的范围查询接口
 
+## Improvements
+- 清理了自研IndexIvfPq中的部分冗余代码
+
 ## v0.3.0-RC2
 Download URL: [tenann-v0.3.0-RC2.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.0-RC2.tar.gz)
 
