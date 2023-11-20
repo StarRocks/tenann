@@ -26,6 +26,7 @@ set(TENANN_TEST_SRC
     searcher/test_faiss_ivf_pq_ann_searcher.cc
     searcher/test_ivf_pq_range_search.cc
     store/test_index_meta.cc
+    store/test_lru_cache.cc
     thirdparty/test_fmt.cc
     util/test_runtime_profile.cc
     util/test_bruteforce_ann.cc
