@@ -76,7 +76,7 @@ const json& IndexMeta::extra_params() const { return meta_json_["extra"]; }
 IndexMeta IndexMeta::Read(const std::string& file_path) {
   std::ifstream input_file(file_path);
   if (!input_file.is_open()) {
-    std::cerr << "Failed to open file: " << file_path << std::endl;
+    T_LOG(ERROR) << "Failed to open file: " << file_path << std::endl;
     return IndexMeta();
   }
 
@@ -95,7 +95,7 @@ IndexMeta IndexMeta::Deserialize(const std::vector<uint8_t>& buffer) {
 bool IndexMeta::Write(const std::string& file_path) {
   std::ofstream output_file(file_path);
   if (!output_file.is_open()) {
-    std::cerr << "Failed to open file: " << file_path << std::endl;
+    T_LOG(ERROR) << "Failed to open file: " << file_path << std::endl;
     return false;
   }
 
@@ -111,17 +111,14 @@ std::vector<uint8_t> IndexMeta::Serialize() { return json::to_msgpack(meta_json_
 bool IndexMeta::CheckIntegrity(std::string* err_msg) {
   if (!meta_json_.contains("meta_version")) {
     T_LOG(ERROR) << "meta_version (`meta_versoin`) not set in index meta";
-    return false;
   }
 
   if (!meta_json_.contains("family")) {
     T_LOG(ERROR) << "index faimily not set in index meta";
-    return false;
   }
 
   if (!meta_json_.contains("type")) {
     T_LOG(ERROR) << "index type not set in index meta";
-    return false;
   }
 
   return true;

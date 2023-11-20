@@ -27,14 +27,17 @@ TEST(IndexMetaTest, BasicTest) {
   IndexMeta index_meta;
 
   // 设置 meta_version
+  EXPECT_THROW(index_meta.meta_version(), Error);
   index_meta.SetMetaVersion(1);
   EXPECT_EQ(index_meta.meta_version(), 1);
 
   // 设置 index_family
+  EXPECT_THROW(index_meta.index_family(), Error);
   index_meta.SetIndexFamily(IndexFamily::kVectorIndex);
   EXPECT_EQ(index_meta.index_family(), static_cast<int>(IndexFamily::kVectorIndex));
 
   // 设置 index_type
+  EXPECT_THROW(index_meta.index_type(), Error);
   index_meta.SetIndexType(IndexType::kFaissHnsw);
   EXPECT_EQ(index_meta.index_type(), static_cast<int>(IndexType::kFaissHnsw));
 
@@ -53,10 +56,21 @@ TEST(IndexMetaTest, BasicTest) {
   // 设置 extra_params
   index_meta.extra_params()["key"] = "value";
   EXPECT_EQ(index_meta.extra_params()["key"], "value");
+}
 
+TEST(IndexMetaTests, CheckIntegrity) {
   std::string error_msg;
-  bool integrity_ok = index_meta.CheckIntegrity(&error_msg);
-  EXPECT_TRUE(integrity_ok);
+  tenann::IndexMeta index_meta;
+  EXPECT_THROW(index_meta.CheckIntegrity(&error_msg), Error);
+  index_meta.SetMetaVersion(1);
+
+  EXPECT_THROW(index_meta.CheckIntegrity(&error_msg), Error);
+  index_meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
+
+  EXPECT_THROW(index_meta.CheckIntegrity(&error_msg), Error);
+  index_meta.SetIndexType(tenann::IndexType::kFaissHnsw);
+
+  EXPECT_TRUE(index_meta.CheckIntegrity(&error_msg));
   EXPECT_TRUE(error_msg.empty());
 }
 
@@ -85,6 +99,7 @@ TEST(IndexMetaTest, SerializeAndDeserialize) {
   IndexMeta deserialized_index_meta = IndexMeta::Deserialize(buffer);
 
   // 检查反序列化后的 IndexMeta 对象与原对象是否相等
+  EXPECT_EQ(index_meta.meta_json(), deserialized_index_meta.meta_json());
   EXPECT_EQ(deserialized_index_meta.meta_version(), index_meta.meta_version());
   EXPECT_EQ(deserialized_index_meta.index_family(), index_meta.index_family());
   EXPECT_EQ(deserialized_index_meta.index_type(), index_meta.index_type());
@@ -114,6 +129,7 @@ TEST(IndexMetaTest, WriteAndRead) {
   tenann::IndexMeta read_index_meta = IndexMeta::Read(file_path);
 
   // 检查读取的 IndexMeta 对象是否与原始对象相同
+  EXPECT_EQ(index_meta.meta_json(), read_index_meta.meta_json());
   EXPECT_EQ(read_index_meta.meta_version(), 1);
   EXPECT_EQ(read_index_meta.index_family(), tenann::IndexFamily::kTextIndex);
   EXPECT_EQ(read_index_meta.index_type(), tenann::IndexType::kFaissIvfPq);
