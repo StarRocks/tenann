@@ -60,6 +60,7 @@ add_custom_target(coverage
   COMMAND lcov --extract coverage.info '*/tenann/tenann/*' --output-file coverage.info
   COMMAND lcov --remove coverage.info '*/tenann/tenann/common*' --output-file coverage.info
   COMMAND lcov --remove coverage.info '*/tenann/tenann/util*' --output-file coverage.info
+  COMMAND lcov --remove coverage.info '*/tenann/tenann/index/internal*' --output-file coverage.info
   COMMAND lcov --list coverage.info
   COMMAND genhtml coverage.info --output-directory coverage_html --rc genhtml_hi_limit=50 --rc genhtml_med_limit=30
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
