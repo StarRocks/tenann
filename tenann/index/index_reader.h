@@ -38,18 +38,12 @@ class IndexReader {
   // Read index file
   virtual IndexRef ReadIndex(const std::string& path) = 0;
 
-  json& conf();
-  const json& conf() const;
-
   /** Getters */
   const IndexMeta& index_meta() const;
 
  protected:
   /// @brief index meta
   IndexMeta index_meta_;
-
-  /// @brief read options
-  json conf_;
 };
 
 using IndexReaderRef = std::shared_ptr<IndexReader>;

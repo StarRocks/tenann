@@ -38,9 +38,6 @@ class IndexWriter {
   // Write index file
   virtual void WriteIndex(IndexRef index, const std::string& path) = 0;
 
-  json& conf();
-  const json& conf() const;
-
   /** Getters */
   const IndexMeta& index_meta() const;
 
@@ -49,8 +46,6 @@ class IndexWriter {
   // otherwise there are too many meta copies.
   /* meta */
   IndexMeta index_meta_;
-  /* write options */
-  json conf_;
 };
 
 using IndexWriterRef = std::shared_ptr<IndexWriter>;

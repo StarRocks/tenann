@@ -27,8 +27,4 @@ IndexReader::~IndexReader() = default;
 
 const IndexMeta& IndexReader::index_meta() const { return index_meta_; }
 
-json& IndexReader::conf() { return conf_; }
-
-const json& IndexReader::conf() const { return conf_; }
-
 }  // namespace tenann
