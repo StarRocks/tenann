@@ -33,7 +33,7 @@ class FaissHnswAnnSearcherTest : public FaissTestBase {
  public:
   FaissHnswAnnSearcherTest() : FaissTestBase() {
     InitFaissHnswMeta();
-    faiss_hnsw_index_builder_ = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta_);
+    faiss_hnsw_index_builder_ = IndexFactory::CreateBuilderFromMeta(faiss_hnsw_meta_);
   }
 };
 

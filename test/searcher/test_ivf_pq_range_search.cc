@@ -33,7 +33,7 @@ class IvfPqRangeSearchTest : public FaissTestBase {
  public:
   IvfPqRangeSearchTest() : FaissTestBase() {
     InitFaissIvfPqMeta();
-    faiss_ivf_pq_index_builder_ = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta_);
+    faiss_ivf_pq_index_builder_ = IndexFactory::CreateBuilderFromMeta(faiss_ivf_pq_meta_);
   }
 
   void BuildInMemoryIvfPq() {

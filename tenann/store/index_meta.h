@@ -70,7 +70,7 @@ class IndexMeta {
   static IndexMeta Deserialize(const std::vector<uint8_t>& buffer);
 
   /// Write to a json wile
-  void Write(const std::string& path);
+  bool Write(const std::string& path);
 
   /// Serialize to a binary buffer (using the MessagePack format)
   std::vector<uint8_t> Serialize();
