@@ -88,7 +88,7 @@ class RangeSearchEvaluator : public Evaluator<RangeQuerySet, RangeSearchMetrics>
     auto index_path = fmt::format("{}/{}_{}", index_save_dir_, evaluator_name_, index_str);
 
     VLOG_CRITICAL(verbose_level_) << "Start building index: " << index_path << " ...";
-    if (FileExists(index_path)) {
+    if (FileExists(index_path) && !force_rebuild) {
       VLOG_CRITICAL(verbose_level_)
           << "Index already exists: " << index_path << ", skip index building.";
       return *this;

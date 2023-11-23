@@ -33,8 +33,8 @@
 #include "tenann/util/runtime_profile_macros.h"
 #include "tenann/util/threads.h"
 
-static constexpr const int dim = 128;
-static constexpr const int nb = 10000;
+static constexpr const int dim = 1024;
+static constexpr const int nb = 1000000;
 static constexpr const int nq = 100;
 static constexpr const float radius = 15;
 static constexpr const int nlist = 1;  // sqrt(nb);
@@ -48,7 +48,7 @@ IndexMeta PrepareMeta() {
   IndexMeta meta;
   meta.SetMetaVersion(0);
   meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
-  meta.SetIndexType(tenann::IndexType::kFaissHnsw);
+  meta.SetIndexType(tenann::IndexType::kFaissIvfPq);
   meta.common_params()["dim"] = dim;
   meta.common_params()["is_vector_normed"] = false;
   meta.common_params()["metric_type"] = tenann::MetricType::kL2Distance;
@@ -71,8 +71,8 @@ int main(int argc, char const* argv[]) {
   auto index_params = PrepareIndexParams(nlist, M, nbits);
 
   RangeSearchEvaluator eval("range_eval_exmaple", meta, ".");
-  eval.SetVerboseLevel(verbose);
-  eval.BuildIndexIfNotExists(index_params);
+  eval.SetVerboseLevel(verbose).SetDim(dim).SetBase(nb, base.data());
+  eval.BuildIndexIfNotExists(index_params, true);
   eval.OpenSearcher();
   eval.CloseSearcher();
 }
