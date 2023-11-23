@@ -27,6 +27,7 @@
 #include "fmt/format.h"
 #include "tenann/common/error.h"
 #include "tenann/common/json.h"
+#include "tenann/common/macros.h"
 #include "tenann/store/index_type.h"
 
 namespace tenann {
@@ -69,14 +70,22 @@ class IndexMeta {
   /// Deserialize from a binary buffer (using the MessagePack format)
   static IndexMeta Deserialize(const std::vector<uint8_t>& buffer);
 
+  /// Parse index meta from a json string
+  static IndexMeta Parse(const std::string& str);
+
   /// Write to a json wile
   bool Write(const std::string& path);
 
   /// Serialize to a binary buffer (using the MessagePack format)
   std::vector<uint8_t> Serialize();
 
+  /// Converts an IndexMeta object to a JSON string
+  std::string Stringify(int indent = -1);
+
   /// Check meta data integrity and save possible error message into [[err_msg]]
-  bool CheckIntegrity(std::string* err_msg);
+  bool CheckIntegrity(std::string* err_msg) noexcept;
+
+  void CheckOrThrowError() T_THROW_EXCEPTION;
 
   template <typename T, typename = std::enable_if_t<!std::is_reference_v<T>>>
   T GetRequiredCommonParam(const char* key) const {

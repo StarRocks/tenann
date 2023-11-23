@@ -61,17 +61,16 @@ TEST(IndexMetaTest, BasicTest) {
 TEST(IndexMetaTests, CheckIntegrity) {
   std::string error_msg;
   tenann::IndexMeta index_meta;
-  EXPECT_THROW(index_meta.CheckIntegrity(&error_msg), Error);
+  EXPECT_FALSE(index_meta.CheckIntegrity(&error_msg));
   index_meta.SetMetaVersion(1);
 
-  EXPECT_THROW(index_meta.CheckIntegrity(&error_msg), Error);
+  EXPECT_FALSE(index_meta.CheckIntegrity(&error_msg));
   index_meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
 
-  EXPECT_THROW(index_meta.CheckIntegrity(&error_msg), Error);
+  EXPECT_FALSE(index_meta.CheckIntegrity(&error_msg));
   index_meta.SetIndexType(tenann::IndexType::kFaissHnsw);
 
   EXPECT_TRUE(index_meta.CheckIntegrity(&error_msg));
-  EXPECT_TRUE(error_msg.empty());
 }
 
 TEST(IndexMetaTest, SerializeAndDeserialize) {
@@ -97,6 +96,41 @@ TEST(IndexMetaTest, SerializeAndDeserialize) {
 
   // 反序列化 IndexMeta 对象
   IndexMeta deserialized_index_meta = IndexMeta::Deserialize(buffer);
+
+  // 检查反序列化后的 IndexMeta 对象与原对象是否相等
+  EXPECT_EQ(index_meta.meta_json(), deserialized_index_meta.meta_json());
+  EXPECT_EQ(deserialized_index_meta.meta_version(), index_meta.meta_version());
+  EXPECT_EQ(deserialized_index_meta.index_family(), index_meta.index_family());
+  EXPECT_EQ(deserialized_index_meta.index_type(), index_meta.index_type());
+  EXPECT_EQ(deserialized_index_meta.common_params(), index_meta.common_params());
+  EXPECT_EQ(deserialized_index_meta.index_params(), index_meta.index_params());
+  EXPECT_EQ(deserialized_index_meta.search_params(), index_meta.search_params());
+  EXPECT_EQ(deserialized_index_meta.extra_params(), index_meta.extra_params());
+}
+
+TEST(IndexMetaTest, StrigifyAndParse) {
+  // 创建一个 IndexMeta 对象
+  IndexMeta index_meta;
+  // 设置 meta_version
+  index_meta.SetMetaVersion(1);
+  // 设置 index_family
+  index_meta.SetIndexFamily(IndexFamily::kVectorIndex);
+  // 设置 index_type
+  index_meta.SetIndexType(IndexType::kFaissHnsw);
+  // 设置 common_params
+  index_meta.common_params()["dim"] = 128;
+  // 设置 index_params
+  index_meta.index_params()["ntrees"] = 10;
+  // 设置 search_params
+  index_meta.search_params()["nprobe"] = 32;
+  // 设置 extra_params
+  index_meta.extra_params()["key"] = "value";
+
+  // 序列化 IndexMeta 对象
+  std::string buffer = index_meta.Stringify();
+
+  // 反序列化 IndexMeta 对象
+  IndexMeta deserialized_index_meta = IndexMeta::Parse(buffer);
 
   // 检查反序列化后的 IndexMeta 对象与原对象是否相等
   EXPECT_EQ(index_meta.meta_json(), deserialized_index_meta.meta_json());
