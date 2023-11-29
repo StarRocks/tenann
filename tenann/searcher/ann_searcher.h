@@ -32,7 +32,7 @@ namespace tenann {
 
 class AnnSearcher : public Searcher<AnnSearcher> {
  public:
-  enum ResultOrder { kAsending = 0, kDescending = 1, kUnordered = 2 };
+  enum ResultOrder { kAscending = 0, kDescending = 1 };
 
   explicit AnnSearcher(const IndexMeta& meta);
   virtual ~AnnSearcher() override;

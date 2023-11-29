@@ -52,6 +52,8 @@ class Evaluator {
   Evaluator() = default;
   virtual ~Evaluator() = default;
 
+  Self& SetMetricType(MetricType metric_type) { RETURN_SELF_AFTER(metric_type_ = metric_type;) }
+
   Self& SetVerboseLevel(int level) { RETURN_SELF_AFTER(verbose_level_ = level;) }
 
   Self& SetDim(int dim) { RETURN_SELF_AFTER(dim_ = dim;) }
@@ -64,7 +66,8 @@ class Evaluator {
     return *this;
   }
 
-  std::vector<json> Evaluate(const std::vector<json>& search_params_list) {
+  std::vector<std::tuple<json, json, EvaluationMetrics>> Evaluate(
+      const std::vector<json>& search_params_list) {
     OpenSearcher();
 
     if (ground_truth_.empty()) {
@@ -72,16 +75,15 @@ class Evaluator {
     }
 
     std::vector<std::tuple<json, json, EvaluationMetrics>> evaluation_results;
-    for (auto& search_params : search_params_list) {
+    for (const auto& search_params : search_params_list) {
       VLOG_INFO(verbose_level_) << "Evaluating params: " << search_params << " ...";
       EvaluationMetrics global_metrics = CreateEvaluationMetrics();
-
       for (int64_t i = 0; i < nq_; i++) {
         auto query_metrics = EvaluateSingleQuery(i, search_params);
 
         VLOG_DEBUG(verbose_level_)
             << "Evaluation results of query " << i << ": " << query_metrics.Str();
-        global_metrics = MergeEvaluationMetrics(global_metrics, query_metrics);
+        MergeEvaluationMetrics(global_metrics, query_metrics);
       }
 
       FinalizeEvaluationMetrics(global_metrics);
@@ -97,6 +99,7 @@ class Evaluator {
   virtual Self& OpenSearcher() { return *this; };
   virtual Self& CloseSearcher() { return *this; };
 
+ protected:
   virtual QueryResultList ComputeGroundTruth() = 0;
   virtual EvaluationMetrics EvaluateSingleQuery(int64_t i, const json& search_params) = 0;
 
@@ -106,6 +109,7 @@ class Evaluator {
 
  protected:
   int verbose_level_ = VERBOSE_CRITICAL;
+  MetricType metric_type_;
   int dim_ = -1;
   const float* base_ = nullptr;
   int64_t nb_ = 0;

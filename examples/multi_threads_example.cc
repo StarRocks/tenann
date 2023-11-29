@@ -28,7 +28,7 @@
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/factory/index_factory.h"
 #include "tenann/store/index_meta.h"
-#include "tenann/util/bruteforce_ann.h"
+#include "tenann/util/bruteforce.h"
 #include "tenann/util/pretty_printer.h"
 #include "tenann/util/runtime_profile_macros.h"
 #include "tenann/util/threads.h"

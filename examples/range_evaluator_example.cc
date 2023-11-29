@@ -36,43 +36,83 @@
 static constexpr const int dim = 1024;
 static constexpr const int nb = 1000000;
 static constexpr const int nq = 100;
-static constexpr const float radius = 15;
-static constexpr const int nlist = 1;  // sqrt(nb);
-static constexpr const int M = 32;
-static constexpr const int nbits = 8;
 static constexpr const int verbose = VERBOSE_INFO;
 
 using namespace tenann;
 
-IndexMeta PrepareMeta() {
+IndexMeta PrepareHnswMeta(MetricType metric_type) {
   IndexMeta meta;
   meta.SetMetaVersion(0);
   meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
   meta.SetIndexType(tenann::IndexType::kFaissIvfPq);
   meta.common_params()["dim"] = dim;
   meta.common_params()["is_vector_normed"] = false;
-  meta.common_params()["metric_type"] = tenann::MetricType::kL2Distance;
+  meta.common_params()["metric_type"] = metric_type;
   return meta;
 }
 
-json PrepareIndexParams(int nlist, int M, int nbits) {
+json PrepareHnswParams(int M, int efConstruction) {
   json index_params;
-  index_params["nlist"] = nlist;
   index_params["M"] = M;
-  index_params["nbits"] = nbits;
+  index_params["efConstruction"] = efConstruction;
   return index_params;
+}
+
+RangeQuerySet GenQuerySet(const std::vector<float>& query_list, int64_t nq, int dim,
+                          float distance_threshold, int64_t limit) {
+  RangeQuerySet query_set;
+  query_set.nq = nq;
+  query_set.query = query_list.data();
+  for (int64_t i = 0; i < nq; i++) {
+    query_set.limit_list.push_back(limit);
+    query_set.distance_threshold_list.push_back(distance_threshold);
+  }
+  return query_set;
+}
+
+void Eval(MetricType metric_type, float threshold, int64_t limit, const std::vector<float>& base,
+          const std::vector<float>& query) {
+  auto query_set = GenQuerySet(query, nq, dim, threshold, limit);
+
+  auto meta = PrepareHnswMeta(metric_type);
+  auto index_params = PrepareHnswParams(16, 500);
+
+  RangeSearchEvaluator evaluator(
+      metric_type == MetricType::kL2Distance ? "range_eval_exmaple_l2" : "range_eval_exmaple_cos",
+      meta, ".");
+  evaluator
+      .SetVerboseLevel(verbose)    //
+      .SetMetricType(metric_type)  //
+      .SetDim(dim)                 //
+      .SetBase(nb, base.data())    //
+      .SetQuery(nq, query_set);
+  std::vector<json> search_param_list = {
+      {{"efSearch", 10}},   //
+      {{"efSearch", 20}},   //
+      {{"efSearch", 40}},   //
+      {{"efSearch", 80}},   //
+      {{"efSearch", 100}},  //
+      {{"efSearch", 200}}   //
+  };
+
+  evaluator
+      .BuildIndexIfNotExists(index_params)  //
+      .Evaluate(search_param_list);
 }
 
 int main(int argc, char const* argv[]) {
   auto base = RandomVectors(nb, dim, 0);
   auto query = RandomVectors(nq, dim, 1);
 
-  auto meta = PrepareMeta();
-  auto index_params = PrepareIndexParams(nlist, M, nbits);
+  std::cout << "======================= CosineSimlarity >= 0.8 limit 10 =======================\n";
+  Eval(MetricType::kCosineSimilarity, 0.8, 10, base, query);
 
-  RangeSearchEvaluator eval("range_eval_exmaple", meta, ".");
-  eval.SetVerboseLevel(verbose).SetDim(dim).SetBase(nb, base.data());
-  eval.BuildIndexIfNotExists(index_params, true);
-  eval.OpenSearcher();
-  eval.CloseSearcher();
+  std::cout << "======================= CosineSimlarity >= 0.8 =======================\n";
+  Eval(MetricType::kCosineSimilarity, 0.8, -1, base, query);
+
+  std::cout << "======================= l2_distance <= 10 limit 10 =======================\n";
+  Eval(MetricType::kL2Distance, 12, 10, base, query);
+
+  std::cout << "======================= l2_distance <= 10 =======================\n";
+  Eval(MetricType::kL2Distance, 12, -1, base, query);
 }

@@ -64,30 +64,6 @@ class IvfPqRangeSearchTest : public FaissTestBase {
   static constexpr const float radius = 1;
 };
 
-TEST_F(IvfPqRangeSearchTest, test_range_search_unordered) {
-  BuildInMemoryIvfPq();
-  auto searcher = GetAnnSearcher();
-
-  std::vector<int64_t> result_ids;
-  std::vector<float> result_distances;
-  int64_t limit = 10;
-
-  // default range search with confidence = 0
-  searcher->RangeSearch(query_view()[0], radius, limit, AnnSearcher::ResultOrder::kUnordered,
-                        &result_ids, &result_distances);
-  EXPECT_EQ(result_ids.size(), limit);
-  EXPECT_EQ(result_distances.size(), limit);
-  // when range_search_confidence=0, the approximate pq distance is directly used for filtering
-  for (auto d : result_distances) {
-    EXPECT_LE(d, limit);
-  }
-
-  // range search with confidence 1
-  searcher->SetSearchParamItem(FaissIvfPqSearchParams::range_search_confidence_key, 1.0f);
-  searcher->RangeSearch(query_view()[0], radius, -1, AnnSearcher::ResultOrder::kUnordered,
-                        &result_ids, &result_distances);
-}
-
 TEST_F(IvfPqRangeSearchTest, test_range_search_asending) {
   BuildInMemoryIvfPq();
   auto searcher = GetAnnSearcher();
@@ -97,7 +73,7 @@ TEST_F(IvfPqRangeSearchTest, test_range_search_asending) {
   int64_t limit = 10;
 
   // default range search with confidence = 0
-  searcher->RangeSearch(query_view()[0], radius, limit, AnnSearcher::ResultOrder::kAsending,
+  searcher->RangeSearch(query_view()[0], radius, limit, AnnSearcher::ResultOrder::kAscending,
                         &result_ids, &result_distances);
   EXPECT_EQ(result_ids.size(), limit);
   EXPECT_EQ(result_distances.size(), limit);
@@ -111,7 +87,7 @@ TEST_F(IvfPqRangeSearchTest, test_range_search_asending) {
 
   // range search with confidence 1
   searcher->SetSearchParamItem(FaissIvfPqSearchParams::range_search_confidence_key, 1.0f);
-  searcher->RangeSearch(query_view()[0], radius, -1, AnnSearcher::ResultOrder::kAsending,
+  searcher->RangeSearch(query_view()[0], radius, -1, AnnSearcher::ResultOrder::kAscending,
                         &result_ids, &result_distances);
 
   // check asending order
@@ -145,7 +121,7 @@ TEST_F(IvfPqRangeSearchTest, test_range_search_with_filter) {
 
   int64_t start = 0, end = 10;
   RangeIdFilter filter(start, end);
-  searcher->RangeSearch(query_view()[0], INFINITY, limit, AnnSearcher::ResultOrder::kUnordered,
+  searcher->RangeSearch(query_view()[0], INFINITY, limit, AnnSearcher::ResultOrder::kAscending,
                         &result_ids, &result_distances, &filter);
 
   for (auto id : result_ids) {

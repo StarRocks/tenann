@@ -28,7 +28,7 @@
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/factory/index_factory.h"
 #include "tenann/store/index_meta.h"
-#include "tenann/util/bruteforce_ann.h"
+#include "tenann/util/bruteforce.h"
 #include "tenann/util/threads.h"
 
 std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0) {
@@ -146,7 +146,7 @@ int main() {
   PrintResults(result_ids, result_distances, nq, k);
 
   // brute force
-  tenann::util::BruteForceAnn(d, base_col, nullptr, nullptr, query_col, metric, k,
+  tenann::util::BruteForceTopKSearch(d, base_col, nullptr, nullptr, query_col, metric, k,
                               result_ids.data(), result_distances.data());
   std::cout << "Bruteforce Results: \n";
   PrintResults(result_ids, result_distances, nq, k);

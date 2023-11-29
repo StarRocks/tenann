@@ -29,7 +29,8 @@ set(TENANN_TEST_SRC
     store/test_lru_cache.cc
     thirdparty/test_fmt.cc
     util/test_runtime_profile.cc
-    util/test_bruteforce_ann.cc
+    util/test_bruteforce_search.cc
+    util/test_distance_util.cc
 )
 
 add_executable(tenann_test ${TENANN_TEST_SRC})

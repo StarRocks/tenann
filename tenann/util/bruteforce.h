@@ -28,6 +28,7 @@
 
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
+#include "tenann/searcher/ann_searcher.h"
 #include "tenann/store/index_type.h"
 #include "tenann/util/distance_util.h"
 
@@ -99,8 +100,20 @@ struct MinFirst {
   }
 };
 
-namespace detail {
+struct RangeFilter {
+  dist_t threshold;
+  bool asending;
 
+  bool IsQualified(dist_t d) {
+    if (asending) {
+      return d <= threshold;
+    } else {
+      return d >= threshold;
+    }
+  }
+};
+
+namespace detail {
 template <typename Comparator>
 struct BruteForceAnnSearcher {
   void Search(size_t dim, const SeqView& base_col, const uint8_t* null_flags, const int64_t* rowids,
@@ -180,11 +193,74 @@ struct BruteForceAnnSearcher {
   }
 };
 
+struct BruteForceRangeSearcher {
+  void Search(MetricType metric_type, size_t dim, const SeqView& base_col,
+              const uint8_t* null_flags, const int64_t* rowids, PrimitiveSeqView query_vector,
+              float range, int64_t limit, AnnSearcher::ResultOrder result_order,
+              std::vector<int64_t>* result_ids, std::vector<float>* result_distances,
+              const IdFilter* id_filter = nullptr) {
+    T_CHECK(!(null_flags != nullptr && rowids == nullptr));
+    T_CHECK(metric_type == MetricType::kL2Distance || metric_type == MetricType::kCosineSimilarity);
+    T_CHECK(!(metric_type == MetricType::kL2Distance &&
+              result_order != AnnSearcher::ResultOrder::kAscending));
+    T_CHECK(!(metric_type == MetricType::kCosineSimilarity &&
+              result_order != AnnSearcher::ResultOrder::kDescending));
+
+    T_CHECK(base_col.seq_view_type == SeqViewType::kArraySeqView ||
+            base_col.seq_view_type == SeqViewType::kVlArraySeqView);
+    T_CHECK(!(base_col.seq_view_type == SeqViewType::kArraySeqView &&
+              base_col.seq_view.array_seq_view.elem_type != PrimitiveType::kFloatType));
+    T_CHECK(!(base_col.seq_view_type == SeqViewType::kVlArraySeqView &&
+              base_col.seq_view.vl_array_seq_view.elem_type != PrimitiveType::kFloatType));
+
+    T_CHECK(query_vector.elem_type == PrimitiveType::kFloatType);
+    T_CHECK(query_vector.size == dim);
+
+    bool ascending = result_order == AnnSearcher::ResultOrder::kAscending;
+    std::unique_ptr<DistanceComputer> distance_computer = std::make_unique<EuclideanDistance>();
+    if (metric_type == MetricType::kCosineSimilarity) {
+      distance_computer = std::make_unique<util::CosineSimilarity>();
+    }
+
+    RangeFilter filter{.threshold = range, .asending = ascending};
+    auto base_iter = base_col.seq_view_type == SeqViewType::kArraySeqView
+                         ? TypedSliceIterator<dist_t>(base_col.seq_view.array_seq_view)
+                         : TypedSliceIterator<dist_t>(base_col.seq_view.vl_array_seq_view);
+
+    auto* query_data = (const dist_t*)query_vector.data;
+
+    base_iter.ForEach([&](idx_t base_idx, const dist_t* base_data, idx_t base_length) {
+      T_CHECK_EQ(base_length, dim);
+
+      if (null_flags == nullptr || (null_flags != nullptr && null_flags[base_idx] == 0)) {
+        auto distance = distance_computer->Apply(base_data, query_data, dim);
+
+        if (filter.IsQualified(distance)) {
+          result_distances->push_back(distance);
+          if (rowids != nullptr) {
+            result_ids->push_back(rowids[base_idx]);
+          } else {
+            result_ids->push_back(base_idx);
+          }
+        }
+      }
+    });
+
+    // sort results
+    if (limit > 0) {
+      ReserveTopK(result_ids, result_distances, limit, ascending);
+    } else {
+      ReserveTopK(result_ids, result_distances, result_ids->size(), ascending);
+    }
+  }
+};
+
 }  // namespace detail
 
-inline void BruteForceAnn(size_t dim, const SeqView& base_col, const uint8_t* null_flags,
-                          const int64_t* rowids, const SeqView& query_col, MetricType metric_type,
-                          int64_t k, int64_t* result_ids, dist_t* result_distances) {
+inline void BruteForceTopKSearch(size_t dim, const SeqView& base_col, const uint8_t* null_flags,
+                                 const int64_t* rowids, const SeqView& query_col,
+                                 MetricType metric_type, int64_t k, int64_t* result_ids,
+                                 dist_t* result_distances) {
   if (metric_type == MetricType::kL2Distance) {
     detail::BruteForceAnnSearcher<MinFirst> searcher;
     searcher.Search(dim, base_col, null_flags, rowids, query_col, metric_type, k, result_ids,
@@ -197,5 +273,18 @@ inline void BruteForceAnn(size_t dim, const SeqView& base_col, const uint8_t* nu
     T_LOG(ERROR) << "unsupported metric type";
   }
 }
+
+inline void BruteForceRangeSearch(MetricType metric_type, size_t dim, const SeqView& base_col,
+                                  const uint8_t* null_flags, const int64_t* rowids,
+                                  PrimitiveSeqView query_vector, float range, int64_t limit,
+                                  AnnSearcher::ResultOrder result_order,
+                                  std::vector<int64_t>* result_ids,
+                                  std::vector<float>* result_distances,
+                                  const IdFilter* id_filter = nullptr) {
+  detail::BruteForceRangeSearcher searcher;
+  searcher.Search(metric_type, dim, base_col, null_flags, rowids, query_vector, range, limit,
+                  result_order, result_ids, result_distances, id_filter);
+};
+
 }  // namespace util
 }  // namespace tenann

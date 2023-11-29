@@ -119,7 +119,7 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
   std::vector<int64_t> indices(num_preserve_results);
   std::iota(indices.begin(), indices.end(), 0);
 
-  if (ResultOrder::kAsending == result_order) {
+  if (ResultOrder::kAscending == result_order) {
     auto distance_less = [result_id_data, result_distance_data](int64_t left, int64_t right) {
       if (result_distance_data[left] < result_distance_data[right])
         return true;

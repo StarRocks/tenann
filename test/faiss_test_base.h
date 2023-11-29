@@ -38,7 +38,6 @@
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 #include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
 #include "tenann/searcher/id_filter.h"
-#include "tenann/util/bruteforce_ann.h"
 
 namespace tenann {
 

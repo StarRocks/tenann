@@ -21,46 +21,51 @@
 
 #include <vector>
 
+#include "faiss/impl/AuxIndexStructures.h"
 #include "fmt/format.h"
 #include "tenann/bench/evaluator.h"
 #include "tenann/common/json.h"
+#include "tenann/common/macros.h"
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/factory/index_factory.h"
 #include "tenann/index/index_str.h"
 #include "tenann/searcher/ann_searcher.h"
+#include "tenann/util/bruteforce.h"
 #include "tenann/util/filesystem.h"
-
+#include "tenann/util/runtime_profile_macros.h"
 namespace tenann {
 
 struct RangeQuerySet {
   const float* query;
   int64_t nq;
-  std::vector<float> radius_list;
+  std::vector<float> distance_threshold_list;
   std::vector<int64_t> limit_list;
-  std::vector<AnnSearcher::ResultOrder> orders;
 
   RangeQuerySet() = default;
 
-  RangeQuerySet(const float* query, int64_t nq, const std::vector<float>& radius_list,
-                const std::vector<int64_t> limit_list,
-                const std::vector<AnnSearcher::ResultOrder>& orders)
-      : query(query), nq(nq), radius_list(radius_list), limit_list(limit_list), orders(orders) {}
+  RangeQuerySet(const float* query, int64_t nq, const std::vector<float>& distance_threshold_list,
+                const std::vector<int64_t> limit_list)
+      : query(query),
+        nq(nq),
+        distance_threshold_list(distance_threshold_list),
+        limit_list(limit_list) {}
 };
 
 struct RangeSearchMetrics {
-  double latency;
-  double qps;
-  double recall;
-  double precision;
-  int64_t result_cardinality;
-  int64_t nq;
+  double latency = 0;
+  double qps = 0;
+  double recall = 0;
+  double precision = 0;
+  int64_t result_cardinality = 0;
+  int64_t nq = 0;
 
   std::string Str() {
-    json doc;
-    doc["qps"] = qps;
-    doc["recall"] = recall;
-    doc["precision"] = qps;
-    doc["result_cardinality"] = result_cardinality;
+    json doc = {{"latency", latency},
+                {"qps", qps},
+                {"recall", recall},
+                {"precision", precision},
+                {"result_cardinality", result_cardinality},
+                {"nq", nq}};
     return doc.dump();
   }
 };
@@ -130,14 +135,99 @@ class RangeSearchEvaluator : public Evaluator<RangeQuerySet, RangeSearchMetrics>
 
   Self& CloseSearcher() override { return *this; }
 
-  QueryResultList ComputeGroundTruth() override {}
+  QueryResultList ComputeGroundTruth() override {
+    T_CHECK(query_set_.nq != 0 && query_set_.query != nullptr);
 
-  EvaluationMetrics EvaluateSingleQuery(int64_t i, const json& search_params) override {}
+    auto base_view = tenann::ArraySeqView{.data = reinterpret_cast<const uint8_t*>(base_),
+                                          .dim = dim_,
+                                          .size = nb_,
+                                          .elem_type = PrimitiveType::kFloatType};
 
-  EvaluationMetrics CreateEvaluationMetrics() override {
-    return EvaluationMetrics{
-        .latency = 0, .qps = 0, .recall = 0, .precision = 0, .result_cardinality = 0, .nq = 0};
+    T_LOG(INFO) << "Computing ground truth...";
+    QueryResultList results(nq_);
+    for (int i = 0; i < nq_; i++) {
+      auto query_vector = tenann::PrimitiveSeqView{
+          .data = reinterpret_cast<const uint8_t*>(query_set_.query + i * dim_),
+          .size = dim_,
+          .elem_type = PrimitiveType::kFloatType};
+      util::BruteForceRangeSearch(metric_type_, dim_, base_view, nullptr, nullptr, query_vector,
+                                  query_set_.distance_threshold_list[i], query_set_.limit_list[i],
+                                  metric_type_ == MetricType::kL2Distance
+                                      ? AnnSearcher::ResultOrder::kAscending
+                                      : AnnSearcher::ResultOrder::kDescending,
+                                  &results[i].first, &results[i].second);
+    }
+
+    T_LOG(INFO) << "Done computing ground truth.";
+
+    return results;
   }
+
+  EvaluationMetrics EvaluateSingleQuery(int64_t i, const json& search_params) override {
+    T_CHECK(!ground_truth_.empty()) << "missing ground truth";
+    searcher_->SetSearchParams(search_params);
+    auto query_vector = tenann::PrimitiveSeqView{
+        .data = reinterpret_cast<const uint8_t*>(query_set_.query + i * dim_),
+        .size = dim_,
+        .elem_type = PrimitiveType::kFloatType};
+
+    std::vector<int64_t> result_ids;
+    int64_t latency;
+    {
+      T_SCOPED_RAW_TIMER(&latency);
+      searcher_->RangeSearch(
+          query_vector, query_set_.distance_threshold_list[i], query_set_.limit_list[i],
+          metric_type_ == MetricType::kL2Distance ? AnnSearcher::ResultOrder::kAscending
+                                                  : AnnSearcher::ResultOrder::kDescending,
+          &result_ids);
+    }
+    auto [precision, recall, result_cardinality] = ReportSingle(ground_truth_[i].first, result_ids);
+
+    RangeSearchMetrics metrics;
+    metrics.nq += 1;
+    metrics.latency = double(latency) / 1000 / 1000 / 1000;
+    metrics.precision = precision;
+    metrics.recall = recall;
+    metrics.result_cardinality = result_cardinality;
+    // std::cout << "Precision:" << precision << ",Recall:" << recall << "\n";
+    // std::cout << "Metrics for query " << i << " " << metrics.Str() << "\n";
+    return metrics;
+  }
+
+  /// Precision, recall, result_cardinality.
+  /// If the ground-truth result set is empty, the recall is set to 1,
+  /// and the precision is set to 1 / (cardinality of search results).
+  static std::tuple<double, double, double> ReportSingle(const std::vector<int64_t> gt_ids,
+                                                         const std::vector<int64_t> result_ids) {
+    double precision, recall, result_cardinality;
+    result_cardinality = result_ids.size();
+    double gt_cardinality = gt_ids.size();
+
+    if (gt_cardinality == 0) {
+      precision = result_cardinality == 0 ? 1.0 : 1 / result_cardinality;
+      recall = 1.0;
+      return std::make_tuple(precision, recall, result_cardinality);
+    }
+
+    std::set<int64_t> gt_set;
+    for (int i = 0; i < gt_ids.size(); i++) {
+      gt_set.insert(gt_ids[i]);
+    }
+
+    int64_t hit = 0;
+    for (int i = 0; i < result_ids.size(); i++) {
+      if (gt_set.find(result_ids[i]) != gt_set.end()) {
+        hit += 1;
+      }
+    }
+
+    // we have gt_carnality > 0 here
+    recall = hit / gt_cardinality;
+    precision = result_cardinality == 0 ? 0 : hit / result_cardinality;
+    return std::make_tuple(precision, recall, result_cardinality);
+  }
+
+  EvaluationMetrics CreateEvaluationMetrics() override { return RangeSearchMetrics(); }
 
   void MergeEvaluationMetrics(EvaluationMetrics& dst, const EvaluationMetrics& src) override {
     dst.latency += src.latency;
