@@ -19,7 +19,11 @@
 
 #include "tenann/index/index.h"
 
-#include "index.h"
+#include "faiss/Index.h"
+#include "faiss/IndexHNSW.h"
+#include "faiss/IndexIDMap.h"
+#include "faiss/IndexIVFPQ.h"
+#include "tenann/common/logging.h"
 
 namespace tenann {
 
@@ -47,7 +51,56 @@ void* Index::index_raw() const { return index_raw_; }
 
 IndexType Index::index_type() const { return index_type_; }
 
-// @TODO(petri): implement it
-size_t Index::EstimateMemorySizeInBytes() { return 1; }
+// @TODO(petri): implement it with a seperate class
+size_t Index::EstimateMemoryUsage() {
+  if (index_type_ == IndexType::kFaissHnsw) {
+    auto mem_usage = 0;
+    auto* faiss_index = static_cast<faiss::Index*>(index_raw_);
+    auto* index_hnsw = dynamic_cast<faiss::IndexHNSW*>(faiss_index);
+    // TODO: always is nullptr now
+    if (index_hnsw == nullptr) {
+      auto* index_id_map = dynamic_cast<faiss::IndexIDMap*>(faiss_index);
+      if (index_id_map != nullptr) {
+        mem_usage += sizeof(*index_id_map);
+        index_hnsw = dynamic_cast<faiss::IndexHNSW*>(index_id_map->index);
+      }
+    } else {
+      mem_usage += sizeof(index_hnsw);
+    }
+
+    if (index_hnsw == nullptr) {
+      T_LOG(WARNING)
+          << "estimating memory usage for unsupported index types would always get result 1";
+      return 1;
+    }
+
+    auto& hnsw = index_hnsw->hnsw;
+    // graph structure
+    mem_usage += hnsw.assign_probas.capacity() * sizeof(double) +
+                 hnsw.cum_nneighbor_per_level.capacity() * sizeof(int) +
+                 hnsw.levels.capacity() * sizeof(int) + hnsw.offsets.capacity() * sizeof(size_t) +
+                 hnsw.neighbors.capacity() * sizeof(faiss::HNSW::storage_idx_t);
+
+    // vectors
+    mem_usage += index_hnsw->storage->ntotal * index_hnsw->storage->d * sizeof(float);
+
+    return mem_usage;
+  } else if (index_type_ == IndexType::kFaissIvfPq) {
+    auto* faiss_index = static_cast<faiss::Index*>(index_raw_);
+    auto* index_ivf_pq = dynamic_cast<faiss::IndexIVFPQ*>(faiss_index);
+    if (index_ivf_pq == nullptr) {
+      T_LOG(WARNING)
+          << "estimating memory usage for unsupported index types would always get result 1";
+      return 1;
+    }
+
+    auto mem_usage = sizeof(index_ivf_pq);
+
+    // TODO: add mem_usage calc
+    return mem_usage;
+  } else {
+    T_LOG(ERROR) << "not implemented yet";
+  }
+}
 
 }  // namespace tenann

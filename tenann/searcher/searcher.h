@@ -28,6 +28,11 @@
 
 namespace tenann {
 
+/**
+ * @brief Base class for all searchers. Not thread-safe.
+ *
+ * @tparam ChildSearcher
+ */
 template <typename ChildSearcher>
 class Searcher {
  public:
@@ -61,20 +66,19 @@ class Searcher {
       is_index_loaded_ = true;
     }
 
+    OnIndexLoaded();
     return static_cast<ChildSearcher&>(*this);
   };
 
   /// Set single search parameter.
   ChildSearcher& SetSearchParamItem(const std::string& key, const json& value) {
-    search_params_[key] = value;
-    this->SearchParamItemChangeHook(key, value);
+    this->OnSearchParamItemChange(key, value);
     return static_cast<ChildSearcher&>(*this);
   };
 
   /// Set all search parameters.
-  ChildSearcher& SetSearchParams(const nlohmann::json& params) {
-    search_params_ = params;
-    this->SearchParamsChangeHook(params);
+  ChildSearcher& SetSearchParams(const json& params) {
+    this->OnSearchParamsChange(params);
     return static_cast<ChildSearcher&>(*this);
   }
 
@@ -108,14 +112,15 @@ class Searcher {
     index_cache_->Insert(cache_key, index_ref_, &cache_handle_);
   }
 
-  virtual void SearchParamItemChangeHook(const std::string& key, const json& value) = 0;
+  virtual void OnSearchParamItemChange(const std::string& key, const json& value) = 0;
 
-  virtual void SearchParamsChangeHook(const json& value) = 0;
+  virtual void OnSearchParamsChange(const json& value) = 0;
+
+  virtual void OnIndexLoaded(){};
 
   IndexMeta index_meta_;
   IndexRef index_ref_;
   bool is_index_loaded_;
-  json search_params_;
 
   /* reader and cache */
   IndexReaderRef index_reader_;

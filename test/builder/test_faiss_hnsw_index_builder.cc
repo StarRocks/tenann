@@ -24,128 +24,97 @@
 #include <iostream>
 #include <random>
 
-#include "gtest/gtest.h"
-#include "gmock/gmock.h"
-
-#include "tenann/common/error.h"
-#include "tenann/builder/faiss_hnsw_index_builder.h"
+#include "test/faiss_test_base.h"
 
 namespace tenann {
 
-class FaissHnswIndexBuilderTest : public ::testing::Test {
+class FaissHnswIndexBuilderTest : public FaissTestBase {
  public:
-  std::unique_ptr<IndexBuilder>& index_builder() {
-    return faiss_hnsw_index_builder_;
+  FaissHnswIndexBuilderTest() : FaissTestBase() {
+    InitFaissHnswMeta();
+    faiss_hnsw_index_builder_ = IndexFactory::CreateBuilderFromMeta(faiss_hnsw_meta_);
   }
-  IndexMeta& meta() { return meta_; }
-  PrimitiveSeqView& id_view() { return id_view_; }
-  ArraySeqView& base_view() { return base_view_; }
-
- protected:
-  void SetUp() override {
-    meta_.SetMetaVersion(0);
-    meta_.SetIndexFamily(IndexFamily::kVectorIndex);
-    meta_.SetIndexType(IndexType::kFaissHnsw);
-    meta_.common_params()["dim"] = 128;
-    meta_.common_params()["is_vector_normed"] = false;
-    meta_.common_params()["metric_type"] = MetricType::kL2Distance;
-    meta_.index_params()["efConstruction"] = 40;
-    meta_.index_params()["M"] = 32;
-    meta_.search_params()["efSearch"] = 40;
-    meta_.extra_params()["comments"] = "my comments";
-
-    // dimension of the vectors to index
-    uint32_t d = 128;
-    // size of the database we plan to index
-    size_t nb = 200;
-    // size of the query vectors we plan to test
-    size_t nq = 10;
-    // index save path
-    constexpr const char* index_path = "/tmp/faiss_hnsw_index";
-    constexpr const char* index_with_primary_key_path = "/tmp/faiss_hnsw_index_with_ids";
-
-    std::vector<int64_t> ids(nb);
-    for (int i = 0; i < nb; i++) {
-      ids[i] = i;
-    }
-    id_view_ = {.data = reinterpret_cast<uint8_t*>(ids.data()),
-                                        .size = static_cast<uint32_t>(nb),
-                                        .elem_type = PrimitiveType::kInt64Type};
-
-    // generate data and query
-    auto base = RandomVectors(nb, d);
-    base_view_ = ArraySeqView{.data = reinterpret_cast<uint8_t*>(base.data()),
-                                          .dim = d,
-                                          .size = static_cast<uint32_t>(nb),
-                                          .elem_type = PrimitiveType::kFloatType};
-
-    auto query = RandomVectors(nq, d, /*seed=*/1);
-
-    faiss_hnsw_index_builder_ = std::make_unique<FaissHnswIndexBuilder>(meta_);
-  }
-
-  void TearDown() override {}
-
-  std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0) {
-    std::mt19937 rng(seed);
-    std::vector<float> data(n * dim);
-    std::uniform_real_distribution<> distrib;
-    for (size_t i = 0; i < n * dim; i++) {
-      data[i] = distrib(rng);
-    }
-    return data;
-  }
-
- private:
-  IndexMeta meta_;
-  PrimitiveSeqView id_view_;
-  ArraySeqView base_view_;
-  std::unique_ptr<IndexBuilder> faiss_hnsw_index_builder_;
 };
 
-TEST_F(FaissHnswIndexBuilderTest, BuildWithPrimaryKeyImpl) {
-  index_builder()->BuildWithPrimaryKey({id_view(), base_view()}, 0);
+TEST_F(FaissHnswIndexBuilderTest, Open) {
+  {
+    // open with pure memory
+    auto hnsw_index_builder = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta());
+    auto index_ref = hnsw_index_builder->Open().index_ref();
+    EXPECT_TRUE(index_ref != nullptr);
+    EXPECT_EQ(index_ref->index_type(), IndexType::kFaissHnsw);
 
-  std::shared_ptr<Index> index_ref = index_builder()->index_ref();
-  EXPECT_TRUE(index_ref != nullptr);
-  EXPECT_EQ(index_ref->index_type(), IndexType::kFaissHnsw);
-}
-
-TEST_F(FaissHnswIndexBuilderTest, BuildImpl) {
-  index_builder()->Build({base_view()});
-
-  std::shared_ptr<Index> index_ref = index_builder()->index_ref();
-  EXPECT_TRUE(index_ref != nullptr);
-  EXPECT_EQ(index_ref->index_type(), IndexType::kFaissHnsw);
-}
-
-TEST_F(FaissHnswIndexBuilderTest, FetchIdsTest) {
-  int data_col_index;
-  int64_t* fetched_ids;
-  size_t num_ids;
-
-  FaissHnswIndexBuilder builder(meta());
-
-  // test primary_key_column_index == 0
-  builder.FetchIds({id_view(), base_view()}, 0, &data_col_index, &fetched_ids, &num_ids);
-  EXPECT_EQ(data_col_index, 1);
-  EXPECT_EQ(num_ids, id_view().size);
-  for (size_t i = 0; i < num_ids; i++) {
-    EXPECT_EQ(fetched_ids[i], reinterpret_cast<int64_t*>(id_view().data)[i]);
+    // reopen with pure memory
+    EXPECT_THROW(hnsw_index_builder->Open(), Error);
   }
 
-  // test primary_key_column_index == 1
-  builder.FetchIds({base_view(), id_view()}, 1, &data_col_index, &fetched_ids, &num_ids);
-  EXPECT_EQ(data_col_index, 0);
-  EXPECT_EQ(num_ids, id_view().size);
-  for (size_t i = 0; i < num_ids; i++) {
-    EXPECT_EQ(fetched_ids[i], reinterpret_cast<int64_t*>(id_view().data)[i]);
-  }
+  {
+    // open with path
+    auto hnsw_index_builder = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta());
+    auto index_ref = hnsw_index_builder->Open(index_path()).index_ref();
+    EXPECT_TRUE(index_ref != nullptr);
+    EXPECT_EQ(index_ref->index_type(), IndexType::kFaissHnsw);
 
-  // test primary_key_column_index == 2
+    // reopen with pure memory
+    EXPECT_THROW(hnsw_index_builder->Open(), Error);
+  }
+}
+
+TEST_F(FaissHnswIndexBuilderTest, InitIndex) {
+  // invalid M
+  // new_meta.index_params()["M"] = 100000000; run failed in DevCloud machine(32GB RAM)
+  EXPECT_THROW(auto new_meta = faiss_hnsw_meta(); new_meta.index_params()["M"] = -1;
+               std::make_unique<FaissHnswIndexBuilder>(new_meta)->Open(), Error);
+
+  // TODO: add "M", "efConstruction", "efSearch" limit UT
+}
+
+TEST_F(FaissHnswIndexBuilderTest, Add) {
+  // TypedArraySeqView
+  // use_custom_row_id_(true), null_map(not null)
+  std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), null_flags().data());
+  // use_custom_row_id_(true), null_map(is null)
+  std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data());
+  // use_custom_row_id_(false), null_map(not null)
+  EXPECT_THROW(std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())
+                   ->Open()
+                   .Add({base_view()}, nullptr, null_flags().data()),
+               Error);
+  // use_custom_row_id_(false), null_map(is null)
+
+  std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())->Open().Add({base_view()});
+
+  // TypedVlArraySeqView
+  // invalid dimension
+  auto pre = base_vl_view().offsets[1];
   EXPECT_THROW(
-      builder.FetchIds({id_view(), base_view()}, 2, &data_col_index, &fetched_ids, &num_ids),
+      const_cast<uint32_t*>(base_vl_view().offsets)[1] = 0;
+      std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())->Open().Add({base_vl_view()}),
       Error);
+  const_cast<uint32_t*>(base_vl_view().offsets)[1] = pre;
+  // use_custom_row_id_(true), null_map(not null)
+  std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_vl_view()}, ids().data(), null_flags().data());
+  // use_custom_row_id_(true), null_map(is null)
+  std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_vl_view()}, ids().data());
+  // use_custom_row_id_(false), null_map(not null)
+  EXPECT_THROW(std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())
+                   ->Open()
+                   .Add({base_vl_view()}, nullptr, null_flags().data()),
+               Error);
+  // use_custom_row_id_(false), null_map(is null)
+  std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())->Open().Add({base_vl_view()});
 }
 
 }  // namespace tenann

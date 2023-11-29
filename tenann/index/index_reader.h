@@ -21,7 +21,7 @@
 
 #include <memory>
 
-#include "tenann/common/json.hpp"
+#include "tenann/common/json.h"
 #include "tenann/index/index.h"
 
 namespace tenann {
@@ -38,18 +38,12 @@ class IndexReader {
   // Read index file
   virtual IndexRef ReadIndex(const std::string& path) = 0;
 
-  nlohmann::json& conf();
-  const nlohmann::json& conf() const;
-
   /** Getters */
   const IndexMeta& index_meta() const;
 
  protected:
   /// @brief index meta
   IndexMeta index_meta_;
-
-  /// @brief read options
-  nlohmann::json conf_;
 };
 
 using IndexReaderRef = std::shared_ptr<IndexReader>;

@@ -25,6 +25,8 @@
 
 namespace tenann {
 
+typedef int64_t idx_t;
+
 template <typename T>
 struct RuntimePrimitiveType {
   static const PrimitiveType primitive_type = PrimitiveType::kUnknownType;

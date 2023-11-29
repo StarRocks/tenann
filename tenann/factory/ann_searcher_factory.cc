@@ -18,14 +18,20 @@
  */
 
 #include "tenann/factory/ann_searcher_factory.h"
-
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
+#include "tenann/searcher/faiss_ivf_pq_ann_searcher.h"
+#include "tenann/common/logging.h"
 
 namespace tenann {
 
 std::unique_ptr<AnnSearcher> AnnSearcherFactory::CreateSearcherFromMeta(const IndexMeta& meta) {
-  // @TODO(jackj): check meta and create hnsw searcher
-  return std::make_unique<FaissHnswAnnSearcher>(meta);
+  if (meta.index_type() == IndexType::kFaissHnsw) {
+    return std::make_unique<FaissHnswAnnSearcher>(meta);
+  } else if(meta.index_type() == IndexType::kFaissIvfPq) {
+    return std::make_unique<FaissIvfPqAnnSearcher>(meta);
+  } else {
+    T_LOG(ERROR) << "Unsupported index type: " << static_cast<int>(meta.index_type());
+  }
 }
 
 }  // namespace tenann

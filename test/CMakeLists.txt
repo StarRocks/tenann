@@ -16,17 +16,53 @@
 # under the License.
 
 set(TENANN_TEST_SRC
+    tenann_test.cc
+    faiss_test_base.cc
+    builder/test_faiss_index_builder.cc
     builder/test_faiss_hnsw_index_builder.cc
+    builder/test_faiss_ivf_pq_index_builder.cc
+    index/test_index_ivfpq.cc
+    searcher/test_faiss_hnsw_ann_searcher.cc
+    searcher/test_faiss_ivf_pq_ann_searcher.cc
+    searcher/test_ivf_pq_range_search.cc
+    store/test_index_meta.cc
+    store/test_lru_cache.cc
+    thirdparty/test_fmt.cc
+    util/test_runtime_profile.cc
+    util/test_bruteforce_search.cc
+    util/test_distance_util.cc
 )
 
 add_executable(tenann_test ${TENANN_TEST_SRC})
+
+add_executable(tenann_test_avx2 ${TENANN_TEST_SRC})
+if(NOT WITH_AVX2 STREQUAL "ON")
+  set_target_properties(tenann_test_avx2 PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
+target_compile_options(tenann_test_avx2 PRIVATE ${FAISS_AVX2_CXX_FLAGS})
+target_link_libraries(tenann_test_avx2 tenann_avx2 GTest::gtest ${TENANN_AVX2_LINK_LIBS})
 
 # add gtest lib
 set(GTest_DIR "${TENANN_THIRDPARTY}/installed/lib/cmake/GTest" CACHE PATH "gtest search path")
 find_package(GTest REQUIRED)
 
-target_link_libraries(tenann_test PRIVATE tenann GTest::gtest GTest::gtest_main)
+target_link_libraries(tenann_test PRIVATE tenann GTest::gtest)
 include(GoogleTest)
 
-# add tenann_test to ctest
+# add tenann_test to ctest, log path: build_Release/Testing/Temporary/LastTest.log
 gtest_discover_tests(tenann_test)
+if(WITH_AVX2 STREQUAL "ON")
+  gtest_discover_tests(tenann_test_avx2 TEST_SUFFIX _avx2)
+endif()
+
+add_custom_target(coverage
+  COMMAND lcov --capture --directory . --output-file coverage.info
+  COMMAND lcov --extract coverage.info '*/tenann/tenann/*' --output-file coverage.info
+  COMMAND lcov --remove coverage.info '*/tenann/tenann/common*' --output-file coverage.info
+  COMMAND lcov --remove coverage.info '*/tenann/tenann/util*' --output-file coverage.info
+  COMMAND lcov --remove coverage.info '*/tenann/tenann/index/internal*' --output-file coverage.info
+  COMMAND lcov --list coverage.info
+  COMMAND genhtml coverage.info --output-directory coverage_html --rc genhtml_hi_limit=50 --rc genhtml_med_limit=30
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  COMMENT "Generating code coverage report")

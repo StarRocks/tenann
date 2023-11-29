@@ -53,7 +53,7 @@ if [[ $OSTYPE == darwin* ]]; then
     PARALLEL=$(sysctl -n hw.ncpu)
     # We know for sure that build-thirdparty.sh will fail on darwin platform, so just skip the step.
 else
-    if [[ ! -f ${TENANN_THIRDPARTY}/installed/include/gtest/gtest.h ]]; then
+    if [[ ! -f ${TENANN_THIRDPARTY}/installed/include/pybind11/pybind11.h ]]; then
         echo "Thirdparty libraries need to be build ..."
         sh ${TENANN_THIRDPARTY}/build-thirdparty.sh
     fi
@@ -68,12 +68,16 @@ Usage: $0 <options>
      --clean            clean and build target
      --with-examples    build tenann with examples
      --with-tests       build tenann with tests
+     --with-avx2        build tenann with avx2 support
+     --with-python      build tenann with python wrapper
      -j                 build Backend parallel
 
   Eg.
     $0                               build tenann
+    $0 --with-avx2                   build tenann with avx2
     $0 --clean                       clean and build tenann
     $0 --with-examples --with-tests  build tenann with examples and tests
+    $0 --with-python                 build tenann with python wrapper
     BUILD_TYPE=build_type $0         build tenann in different mode (build_type could be Release, Debug, or Asan. Default value is Release. To build Backend in Debug mode, you can execute: BUILD_TYPE=Debug ./build.sh --tenann)
   "
     exit 1
@@ -85,6 +89,8 @@ OPTS=$(getopt \
     -o 'h' \
     -l 'with-examples' \
     -l 'with-tests' \
+    -l 'with-avx2' \
+    -l 'with-python' \
     -l 'tenann' \
     -l 'clean' \
     -o 'j:' \
@@ -101,8 +107,11 @@ BUILD_TENANN=
 CLEAN=
 WITH_EXAMPLES=
 WITH_TESTS=
+WITH_AVX2=
+WITH_PYTHON=
 MSG=""
 MSG_TENANN="libtenann.a"
+MSG_TENANN_AVX2="libtenann_avx2.a"
 
 HELP=0
 if [ $# == 1 ]; then
@@ -111,18 +120,24 @@ if [ $# == 1 ]; then
     CLEAN=0
     WITH_EXAMPLES=OFF
     WITH_TESTS=OFF
+    WITH_AVX2=OFF
+    WITH_PYTHON=OFF
 elif [[ $OPTS =~ "-j" ]] && [ $# == 3 ]; then
     # default
     BUILD_TENANN=1
     CLEAN=0
     WITH_EXAMPLES=OFF
     WITH_TESTS=OFF
+    WITH_AVX2=OFF
+    WITH_PYTHON=OFF
     PARALLEL=$2
 else
     BUILD_TENANN=1
     CLEAN=0
     WITH_EXAMPLES=OFF
     WITH_TESTS=OFF
+    WITH_AVX2=OFF
+    WITH_PYTHON=OFF
     while true; do
         case "$1" in
         --tenann)
@@ -139,6 +154,14 @@ else
             ;;
         --with-tests)
             WITH_TESTS=ON
+            shift
+            ;;
+        --with-avx2)
+            WITH_AVX2=ON
+            shift
+            ;;
+        --with-python)
+            WITH_PYTHON=ON
             shift
             ;;
         -h)
@@ -165,6 +188,13 @@ else
     done
 fi
 
+if [ -e /proc/cpuinfo ]; then
+    # detect cpuinfo
+    if [[ -z $(grep -o 'avx[^ ]*' /proc/cpuinfo) ]]; then
+        WITH_AVX2=OFF
+    fi
+fi
+
 if [[ ${HELP} -eq 1 ]]; then
     usage
     exit
@@ -181,6 +211,8 @@ echo "Get params:
     CLEAN               -- $CLEAN
     WITH_EXAMPLES       -- $WITH_EXAMPLES
     WITH_TESTS          -- $WITH_TESTS
+    WITH_AVX2           -- $WITH_AVX2
+    WITH_PYTHON         -- $WITH_PYTHON
     PARALLEL            -- $PARALLEL
 "
 if [ ${BUILD_TENANN} -eq 1 ]; then
@@ -217,6 +249,8 @@ if [ ${BUILD_TENANN} -eq 1 ]; then
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
         -DWITH_TESTS=${WITH_TESTS} \
         -DWITH_EXAMPLES=${WITH_EXAMPLES} \
+        -DWITH_AVX2=${WITH_AVX2} \
+        -DWITH_PYTHON=${WITH_PYTHON} \
         -DCMAKE_INSTALL_PREFIX=${TENANN_OUTPUT} \
         ..
     time ${BUILD_SYSTEM} -j${PARALLEL}
@@ -226,10 +260,14 @@ if [ ${BUILD_TENANN} -eq 1 ]; then
     ${BUILD_SYSTEM} install
 fi
 
-MSG="${MSG} √ ${MSG_TENANN}"
+echo "***************************************"
+echo "Successfully build TenANN - ${MSG} √ ${MSG_TENANN}"
+echo "***************************************"
 
-echo "***************************************"
-echo "Successfully build TenANN ${MSG}"
-echo "***************************************"
+if [ "$WITH_AVX2" == "ON" ]; then
+    echo "***************************************"
+    echo "Successfully build TenANN with AVX2 support - ${MSG} √ ${MSG_TENANN_AVX2}"
+    echo "***************************************"
+fi
 
 exit 0

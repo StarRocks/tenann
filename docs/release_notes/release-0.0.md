@@ -1,7 +1,7 @@
-# TenANN v1.0.0
+# TenANN v0.0.x
 
-## v0.0.2-release
-Download URL: [tenann-v0.0.2-release.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.0.2-release.tar.gz)
+## v0.0.2-RELEASE
+Download URL: [tenann-v0.0.2-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.0.2-RELEASE.tar.gz)
 
 Release date: 2023.08.31
 
@@ -67,4 +67,3 @@ Release date: 2023.08.29
 
 ### Bug Fixes
 - 修复v0.0.2-RC1引入的Faiss构建失败问题
-

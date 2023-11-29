@@ -17,50 +17,36 @@
 
 set(TENANN_SRC
     version.cc
+    bench/evaluator.cc
+    bench/range_search_evaluator.cc
+    bench/topk_search_evaluator.cc
     builder/index_builder.cc
+    builder/faiss_index_builder.cc
+    builder/faiss_index_builder_with_buffer.cc
     builder/faiss_hnsw_index_builder.cc
+    builder/faiss_ivf_pq_index_builder.cc
     common/logging.cc
     factory/index_factory.cc
     factory/ann_searcher_factory.cc
+    index/internal/index_ivfpq.cc
+    index/index_ivfpq_writer.cc
+    index/index_ivfpq_reader.cc
     index/index.cc
     index/index_cache.cc
     index/index_reader.cc
     index/faiss_index_reader.cc
     index/index_writer.cc
     index/faiss_index_writer.cc
+    searcher/id_filter.cc
     searcher/searcher.cc
+    searcher/ann_searcher.cc
     searcher/faiss_hnsw_ann_searcher.cc
+    searcher/faiss_ivf_pq_ann_searcher.cc
     store/index_meta.cc
     store/lru_cache.cc
-)
-
-set(TENANN_HEADERS
-    version.h
-    builder/index_builder.h
-    builder/faiss_hnsw_index_builder.h
-    common/error.h
-    common/json.hpp
-    common/logging.h
-    common/macros.h
-    common/primitive_type.h
-    common/seq_view.h
-    common/type_traits.h
-    common/typed_seq_view.h
-    factory/ann_searcher_factory.h
-    factory/index_factory_trait.h
-    factory/index_factory.h
-    index/index_cache.h
-    index/index_reader.h
-    index/faiss_index_reader.h
-    index/index_writer.h
-    index/faiss_index_writer.h
-    index/index.h
-    searcher/ann_searcher.h
-    searcher/faiss_hnsw_ann_searcher.h
-    searcher/searcher.h
-    store/index_meta.h
-    store/index_type.h
-    store/lru_cache.h
+    util/runtime_profile.cc
+    util/spinlock.cc
+    util/threads.cc
 )
 
 # TenANN library target
@@ -70,17 +56,21 @@ add_library(tenann STATIC ${TENANN_SRC})
 # Thrid-party dependicies
 ########################################################
 
+# fmt
+add_library(fmt STATIC IMPORTED)
+set_target_properties(fmt PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib64/libfmt.a)
 
-# 添加 faiss 库
-find_package(faiss REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
+# Two targets (faiss and faiss_avx2) will be imported
+add_library(faiss STATIC IMPORTED)
+set_target_properties(faiss PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a)
 
-# 添加 faiss_avx2 库
-find_package(faiss_avx2 REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/faiss")
+add_library(faiss_avx2 STATIC IMPORTED)
+set_target_properties(faiss_avx2 PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss_avx2.a)
 
-# 添加 lapack 库
+# lapack
 find_package(LAPACK REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/lapack")
 
-# 添加 OpenMP 库
+# openmp
 find_package(OpenMP REQUIRED)
 
 set(WL_START_GROUP "-Wl,--start-group")
@@ -88,16 +78,50 @@ set(WL_END_GROUP "-Wl,--end-group")
 
 # TenANN link options
 set(TENANN_LINK_LIBS
-    ${WL_START_GROUP}
+    fmt
     faiss
-    # faiss_avx2 # temporaly disable avx2 version
     ${LAPACK_LIBRARIES}
     OpenMP::OpenMP_CXX
-    -l:libgfortran.a
     -l:libquadmath.a
-    -lm
-    ${WL_END_GROUP}
-)
+    -lm)
+
+if(WITH_PYTHON STREQUAL "ON")
+    list(APPEND TENANN_LINK_LIBS "-lgfortran" ${WL_END_GROUP})
+else()
+    list(APPEND TENANN_LINK_LIBS "-l:libgfortran.a" ${WL_END_GROUP})
+endif()
 
 target_link_libraries(tenann
-    ${TENANN_LINK_LIBS})
+    ${WL_START_GROUP}
+    ${TENANN_LINK_LIBS}
+    ${WL_END_GROUP})
+
+########################################################
+# tenann_avx2
+########################################################
+
+add_library(tenann_avx2 STATIC ${TENANN_SRC})
+if(NOT WITH_AVX2 STREQUAL "ON")
+  set_target_properties(tenann_avx2 PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
+target_compile_options(tenann_avx2 PRIVATE ${FAISS_AVX2_CXX_FLAGS})
+
+set(TENANN_AVX2_LINK_LIBS
+    fmt
+    faiss_avx2
+    ${LAPACK_LIBRARIES}
+    OpenMP::OpenMP_CXX
+    -l:libquadmath.a
+    -lm)
+
+if(WITH_PYTHON STREQUAL "ON")
+    list(APPEND TENANN_AVX2_LINK_LIBS "-lgfortran" ${WL_END_GROUP})
+else()
+    list(APPEND TENANN_AVX2_LINK_LIBS "-l:libgfortran.a" ${WL_END_GROUP})
+endif()
+
+target_link_libraries(tenann_avx2
+    ${WL_START_GROUP}
+    ${TENANN_AVX2_LINK_LIBS}
+    ${WL_END_GROUP})

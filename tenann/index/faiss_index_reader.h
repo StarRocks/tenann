@@ -19,12 +19,11 @@
 
 #pragma once
 
-#include "tenann/common/json.hpp"
+#include "tenann/common/json.h"
 #include "tenann/index/index_reader.h"
 
 namespace tenann {
 
-// @TODO(jack): trying to shared a single reader implementation for all faiss indexes.
 class FaissIndexReader : public IndexReader {
  public:
   using IndexReader::IndexReader;

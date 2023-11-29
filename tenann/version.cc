@@ -49,11 +49,11 @@ int FaissTest() {
     int d = 128;
 
     // size of the database we plan to index
-    size_t nb = 200 * 1000;
+    size_t nb = 200 * 10;
 
     // make a set of nt training vectors in the unit cube
     // (could be the database)
-    size_t nt = 100 * 1000;
+    size_t nt = 100 * 10;
 
     // make the index object and train it
     faiss::IndexFlatL2 coarse_quantizer(d);

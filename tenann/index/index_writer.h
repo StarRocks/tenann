@@ -21,7 +21,7 @@
 
 #include <memory>
 
-#include "tenann/common/json.hpp"
+#include "tenann/common/json.h"
 #include "tenann/index/index.h"
 
 namespace tenann {
@@ -38,9 +38,6 @@ class IndexWriter {
   // Write index file
   virtual void WriteIndex(IndexRef index, const std::string& path) = 0;
 
-  nlohmann::json& conf();
-  const nlohmann::json& conf() const;
-
   /** Getters */
   const IndexMeta& index_meta() const;
 
@@ -49,8 +46,6 @@ class IndexWriter {
   // otherwise there are too many meta copies.
   /* meta */
   IndexMeta index_meta_;
-  /* write options */
-  nlohmann::json conf_;
 };
 
 using IndexWriterRef = std::shared_ptr<IndexWriter>;

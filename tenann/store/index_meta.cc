@@ -19,11 +19,19 @@
 
 #include "tenann/store/index_meta.h"
 
+#include <fstream>
+
+#include "index_meta.h"
 #include "tenann/common/logging.h"
 
 namespace tenann {
 
-IndexMeta::IndexMeta() = default;
+IndexMeta::IndexMeta() {
+  meta_json_[kCommonKey] = {};
+  meta_json_[kIndexKey] = {};
+  meta_json_[kSearchKey] = {};
+  meta_json_[kExtraKey] = {};
+};
 
 IndexMeta::IndexMeta(const json& meta_json) : meta_json_(meta_json) {}
 
@@ -35,9 +43,26 @@ void IndexMeta::SetMetaVersion(int version) { meta_json_["meta_version"] = versi
 void IndexMeta::SetIndexFamily(tenann::IndexFamily family) { meta_json_["family"] = family; }
 void IndexMeta::SetIndexType(tenann::IndexType type) { meta_json_["type"] = type; }
 
-int IndexMeta::meta_version() const { return meta_json_["meta_version"].template get<int>(); }
-int IndexMeta::index_family() const { return meta_json_["family"].template get<int>(); }
-int IndexMeta::index_type() const { return meta_json_["type"].template get<int>(); }
+int IndexMeta::meta_version() const {
+  if (!meta_json_.contains("meta_version")) {
+    T_LOG(ERROR) << "meta_version (`meta_versoin`) not set in index meta";
+  }
+  return meta_json_["meta_version"].template get<int>();
+}
+
+int IndexMeta::index_family() const {
+  if (!meta_json_.contains("family")) {
+    T_LOG(ERROR) << "index faimily not set in index meta";
+  }
+  return meta_json_["family"].template get<int>();
+}
+
+int IndexMeta::index_type() const {
+  if (!meta_json_.contains("type")) {
+    T_LOG(ERROR) << "index type not set in index meta";
+  }
+  return meta_json_["type"].template get<int>();
+}
 
 json& IndexMeta::common_params() { return meta_json_["common"]; }
 json& IndexMeta::index_params() { return meta_json_["index"]; }
@@ -49,20 +74,101 @@ const json& IndexMeta::index_params() const { return meta_json_["index"]; }
 const json& IndexMeta::search_params() const { return meta_json_["search"]; }
 const json& IndexMeta::extra_params() const { return meta_json_["extra"]; }
 
-// @TODO
-IndexMeta IndexMeta::Read(const std::string& path) { T_LOG(ERROR) << "not implemented"; }
+IndexMeta IndexMeta::Read(const std::string& file_path) {
+  try {
+    std::ifstream input_file(file_path);
+    if (!input_file.is_open()) {
+      T_LOG(ERROR) << "Failed to open file: " << file_path << std::endl;
+      return IndexMeta();
+    }
 
-IndexMeta IndexMeta::Deserialize(const std::vector<uint8_t>& buffer) {
-  auto meta_json = json::from_msgpack(buffer);
-  return IndexMeta(meta_json);
+    nlohmann::json json_obj;
+    input_file >> json_obj;
+    input_file.close();
+    IndexMeta meta(json_obj);
+    meta.CheckOrThrowError();
+    return meta;
+  } catch (json::exception& e) {
+    T_LOG(ERROR) << e.what();
+  }
 }
 
-// @TODO
-void IndexMeta::Write(const std::string& path) {}
+IndexMeta IndexMeta::Deserialize(const std::vector<uint8_t>& buffer) {
+  try {
+    auto meta_json = json::from_msgpack(buffer);
+    return IndexMeta(meta_json);
+  } catch (json::exception& e) {
+    T_LOG(ERROR) << e.what();
+  }
+}
 
-std::vector<uint8_t> IndexMeta::Serialize() { return json::to_msgpack(meta_json_); }
+IndexMeta IndexMeta::Parse(const std::string& str) {
+  try {
+    auto meta_json = json::parse(str);
+    IndexMeta meta(meta_json);
+    meta.CheckOrThrowError();
+    return meta;
+  } catch (json::exception& e) {
+    T_LOG(ERROR) << e.what();
+  }
+}
 
-// @TODO
-bool IndexMeta::CheckIntegrity(std::string* err_msg) { return true; }
+bool IndexMeta::Write(const std::string& file_path) {
+  try {
+    std::ofstream output_file(file_path);
+    if (!output_file.is_open()) {
+      T_LOG(ERROR) << "Failed to open file: " << file_path << std::endl;
+      return false;
+    }
+
+    output_file << meta_json_;
+    output_file.close();
+  } catch (json::exception& e) {
+    T_LOG(ERROR) << e.what();
+  }
+  return true;
+}
+
+std::vector<uint8_t> IndexMeta::Serialize() {
+  try {
+    return json::to_msgpack(meta_json_);
+  } catch (json::exception& e) {
+    T_LOG(ERROR) << e.what();
+  }
+}
+
+std::string IndexMeta::Stringify(int indent) {
+  try {
+    return meta_json_.dump(indent);
+  } catch (json::exception& e) {
+    T_LOG(ERROR) << e.what();
+  }
+}
+
+bool IndexMeta::CheckIntegrity(std::string* err_msg) noexcept {
+  if (!meta_json_.contains("meta_version")) {
+    *err_msg = "meta_version (`meta_versoin`) not set in index meta";
+    return false;
+  }
+
+  if (!meta_json_.contains("family")) {
+    *err_msg = "index faimily not set in index meta";
+    return false;
+  }
+
+  if (!meta_json_.contains("type")) {
+    *err_msg = "index type not set in index meta";
+    return false;
+  }
+
+  return true;
+}
+
+void IndexMeta::CheckOrThrowError() T_THROW_EXCEPTION {
+  std::string msg;
+  if (!CheckIntegrity(&msg)) {
+    T_LOG(ERROR) << msg;
+  }
+}
 
 }  // namespace tenann

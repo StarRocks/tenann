@@ -19,7 +19,6 @@
 
 #include "tenann/index/index_cache.h"
 
-#include "index_cache.h"
 #include "tenann/common/logging.h"
 
 namespace tenann {
@@ -29,8 +28,8 @@ IndexCache::IndexCache(size_t capacity) : cache_(new_lru_cache(capacity)) {}
 IndexCache::~IndexCache() = default;
 
 IndexCache* IndexCache::GetGlobalInstance() {
-  // The default cache can hold 1024 index files
-  static IndexCache instance(1024);
+  // The default cache capacity is 1GB
+  static IndexCache instance(1024 * 1024 * 1024);
   return &instance;
 }
 
@@ -44,7 +43,7 @@ bool IndexCache::Lookup(const CacheKey& key, IndexCacheHandle* handle) {
 }
 
 void IndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle) {
-  auto index_size = index->EstimateMemorySizeInBytes();
+  auto index_size = index->EstimateMemoryUsage();
   // create a new reference to the index and intentionally leak the reference
   void* leaked_index = reinterpret_cast<void*>(new IndexRef(index));
 
@@ -66,8 +65,8 @@ bool IndexCache::AdjustCapacity(int64_t delta, size_t min_capacity) {
   return cache_->adjust_capacity(delta, min_capacity);
 }
 
-nlohmann::json IndexCache::status() const {
-  nlohmann::json doc;
+json IndexCache::status() const {
+  json doc;
   cache_->get_cache_status(&doc);
   return doc;
 }

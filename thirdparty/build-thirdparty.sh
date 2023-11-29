@@ -143,6 +143,17 @@ check_if_archieve_exist() {
     fi
 }
 
+build_fmt() {
+    check_if_source_exist $FMT_SOURCE
+    cd $TP_SOURCE_DIR/$FMT_SOURCE
+    mkdir -p build
+    cd build
+    $CMAKE_CMD -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} ../ \
+        -DCMAKE_INSTALL_LIBDIR=lib64 -G "${CMAKE_GENERATOR}" -DFMT_TEST=OFF
+    ${BUILD_SYSTEM} -j$PARALLEL
+    ${BUILD_SYSTEM} install
+}
+
 build_lapack() {
     check_if_source_exist $LAPACK_SOURCE
     cd $TP_SOURCE_DIR/$LAPACK_SOURCE
@@ -150,13 +161,14 @@ build_lapack() {
     cd $BUILD_DIR
     rm -rf CMakeCache.txt CMakeFiles/
     $CMAKE_CMD -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
-    -DCMAKE_INSTALL_LIBDIR=lib \
-    -DCMAKE_INSTALL_INCLUDEDIR=${TP_INSTALL_DIR}/include/lapack \
-    -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
-    -DLAPACKE:BOOL=OFF \
-    -DCBLAS:BOOL=OFF \
-    -DCMAKE_Fortran_FLAGS:STRING="-fimplicit-none -frecursive -fcheck=all" \
-    ..
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_INSTALL_INCLUDEDIR=${TP_INSTALL_DIR}/include/lapack \
+        -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
+        -DLAPACKE:BOOL=OFF \
+        -DCBLAS:BOOL=OFF \
+        -DCMAKE_Fortran_FLAGS:STRING="-fimplicit-none -frecursive" \
+        -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON \
+        ..
 
     $CMAKE_CMD --build . -j --target install
     rm -rf ${TP_INSTALL_DIR}/lib/cmake/lapack
@@ -173,17 +185,17 @@ build_faiss() {
     cd $BUILD_DIR
     rm -rf CMakeCache.txt CMakeFiles/
     $CMAKE_CMD -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
-    -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
-    -DCMAKE_INSTALL_LIBDIR=lib \
-    -DCMAKE_CXX_COMPILER=$TENANN_GCC_HOME/bin/g++ \
-    -DCMAKE_C_COMPILER=$TENANN_GCC_HOME/bin/gcc \
-    -DFAISS_ENABLE_GPU=OFF \
-    -DFAISS_ENABLE_PYTHON=OFF \
-    -DFAISS_OPT_LEVEL=avx2 \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DBUILD_TESTING=OFF \
-    ..
+        -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
+        -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_CXX_COMPILER=$TENANN_GCC_HOME/bin/g++ \
+        -DCMAKE_C_COMPILER=$TENANN_GCC_HOME/bin/gcc \
+        -DFAISS_ENABLE_GPU=OFF \
+        -DFAISS_ENABLE_PYTHON=OFF \
+        -DFAISS_OPT_LEVEL=avx2 \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DBUILD_TESTING=OFF \
+        ..
 
     ${BUILD_SYSTEM} -j$PARALLEL
     ${BUILD_SYSTEM} install
@@ -200,7 +212,21 @@ build_gtest() {
     cd $BUILD_DIR
     rm -rf CMakeCache.txt CMakeFiles/
     $CMAKE_CMD -G "${CMAKE_GENERATOR}" -DCMAKE_INSTALL_PREFIX=$TP_INSTALL_DIR -DCMAKE_INSTALL_LIBDIR=lib \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=On ../
+        -DCMAKE_POSITION_INDEPENDENT_CODE=On ../
+    ${BUILD_SYSTEM} -j$PARALLEL
+    ${BUILD_SYSTEM} install
+}
+
+# pybind11
+build_pybind11() {
+    check_if_source_exist $PYBIND11_SOURCE
+
+    cd $TP_SOURCE_DIR/$PYBIND11_SOURCE
+    mkdir -p $BUILD_DIR
+    cd $BUILD_DIR
+    rm -rf CMakeCache.txt CMakeFiles/
+    $CMAKE_CMD -G "${CMAKE_GENERATOR}" -DCMAKE_INSTALL_PREFIX=$TP_INSTALL_DIR -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=On ../
     ${BUILD_SYSTEM} -j$PARALLEL
     ${BUILD_SYSTEM} install
 }
@@ -224,17 +250,19 @@ strip_binary() {
 # set GLOBAL_C*FLAGS for easy restore in each sub build process
 export GLOBAL_CPPFLAGS="-I ${TP_INCLUDE_DIR}"
 # https://stackoverflow.com/questions/42597685/storage-size-of-timespec-isnt-known
-export GLOBAL_CFLAGS="-static-libstdc++ -static-libgcc -O3 -fno-omit-frame-pointer -std=c99 -fPIC -g -D_POSIX_C_SOURCE=199309L"
-export GLOBAL_CXXFLAGS="-static-libstdc++ -static-libgcc -O3 -fno-omit-frame-pointer -Wno-class-memaccess -fPIC -g"
+export GLOBAL_CFLAGS="-fPIC -static-libstdc++ -static-libgcc -O3 -fno-omit-frame-pointer -std=c99 -fPIC -g -D_POSIX_C_SOURCE=199309L"
+export GLOBAL_CXXFLAGS="-fPIC -static-libstdc++ -static-libgcc -O3 -fno-omit-frame-pointer -Wno-class-memaccess -fPIC -g"
 
 # set those GLOBAL_*FLAGS to the CFLAGS/CXXFLAGS/CPPFLAGS
 export CPPFLAGS=$GLOBAL_CPPFLAGS
 export CXXFLAGS=$GLOBAL_CXXFLAGS
 export CFLAGS=$GLOBAL_CFLAGS
 
+build_fmt
 build_lapack # must before faiss
 build_faiss
 build_gtest
+# build_pybind11
 
 # strip unnecessary debug symbol for binaries in thirdparty
 strip_binary

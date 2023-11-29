@@ -21,7 +21,7 @@
 
 #include <cstdint>
 
-#include "tenann/common/json.hpp"
+#include "tenann/common/json.h"
 
 namespace tenann {
 

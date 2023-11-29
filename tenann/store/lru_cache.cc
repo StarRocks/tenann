@@ -9,7 +9,7 @@
 #include <sstream>
 #include <string>
 
-#include "tenann/common/json.hpp"
+#include "tenann/common/json.h"
 #include "tenann/common/logging.h"
 
 using std::string;
@@ -474,13 +474,13 @@ size_t ShardedLRUCache::get_lookup_count() { return _get_stat(&LRUCache::get_loo
 
 size_t ShardedLRUCache::get_hit_count() { return _get_stat(&LRUCache::get_hit_count); }
 
-void ShardedLRUCache::get_cache_status(nlohmann::json* document) {
+void ShardedLRUCache::get_cache_status(json* document) {
   size_t shard_count = sizeof(_shards) / sizeof(LRUCache);
 
   for (uint32_t i = 0; i < shard_count; ++i) {
     size_t capacity = _shards[i].get_capacity();
     size_t usage = _shards[i].get_usage();
-    nlohmann::json shard_info;
+    json shard_info;
     shard_info["capacity"] = capacity;
     shard_info["usage"] = usage;
 

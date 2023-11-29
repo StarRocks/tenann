@@ -20,8 +20,11 @@
 #include <memory>
 
 #include "tenann/builder/faiss_hnsw_index_builder.h"
+#include "tenann/builder/faiss_ivf_pq_index_builder.h"
 #include "tenann/builder/index_builder.h"
 #include "tenann/common/error.h"
+#include "tenann/index/index_ivfpq_reader.h"
+#include "tenann/index/index_ivfpq_writer.h"
 #include "tenann/index/faiss_index_reader.h"
 #include "tenann/index/faiss_index_writer.h"
 #include "tenann/index/index_reader.h"
@@ -34,6 +37,10 @@ namespace tenann {
 #define CASE_ALL_INDEX_TYPE                                          \
   case kFaissHnsw: {                                                 \
     CASE_FN(kFaissHnsw);                                             \
+    break;                                                           \
+  }                                                                  \
+  case kFaissIvfPq: {                                                \
+    CASE_FN(kFaissIvfPq);                                            \
     break;                                                           \
   }                                                                  \
   default: {                                                         \
@@ -71,6 +78,21 @@ struct IndexFactoryTrait<kFaissHnsw> {
 
   static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
     return std::make_unique<FaissHnswIndexBuilder>(meta);
+  };
+};
+
+template <>
+struct IndexFactoryTrait<kFaissIvfPq> {
+  static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
+    return std::make_unique<IndexIvfPqReader>(meta);
+  };
+
+  static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
+    return std::make_unique<IndexIvfPqWriter>(meta);
+  };
+
+  static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
+    return std::make_unique<FaissIvfPqIndexBuilder>(meta);
   };
 };
 

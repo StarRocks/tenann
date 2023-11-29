@@ -25,21 +25,36 @@ namespace tenann {
 
 class FaissHnswAnnSearcher : public AnnSearcher {
  public:
-  using AnnSearcher::AnnSearcher;
-  virtual ~FaissHnswAnnSearcher() = default;
+  explicit FaissHnswAnnSearcher(const IndexMeta& meta);
+  virtual ~FaissHnswAnnSearcher();
+
   T_FORBID_MOVE(FaissHnswAnnSearcher);
   T_FORBID_COPY_AND_ASSIGN(FaissHnswAnnSearcher);
 
   /// ANN搜索接口，只返回k近邻的id
-  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id) override;
+  void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
+                 const IdFilter* id_filter = nullptr) override;
 
   void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
-                 uint8_t* result_distances) override{};
+                 uint8_t* result_distances, const IdFilter* id_filter = nullptr) override;
+
+  void RangeSearch(PrimitiveSeqView query_vector, float range, int64_t limit,
+                   ResultOrder result_order, std::vector<int64_t>* result_ids,
+                   std::vector<float>* result_distances,
+                   const IdFilter* id_filter = nullptr) override;
 
  protected:
-  void SearchParamItemChangeHook(const std::string& key, const json& value) override{};
+  void OnSearchParamItemChange(const std::string& key, const json& value) override;
 
-  void SearchParamsChangeHook(const json& value) override{};
+  void OnSearchParamsChange(const json& value) override;
+
+  void OnIndexLoaded() override;
+
+ private:
+  FaissHnswSearchParams search_params_;
+  const void* faiss_id_map_;
+  const void* faiss_transform_;
+  const void* faiss_hnsw_;
 };
 
 }  // namespace tenann
