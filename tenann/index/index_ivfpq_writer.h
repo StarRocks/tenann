@@ -33,7 +33,7 @@ class IndexIvfPqWriter: public IndexWriter {
   T_FORBID_MOVE(IndexIvfPqWriter);
 
   // Write index file
-  void WriteIndex(IndexRef index, const std::string& path) override;
+  void WriteIndexFile(IndexRef index, const std::string& path) override;
 };
 
 }  // namespace tenann

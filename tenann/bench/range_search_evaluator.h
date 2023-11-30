@@ -99,13 +99,9 @@ class RangeSearchEvaluator : public Evaluator<RangeQuerySet, RangeSearchMetrics>
       return *this;
     }
 
-    std::shared_ptr<IndexWriter> writer = IndexFactory::CreateWriterFromMeta(index_meta_);
     auto builder = IndexFactory::CreateBuilderFromMeta(index_meta_);
 
-    builder
-        ->SetIndexWriter(writer)                         //
-        .SetIndexCache(IndexCache::GetGlobalInstance())  //
-        .Open(index_path);
+    builder->Open(index_path);
 
     ArraySeqView base_view{.data = reinterpret_cast<const uint8_t*>(base_),
                            .dim = dim_,
@@ -113,7 +109,7 @@ class RangeSearchEvaluator : public Evaluator<RangeQuerySet, RangeSearchMetrics>
                            .elem_type = PrimitiveType::kFloatType};
 
     builder->Add({base_view});
-    builder->Flush(true);
+    builder->Flush();
     builder->Close();
 
     VLOG_CRITICAL(verbose_level_) << "Done index building: " << index_path;
@@ -124,12 +120,8 @@ class RangeSearchEvaluator : public Evaluator<RangeQuerySet, RangeSearchMetrics>
     auto index_str = IndexStr(index_meta_);
     auto index_path = fmt::format("{}/{}_{}", index_save_dir_, evaluator_name_, index_str);
 
-    std::shared_ptr<IndexReader> reader = IndexFactory::CreateReaderFromMeta(index_meta_);
     searcher_ = AnnSearcherFactory::CreateSearcherFromMeta(index_meta_);
-    searcher_
-        ->SetIndexReader(reader)  //
-        .SetIndexCache(IndexCache::GetGlobalInstance())
-        .ReadIndex(index_path);
+    searcher_->ReadIndex(index_path);
     return *this;
   }
 

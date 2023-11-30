@@ -28,7 +28,7 @@ namespace tenann {
 
 FaissIndexReader::~FaissIndexReader() = default;
 
-IndexRef FaissIndexReader::ReadIndex(const std::string& path) {
+IndexRef FaissIndexReader::ReadIndexFile(const std::string& path) {
   try {
     auto faiss_index =
         std::unique_ptr<faiss::Index>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP));

@@ -75,6 +75,8 @@ int main() {
   meta.index_params()["M"] = 128;
   meta.search_params()["efSearch"] = 80;
   meta.extra_params()["comments"] = "my comments";
+  meta.write_index_options()["write_index_cache"] = true;
+  meta.read_index_options()["read_index_cache"] = true;
 
   // dimension of the vectors to index
   uint32_t d = 128;
@@ -110,22 +112,16 @@ int main() {
 
   // build and write index
   auto index_builder1 = tenann::IndexFactory::CreateBuilderFromMeta(meta);
-  tenann::IndexWriterRef index_writer = tenann::IndexFactory::CreateWriterFromMeta(meta);
 
-  index_builder1->SetIndexWriter(index_writer)
-      .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-      .Open(index_path)
+  index_builder1->Open(index_path)
       .Add({base_col})
-      .Flush(/*write_index_cache=*/true);
+      .Flush();
 
   meta.search_params()["efSearch"] = 900;
-  tenann::IndexReaderRef index_reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
   auto ann_searcher = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
 
   // load index from disk file
-  ann_searcher->SetIndexReader(index_reader)
-      .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-      .ReadIndex(index_path, /*read_index_cache=*/true);
+  ann_searcher->ReadIndex(index_path);
   T_DCHECK(ann_searcher->is_index_loaded());
 
   int k = 10;

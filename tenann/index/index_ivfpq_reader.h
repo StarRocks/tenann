@@ -32,7 +32,7 @@ class IndexIvfPqReader : public IndexReader {
   T_FORBID_COPY_AND_ASSIGN(IndexIvfPqReader);
   T_FORBID_MOVE(IndexIvfPqReader);
 
-  IndexRef ReadIndex(const std::string& path) override;
+  IndexRef ReadIndexFile(const std::string& path) override;
 };
 
 }  // namespace tenann

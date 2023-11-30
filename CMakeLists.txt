@@ -63,7 +63,7 @@ if (WITH_TESTS STREQUAL "ON")
 endif()
 
 if (WITH_PYTHON STREQUAL "ON")
-add_subdirectory(${TENANN_THIRDPARTY}/src/pybind11-release-2.11.1)
+    add_subdirectory(${TENANN_THIRDPARTY}/src/pybind11-release-2.11.1)
     add_subdirectory(python_bindings)
 endif()
 

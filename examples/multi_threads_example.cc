@@ -85,7 +85,6 @@ int main() {
                                        .elem_type = tenann::PrimitiveType::kFloatType};
   // build and write index
   auto index_builder1 = tenann::IndexFactory::CreateBuilderFromMeta(meta);
-  tenann::IndexWriterRef index_writer = tenann::IndexFactory::CreateWriterFromMeta(meta);
   auto index_builder2 = tenann::IndexFactory::CreateBuilderFromMeta(meta);
 
   auto profile = std::make_unique<tenann::RuntimeProfile>("root");
@@ -96,9 +95,7 @@ int main() {
   tenann::OmpSetNumThreads(1);
   {
     T_SCOPED_TIMER(single_thread_timer);
-    index_builder1->SetIndexWriter(index_writer)
-        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-        .Open(index_path)
+    index_builder1->Open(index_path)
         .Add({base_col});
   }
 
@@ -106,9 +103,7 @@ int main() {
   tenann::OmpSetNumThreads(8);
   {
     T_SCOPED_TIMER(multi_thread_timer);
-    index_builder2->SetIndexWriter(index_writer)
-        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-        .Open(index_path)
+    index_builder2->Open(index_path)
         .Add({base_col});
   }
 

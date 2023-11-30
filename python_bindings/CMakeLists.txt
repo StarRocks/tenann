@@ -36,7 +36,7 @@ else ()
 endif()
 
 # Install tenann_py module
-execute_process(COMMAND /bin/bash -c "python3 -m site | grep \"lib64/python3.[0-9]'\" | awk -F \"'\" '{print $2}'"
+execute_process(COMMAND /bin/bash -c "python3 -m site | grep lib-dynload | awk -F \"'\" '{print $2}'"
                 OUTPUT_VARIABLE python_site_path
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
 message(STATUS "Python site path: ${python_site_path}")

@@ -33,7 +33,7 @@ namespace tenann {
 
 IndexIvfPqWriter::~IndexIvfPqWriter() = default;
 
-void IndexIvfPqWriter::WriteIndex(IndexRef index, const std::string& path) {
+void IndexIvfPqWriter::WriteIndexFile(IndexRef index, const std::string& path) {
   // open the index file and close it automatically
   // when we leave the current scope through `Defer`
   auto file = fopen(path.c_str(), "wb");
@@ -42,7 +42,7 @@ void IndexIvfPqWriter::WriteIndex(IndexRef index, const std::string& path) {
   });
 
   T_LOG_IF(ERROR, file == nullptr)
-      << "could not open" << path << " for writing: " << strerror(errno);
+      << "could not open[" << path << "] for writing: " << strerror(errno);
 
   try {
     // write faiss index

@@ -30,8 +30,7 @@ class FaissIndexBuilderWithBuffer : public FaissIndexBuilder {
   T_FORBID_COPY_AND_ASSIGN(FaissIndexBuilderWithBuffer);
   T_FORBID_MOVE(FaissIndexBuilderWithBuffer);
 
-  IndexBuilder& Flush(bool write_index_cache = false,
-                      const char* custom_cache_key = nullptr) override;
+  IndexBuilder& Flush() override;
 
  protected:
   [[deprecated]] void AddImpl(const std::vector<SeqView>& input_columns,

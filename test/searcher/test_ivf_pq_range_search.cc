@@ -33,6 +33,8 @@ class IvfPqRangeSearchTest : public FaissTestBase {
  public:
   IvfPqRangeSearchTest() : FaissTestBase() {
     InitFaissIvfPqMeta();
+    faiss_ivf_pq_meta_.write_index_options()["write_index_cache"] = true;
+    faiss_ivf_pq_meta_.write_index_options()["custom_cache_key"] = kCacheKey;
     faiss_ivf_pq_index_builder_ = IndexFactory::CreateBuilderFromMeta(faiss_ivf_pq_meta_);
   }
 
@@ -41,22 +43,18 @@ class IvfPqRangeSearchTest : public FaissTestBase {
     IndexCacheHandle handle;
     if (!cache->Lookup(kCacheKey, &handle)) {
       faiss_ivf_pq_index_builder_
-          ->SetIndexCache(IndexCache::GetGlobalInstance())  //
-          .Open()                                           //
-          .Add({base_view_})                                //
-          .Flush(true, /*custom_cache_key=*/kCacheKey)      //
+          ->Open()            //
+          .Add({base_view_})  //
+          .Flush()            //
           .Close();
     }
   }
 
   std::unique_ptr<AnnSearcher> GetAnnSearcher() {
+    faiss_ivf_pq_meta_.read_index_options()["read_index_cache"] = true;
+    faiss_ivf_pq_meta_.read_index_options()["custom_cache_key"] = kCacheKey;
     auto searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_ivf_pq_meta_);
-    auto reader = IndexFactory::CreateReaderFromMeta(faiss_ivf_pq_meta_);
-    searcher
-        ->SetIndexReader(std::move(reader))  //
-        .SetIndexCache(IndexCache::GetGlobalInstance());
-
-    searcher->ReadIndex(kCacheKey, true);
+    searcher->ReadIndex("");
     return searcher;
   };
 

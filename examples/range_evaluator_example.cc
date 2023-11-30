@@ -48,6 +48,7 @@ IndexMeta PrepareHnswMeta(MetricType metric_type) {
   meta.common_params()["dim"] = dim;
   meta.common_params()["is_vector_normed"] = false;
   meta.common_params()["metric_type"] = metric_type;
+  meta.write_index_options()["write_index_cache"] = true;
   return meta;
 }
 

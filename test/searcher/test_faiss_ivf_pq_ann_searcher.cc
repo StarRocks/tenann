@@ -39,13 +39,10 @@ class FaissIvfPqAnnSearcherTest : public FaissTestBase {
 
 TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_InvalidArgs) {
   {
-    IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_ivf_pq_meta());
     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_ivf_pq_meta());
 
     // index path not exist
-    EXPECT_THROW(ann_searcher->SetIndexReader(index_reader)
-                     .SetIndexCache(IndexCache::GetGlobalInstance())
-                     .ReadIndex("not_exist_path", /*read_index_cache=*/false),
+    EXPECT_THROW(ann_searcher->ReadIndex("not_exist_path"),
                  Error);
 
     // because ReadIndex fail, index_ref_ is null
@@ -55,11 +52,8 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_InvalidArgs) {
   {
     // index_type() != IndexType::kFaissIvfPq
     EXPECT_THROW(
-        IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_ivf_pq_meta());
         auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_ivf_pq_meta());
-        ann_searcher->SetIndexReader(index_reader)
-            .SetIndexCache(IndexCache::GetGlobalInstance())
-            .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
+        ann_searcher->ReadIndex(index_with_primary_key_path());
         ann_searcher->index_ref()->SetIndexType(IndexType::kFaissHnsw);
         ann_searcher->AnnSearch(query_view()[0], k(), result_ids().data()), Error);
   }
@@ -72,11 +66,8 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_InvalidArgs) {
                          .size = d(),
                          .elem_type = PrimitiveType::kDoubleType};
 
-    IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_ivf_pq_meta());
     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_ivf_pq_meta());
-    ann_searcher->SetIndexReader(index_reader)
-        .SetIndexCache(IndexCache::GetGlobalInstance())
-        .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
+    ann_searcher->ReadIndex(index_with_primary_key_path());
     EXPECT_THROW(ann_searcher->AnnSearch(double_type_query_view, k(), result_ids().data()), Error);
   }
 }
@@ -97,7 +88,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
 
   {
     // nprobe = 1, recall rate < 0.8
-    faiss_ivf_pq_meta().search_params()["nprobe"] = size_t(4 * sqrt(nb_));
+    faiss_ivf_pq_meta().search_params()["nprobe"] = 1;
     faiss_ivf_pq_meta().search_params()["max_codes"] = 0;
     faiss_ivf_pq_meta().search_params()["scan_table_threshold"] = 0;
     faiss_ivf_pq_meta().search_params()["polysemous_ht"] = 0;
@@ -108,7 +99,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
     for (int i = 0; i < nq_; i++) {
       ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
     }
-    EXPECT_TRUE(RecallCheckResult_80Percent());
+    EXPECT_FALSE(RecallCheckResult_80Percent());
   }
 
   {

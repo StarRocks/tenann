@@ -108,7 +108,7 @@ IndexBuilder& FaissIndexBuilder::Add(const std::vector<SeqView>& input_columns,
   return *this;
 }
 
-IndexBuilder& FaissIndexBuilder::Flush(bool write_index_cache, const char* custom_cache_key) {
+IndexBuilder& FaissIndexBuilder::Flush() {
   try {
     T_SCOPED_TIMER(flush_total_timer_);
 
@@ -116,18 +116,7 @@ IndexBuilder& FaissIndexBuilder::Flush(bool write_index_cache, const char* custo
     T_LOG_IF(ERROR, is_closed_) << "index builder has already been closed";
     T_LOG_IF(ERROR, index_ref_ == nullptr) << "index has not been built";
 
-    if (!memory_only_) {
-      // write index file
-      index_writer_->WriteIndex(index_ref_, index_save_path_);
-    }
-
-    // write index cache
-    if (write_index_cache) {
-      T_CHECK(index_cache_ != nullptr);
-      std::string cache_key = custom_cache_key ? custom_cache_key : index_save_path_;
-      IndexCacheHandle handle;
-      index_cache_->Insert(cache_key, index_ref_, &handle);
-    }
+    index_writer_->WriteIndex(index_ref_, index_save_path_, memory_only_);
   }
   CATCH_FAISS_ERROR;
 

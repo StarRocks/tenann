@@ -42,9 +42,6 @@ class TenANN {
   TenANN& CreateBuilderFromMeta(const std::string& input_meta) {
     tenann::IndexMeta meta(tenann::json::parse(input_meta));
     index_builder_ = tenann::IndexFactory::CreateBuilderFromMeta(meta);
-
-    index_writer_ = tenann::IndexFactory::CreateWriterFromMeta(meta);
-    index_builder_->SetIndexWriter(index_writer_);
     return *this;
   }
 
@@ -106,9 +103,6 @@ class TenANN {
   TenANN& CreateSearcherFromMeta(const std::string& input_meta) {
     tenann::IndexMeta meta(tenann::json::parse(input_meta));
     ann_searcher_ = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
-
-    index_reader_ = tenann::IndexFactory::CreateReaderFromMeta(meta);
-    ann_searcher_->SetIndexReader(index_reader_);
     return *this;
   }
 
@@ -147,8 +141,6 @@ class TenANN {
   }
 
  protected:
-  tenann::IndexWriterRef index_writer_;
-  tenann::IndexReaderRef index_reader_;
   std::unique_ptr<tenann::IndexBuilder> index_builder_;
   std::unique_ptr<tenann::AnnSearcher> ann_searcher_;
 };

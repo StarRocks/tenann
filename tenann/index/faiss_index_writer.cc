@@ -28,7 +28,7 @@ namespace tenann {
 
 FaissIndexWriter::~FaissIndexWriter() = default;
 
-void FaissIndexWriter::WriteIndex(IndexRef index, const std::string& path) {
+void FaissIndexWriter::WriteIndexFile(IndexRef index, const std::string& path) {
   try {
     auto faiss_index = static_cast<faiss::Index*>(index->index_raw());
     faiss::write_index(faiss_index, path.c_str());

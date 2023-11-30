@@ -14,7 +14,7 @@ class TestIndexHNSW(unittest.TestCase):
         nq = 10                       # nb of queries
         M = 4
         nbits = 4
-        nlists = math.floor(math.sqrt(nb))
+        nlist = math.floor(math.sqrt(nb))
         nprobe = math.floor(math.sqrt(nb))
         cls.meta_json = '''
             {
@@ -27,7 +27,7 @@ class TestIndexHNSW(unittest.TestCase):
                     "metric_type": 0
                 },
                 "index": {
-                    "nlists" : %d,
+                    "nlist" : %d,
                     "nbits": %d,
                     "M": %d
                 },
@@ -42,7 +42,8 @@ class TestIndexHNSW(unittest.TestCase):
                     "use_custom_row_id": false
                 }
             }
-        ''' % (dim, nlists, nbits, M, nprobe)
+        ''' % (dim, nlist, nbits, M, nprobe)
+        print("meta_json: ", cls.meta_json)
 
         np.random.seed(1234)          # make reproducible
         cls.xb = np.random.random((nb, dim)).astype('float32')

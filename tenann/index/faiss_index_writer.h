@@ -33,7 +33,7 @@ class FaissIndexWriter : public IndexWriter {
   T_FORBID_MOVE(FaissIndexWriter);
 
   // Write index file
-  void WriteIndex(IndexRef index, const std::string& path) override;
+  void WriteIndexFile(IndexRef index, const std::string& path) override;
 };
 
 }  // namespace tenann

@@ -66,6 +66,7 @@ dir(tenann_py)
 ann = tenann_py.TenANN()
 print("meta:", json_str)
 ann.create_builder(json_str).open("/tmp/faiss_hnsw_index_py").add(xb).flush()
+print("build & write index success")
 ann.create_searcher(json_str).read_index("/tmp/faiss_hnsw_index_py")
 for i, query_vector in enumerate(xq):
     result_ids = ann.ann_search(query_vector, 10)

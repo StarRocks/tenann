@@ -18,6 +18,7 @@
  */
 
 #include "tenann/builder/index_builder.h"
+#include "tenann/factory/index_factory.h"
 
 #include "index_builder.h"
 #include "tenann/common/logging.h"
@@ -25,26 +26,16 @@
 
 namespace tenann {
 
-IndexBuilder::IndexBuilder(const IndexMeta& meta) : index_meta_(meta){};
+IndexBuilder::IndexBuilder(const IndexMeta& meta) : index_meta_(meta) {
+  index_writer_ = IndexFactory::CreateWriterFromMeta(meta);
+  index_writer_->SetIndexCache(IndexCache::GetGlobalInstance());
+}
 
 IndexBuilder::~IndexBuilder() {}
 
 IndexBuilder& IndexBuilder::SetBuildOptions(const json& options) {
   T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
   build_options_ = options;
-  return *this;
-}
-
-IndexBuilder& IndexBuilder::SetIndexWriter(IndexWriterRef writer) {
-  T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
-  index_writer_ = writer;
-  return *this;
-}
-
-IndexBuilder& IndexBuilder::SetIndexCache(IndexCache* cache) {
-  T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
-  T_CHECK_NOTNULL(cache);
-  index_cache_ = cache;
   return *this;
 }
 
@@ -74,10 +65,6 @@ IndexRef IndexBuilder::index_ref() const { return index_ref_; }
 IndexWriter* IndexBuilder::index_writer() { return index_writer_.get(); }
 
 const IndexWriter* IndexBuilder::index_writer() const { return index_writer_.get(); }
-
-IndexCache* IndexBuilder::index_cache() { return index_cache_; }
-
-const IndexCache* IndexBuilder::index_cache() const { return index_cache_; }
 
 RuntimeProfile* IndexBuilder::profile() { return profile_.get(); }
 

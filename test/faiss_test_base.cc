@@ -80,6 +80,9 @@ void FaissTestBase::InitFaissHnswMeta() {
   faiss_hnsw_meta_.search_params()["efSearch"] = 40;
   faiss_hnsw_meta_.search_params()["check_relative_distance"] = true;
   faiss_hnsw_meta_.extra_params()["comments"] = "my comments";
+  faiss_hnsw_meta_.write_index_options()["write_index_cache"] = true;
+  faiss_hnsw_meta_.write_index_options()["custom_cache_key"] = "test";
+  faiss_hnsw_meta_.read_index_options()["read_index_cache"] = false;
 }
 
 void FaissTestBase::InitFaissIvfPqMeta() {
@@ -100,6 +103,8 @@ void FaissTestBase::InitFaissIvfPqMeta() {
   faiss_ivf_pq_meta_.search_params()["scan_table_threshold"] = size_t(0);
   faiss_ivf_pq_meta_.search_params()["polysemous_ht"] = int(0);
   faiss_ivf_pq_meta_.extra_params()["comments"] = "my comments";
+  faiss_ivf_pq_meta_.write_index_options()["write_index_cache"] = false;
+  faiss_ivf_pq_meta_.read_index_options()["read_index_cache"] = false;
 }
 
 std::vector<uint8_t> FaissTestBase::RandomBoolVectors(uint32_t n, int seed) {
@@ -170,22 +175,17 @@ void FaissTestBase::InitAccurateQueryResult(bool use_custom_row_id, int id_filte
 // 不同的Index创建方式，预期查询结果也是不同的
 void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id, int id_filter_count) {
   InitAccurateQueryResult(use_custom_row_id, id_filter_count);
-  index_writer_ = IndexFactory::CreateWriterFromMeta(faiss_hnsw_meta_);
 
   if (use_custom_row_id) {
-    faiss_hnsw_index_builder_->SetIndexWriter(index_writer_)
-        .SetIndexCache(IndexCache::GetGlobalInstance())
-        .EnableCustomRowId()
+    faiss_hnsw_index_builder_->EnableCustomRowId()
         .Open(index_with_primary_key_path_)
         .Add({base_view_}, ids_.data(), null_flags_.data())
-        .Flush(/*write_index_cache=*/true)
+        .Flush()
         .Close();
   } else {
-    faiss_hnsw_index_builder_->SetIndexWriter(index_writer_)
-        .SetIndexCache(IndexCache::GetGlobalInstance())
-        .Open(index_with_primary_key_path_)
+    faiss_hnsw_index_builder_->Open(index_with_primary_key_path_)
         .Add({base_view_}, nullptr, nullptr)
-        .Flush(/*write_index_cache=*/true)
+        .Flush()
         .Close();
   }
   meta_ = faiss_hnsw_meta_;
@@ -194,37 +194,32 @@ void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id, int id_
 // 不同的Index创建方式，预期查询结果也是不同的
 void FaissTestBase::CreateAndWriteFaissIvfPqIndex(bool use_custom_row_id, int id_filter_count) {
   InitAccurateQueryResult(use_custom_row_id, id_filter_count);
-  index_writer_ = IndexFactory::CreateWriterFromMeta(faiss_ivf_pq_meta_);
 
   // use_custom_row_id还有一个作用是判断是否使用 null_flags
   if (use_custom_row_id) {
-    faiss_ivf_pq_index_builder_->SetIndexWriter(index_writer_)
-        .SetIndexCache(IndexCache::GetGlobalInstance())
-        .EnableCustomRowId()
+    faiss_ivf_pq_index_builder_->EnableCustomRowId()
         .Open(index_with_primary_key_path_)
         .Add({base_view_}, ids_.data(), null_flags_.data())
-        .Flush(/*write_index_cache=*/true)
+        .Flush()
         .Close();
   } else {
-    faiss_ivf_pq_index_builder_->SetIndexWriter(index_writer_)
-        .SetIndexCache(IndexCache::GetGlobalInstance())
-        .Open(index_with_primary_key_path_)
+    faiss_ivf_pq_index_builder_->Open(index_with_primary_key_path_)
         .Add({base_view_}, nullptr, nullptr)
-        .Flush(/*write_index_cache=*/true)
+        .Flush()
         .Close();
   }
 
   meta_ = faiss_ivf_pq_meta_;
 }
 
-void FaissTestBase::ReadIndexAndDefaultSearch() {
-  index_reader_ = IndexFactory::CreateReaderFromMeta(meta_);
+void FaissTestBase::ReadIndexAndDefaultSearch(size_t limit_cache_capacity) {
   ann_searcher_ = AnnSearcherFactory::CreateSearcherFromMeta(meta_);
+  if (limit_cache_capacity) {
+    ann_searcher_->index_reader()->index_cache()->SetCapacity(limit_cache_capacity);
+  }
 
   // load index from disk file
-  ann_searcher_->SetIndexReader(index_reader_)
-      .SetIndexCache(IndexCache::GetGlobalInstance())
-      .ReadIndex(index_with_primary_key_path_, /*read_index_cache=*/true);
+  ann_searcher_->ReadIndex(index_with_primary_key_path_);
 
   result_ids_.resize(nq_ * k_);
 
@@ -237,6 +232,7 @@ void FaissTestBase::ReadIndexAndDefaultSearch() {
 bool FaissTestBase::RecallCheckResult_80Percent() { return ComputeRecall() > 0.8; }
 
 float FaissTestBase::ComputeRecall() {
+  printf("ComputeRecall >>>>>>>>>>>>> nq %d nb %d\n", nq_, nb_);
   float recall_sum;
   for (int i = 0; i < nq_; i++) {
     printf("accurate_id(%d): \n", i);

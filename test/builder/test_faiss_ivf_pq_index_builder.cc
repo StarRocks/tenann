@@ -39,24 +39,24 @@ class FaissIvfPqIndexBuilderTest : public FaissTestBase {
 TEST_F(FaissIvfPqIndexBuilderTest, Open) {
   {
     // open with pure memory
-    auto hnsw_index_builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
-    auto index_ref = hnsw_index_builder->Open().index_ref();
+    auto ivf_pq_index_builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
+    auto index_ref = ivf_pq_index_builder->Open().index_ref();
     EXPECT_TRUE(index_ref != nullptr);
     EXPECT_EQ(index_ref->index_type(), IndexType::kFaissIvfPq);
 
     // reopen with pure memory
-    EXPECT_THROW(hnsw_index_builder->Open(), Error);
+    EXPECT_THROW(ivf_pq_index_builder->Open(), Error);
   }
 
   {
     // open with path
-    auto hnsw_index_builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
-    auto index_ref = hnsw_index_builder->Open(index_path()).index_ref();
+    auto ivf_pq_index_builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
+    auto index_ref = ivf_pq_index_builder->Open(index_path()).index_ref();
     EXPECT_TRUE(index_ref != nullptr);
     EXPECT_EQ(index_ref->index_type(), IndexType::kFaissIvfPq);
 
     // reopen with pure memory
-    EXPECT_THROW(hnsw_index_builder->Open(), Error);
+    EXPECT_THROW(ivf_pq_index_builder->Open(), Error);
   }
 }
 
@@ -83,19 +83,17 @@ TEST_F(FaissIvfPqIndexBuilderTest, Add) {
   // inputs_live_longer_than_this(true)
   std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
       ->EnableCustomRowId()
-      .SetIndexCache(IndexCache::GetGlobalInstance())
       .Open()
       .Add({base_view()}, ids().data(), nullptr, true)
-      .Flush(/*write_index_cache=*/true)
+      .Flush()
       .Close();
   std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
       ->EnableCustomRowId()
-      .SetIndexCache(IndexCache::GetGlobalInstance())
       .Open()
       .Add({base_view()}, ids().data(), nullptr, true)
       .Add({base_view()}, ids().data(), nullptr, true)
       .Add({base_view()}, ids().data(), nullptr, true)
-      .Flush(/*write_index_cache=*/true)
+      .Flush()
       .Add({base_view()}, ids().data(), nullptr, true)
       .Close();
   // use_custom_row_id_(false), null_map(not null)
@@ -127,19 +125,17 @@ TEST_F(FaissIvfPqIndexBuilderTest, Add) {
   // inputs_live_longer_than_this(true)
   std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
       ->EnableCustomRowId()
-      .SetIndexCache(IndexCache::GetGlobalInstance())
       .Open()
       .Add({base_vl_view()}, ids().data(), nullptr, true)
-      .Flush(/*write_index_cache=*/true)
+      .Flush()
       .Close();
   std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
       ->EnableCustomRowId()
-      .SetIndexCache(IndexCache::GetGlobalInstance())
       .Open()
       .Add({base_vl_view()}, ids().data(), nullptr, true)
       .Add({base_vl_view()}, ids().data(), nullptr, true)
       .Add({base_vl_view()}, ids().data(), nullptr, true)
-      .Flush(/*write_index_cache=*/true)
+      .Flush()
       .Add({base_vl_view()}, ids().data(), nullptr, true)
       .Close();
   // use_custom_row_id_(false), null_map(not null)

@@ -17,6 +17,7 @@ int main(int argc, char const* argv[]) {
   meta.common_params()["metric_type"] = MetricType::kL2Distance;
   meta.common_params()["dim"] = 768;
   meta.common_params()["is_vector_normed"] = false;
+  meta.read_index_options()["read_index_cache"] = true;
 
   auto profile = new RuntimeProfile("root");
   auto init_timer = T_ADD_TIMER(profile, "round1");
@@ -170,10 +171,7 @@ int main(int argc, char const* argv[]) {
   {
     T_SCOPED_TIMER(init_timer);
     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta);
-    std::shared_ptr<IndexReader> index_reader = IndexFactory::CreateReaderFromMeta(meta);
-    ann_searcher->SetIndexReader(index_reader)
-        .SetIndexCache(IndexCache::GetGlobalInstance())
-        .ReadIndex(index_path, true);
+    ann_searcher->ReadIndex(index_path);
 
     ann_searcher->AnnSearch(query_view, 10, results.data());
   }
@@ -182,10 +180,7 @@ int main(int argc, char const* argv[]) {
   for (int i = 1; i <= 100; i++) {
     T_SCOPED_TIMER(avg_timer);
     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta);
-    std::shared_ptr<IndexReader> index_reader = IndexFactory::CreateReaderFromMeta(meta);
-    ann_searcher->SetIndexReader(index_reader)
-        .SetIndexCache(IndexCache::GetGlobalInstance())
-        .ReadIndex(index_path, true);
+    ann_searcher->ReadIndex(index_path);
     ann_searcher->AnnSearch(query_view, 10, results.data());
     std::cout << results[1];
   }

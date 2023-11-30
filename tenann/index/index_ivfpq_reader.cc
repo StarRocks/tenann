@@ -152,7 +152,7 @@ static constexpr const int IO_FLAG = faiss::IO_FLAG_READ_ONLY;
 
 IndexIvfPqReader::~IndexIvfPqReader() = default;
 
-IndexRef IndexIvfPqReader::ReadIndex(const std::string& path) {
+IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
   // open the index file and close it automatically
   // when we leave the current scope through `Defer`
   auto file = fopen(path.c_str(), "rb");
@@ -161,7 +161,7 @@ IndexRef IndexIvfPqReader::ReadIndex(const std::string& path) {
   });
 
   T_LOG_IF(ERROR, file == nullptr)
-      << "could not open " << path << " for reading: " << strerror(errno);
+      << "could not open [" << path << "] for reading: " << strerror(errno);
 
   try {
     // init an IOReader for index reading

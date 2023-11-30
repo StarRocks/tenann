@@ -53,6 +53,8 @@ int main() {
   meta.index_params()["M"] = 32;
   meta.search_params()["efSearch"] = 40;
   meta.extra_params()["comments"] = "my comments";
+  meta.write_index_options()["write_index_cache"] = true;
+  meta.read_index_options()["read_index_cache"] = true;
 
   // dimension of the vectors to index
   uint32_t d = 128;
@@ -86,20 +88,15 @@ int main() {
   try {
     auto index_builder1 = tenann::IndexFactory::CreateBuilderFromMeta(meta);
     auto index_builder2 = tenann::IndexFactory::CreateBuilderFromMeta(meta);
-    tenann::IndexWriterRef index_writer = tenann::IndexFactory::CreateWriterFromMeta(meta);
 
-    index_builder1->SetIndexWriter(index_writer)
-        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-        .Open(index_path + "1")
+    index_builder1->Open(index_path + "1")
         .Add({base_view})
-        .Flush(/*write_index_cache=*/true);
+        .Flush();
 
-    index_builder2->SetIndexWriter(index_writer)
-        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-        .EnableCustomRowId()
+    index_builder2->EnableCustomRowId()
         .Open(index_path + "2")
         .Add({base_view}, ids.data())
-        .Flush(/*write_index_cache=*/true);
+        .Flush();
 
   } catch (tenann::Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";
@@ -111,13 +108,10 @@ int main() {
 
     // read and search index
     try {
-      tenann::IndexReaderRef index_reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
       auto ann_searcher = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
 
       // load index from disk file
-      ann_searcher->SetIndexReader(index_reader)
-          .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-          .ReadIndex(oss.str(), /*read_index_cache=*/true);
+      ann_searcher->ReadIndex(oss.str());
       T_DCHECK(ann_searcher->is_index_loaded());
 
       int k = 10;

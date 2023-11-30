@@ -32,7 +32,7 @@ class FaissIndexReader : public IndexReader {
   T_FORBID_MOVE(FaissIndexReader);
 
   // Read index file
-  IndexRef ReadIndex(const std::string& path) override;
+  IndexRef ReadIndexFile(const std::string& path) override;
 };
 
 }  // namespace tenann

@@ -31,6 +31,8 @@ IndexMeta::IndexMeta() {
   meta_json_[kIndexKey] = {};
   meta_json_[kSearchKey] = {};
   meta_json_[kExtraKey] = {};
+  meta_json_[kWriteIndexKey] = {};
+  meta_json_[kReadIndexKey] = {};
 };
 
 IndexMeta::IndexMeta(const json& meta_json) : meta_json_(meta_json) {}
@@ -68,11 +70,15 @@ json& IndexMeta::common_params() { return meta_json_["common"]; }
 json& IndexMeta::index_params() { return meta_json_["index"]; }
 json& IndexMeta::search_params() { return meta_json_["search"]; }
 json& IndexMeta::extra_params() { return meta_json_["extra"]; }
+json& IndexMeta::write_index_options() { return meta_json_["write_index"]; }
+json& IndexMeta::read_index_options() { return meta_json_["read_index"]; }
 
 const json& IndexMeta::common_params() const { return meta_json_["common"]; }
 const json& IndexMeta::index_params() const { return meta_json_["index"]; }
 const json& IndexMeta::search_params() const { return meta_json_["search"]; }
 const json& IndexMeta::extra_params() const { return meta_json_["extra"]; }
+const json& IndexMeta::write_index_options() const { return meta_json_["write_index"]; }
+const json& IndexMeta::read_index_options() const { return meta_json_["read_index"]; }
 
 IndexMeta IndexMeta::Read(const std::string& file_path) {
   try {

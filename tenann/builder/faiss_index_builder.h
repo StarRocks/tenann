@@ -47,8 +47,7 @@ class FaissIndexBuilder : public IndexBuilder {
                     const uint8_t* null_flags = nullptr,
                     bool inputs_live_longer_than_this = false) override;
 
-  IndexBuilder& Flush(bool write_index_cache = false,
-                      const char* custom_cache_key = nullptr) override;
+  IndexBuilder& Flush() override;
 
   void Close() override;
 

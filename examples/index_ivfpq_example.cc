@@ -80,10 +80,7 @@ int main() {
   // build and write index
   try {
     auto index_builder1 = tenann::IndexFactory::CreateBuilderFromMeta(meta);
-    tenann::IndexWriterRef index_writer = tenann::IndexFactory::CreateWriterFromMeta(meta);
-    index_builder1->SetIndexWriter(index_writer)
-        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-        .Open(index_path);
+    index_builder1->Open(index_path);
     const int64_t step = 5000;
     auto* data = base.data();
     for (int64_t i = 0; i < nb; i += 5000) {
@@ -96,7 +93,7 @@ int main() {
       data += step;
     }
     T_LOG(WARNING) << "Flushing data...";
-    index_builder1->Flush(true);
+    index_builder1->Flush();
   } catch (tenann::Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";
   }

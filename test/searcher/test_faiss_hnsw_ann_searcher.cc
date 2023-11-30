@@ -41,13 +41,10 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
   CreateAndWriteFaissHnswIndex(true);
 
   {
-    IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
 
     // index path not exist
-    EXPECT_THROW(ann_searcher->SetIndexReader(index_reader)
-                     .SetIndexCache(IndexCache::GetGlobalInstance())
-                     .ReadIndex("not_exist_path", /*read_index_cache=*/false),
+    EXPECT_THROW(ann_searcher->ReadIndex("not_exist_path"),
                  Error);
 
     // because ReadIndex fail, index_ref_ is null
@@ -57,11 +54,8 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
   {
     // index_type() != IndexType::kFaissHnsw
     EXPECT_THROW(
-        IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
         auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
-        ann_searcher->SetIndexReader(index_reader)
-            .SetIndexCache(IndexCache::GetGlobalInstance())
-            .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
+        ann_searcher->ReadIndex(index_with_primary_key_path());
         ann_searcher->index_ref()->SetIndexType(IndexType::kFaissIvfPq);
         ann_searcher->AnnSearch(query_view()[0], k(), result_ids().data()), Error);
   }
@@ -73,11 +67,8 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_InvalidArgs) {
                          .size = d(),
                          .elem_type = PrimitiveType::kDoubleType};
 
-    IndexReaderRef index_reader = IndexFactory::CreateReaderFromMeta(faiss_hnsw_meta());
     auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_hnsw_meta());
-    ann_searcher->SetIndexReader(index_reader)
-        .SetIndexCache(IndexCache::GetGlobalInstance())
-        .ReadIndex(index_with_primary_key_path(), /*read_index_cache=*/false);
+    ann_searcher->ReadIndex(index_with_primary_key_path());
     EXPECT_THROW(ann_searcher->AnnSearch(double_type_query_view, k(), result_ids().data()), Error);
   }
 }

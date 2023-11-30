@@ -18,13 +18,43 @@
  */
 
 #include "tenann/index/index_writer.h"
+#include "tenann/index/parameter_serde.h"
+#include "tenann/common/logging.h"
 
 #include "index_writer.h"
 
 namespace tenann {
 
+IndexWriter::IndexWriter(const IndexMeta& meta) : index_meta_(meta) {
+  FetchParameters(meta, &write_index_options_);
+}
+
 IndexWriter::~IndexWriter() = default;
 
 const IndexMeta& IndexWriter::index_meta() const { return index_meta_; }
+
+void IndexWriter::WriteIndex(IndexRef index, const std::string& path, bool memory_only) {
+  if (write_index_options_.write_index_cache) {
+    T_LOG_IF(ERROR, index_cache_ == nullptr) << "index cache not set";
+    const std::string& cache_key = !write_index_options_.custom_cache_key.empty() ? write_index_options_.custom_cache_key : path;
+    IndexCacheHandle handle;
+    index_cache_->Insert(cache_key, index, &handle);
+  }
+  if (memory_only) {
+    return;
+  }
+
+  WriteIndexFile(index, path);
+}
+
+IndexWriter& IndexWriter::SetIndexCache(IndexCache* cache) {
+  T_CHECK_NOTNULL(cache);
+  index_cache_ = cache;
+  return *this;
+}
+
+IndexCache* IndexWriter::index_cache() { return index_cache_; }
+
+const IndexCache* IndexWriter::index_cache() const { return index_cache_; }
 
 }  // namespace tenann

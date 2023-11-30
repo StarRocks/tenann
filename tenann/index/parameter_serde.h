@@ -51,6 +51,10 @@ namespace tenann {
   GET_OPTIONAL_PARAM_TO(meta, target, Search, parameter_name)
 #define GET_OPTIONAL_EXTRA_PARAM_TO(meta, target, parameter_name) \
   GET_OPTIONAL_PARAM_TO(meta, target, Extra, parameter_name)
+#define GET_OPTIONAL_WRITE_INDEX_PARAM_TO(meta, target, parameter_name) \
+  GET_OPTIONAL_PARAM_TO(meta, target, WriteIndex, parameter_name)
+#define GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, target, parameter_name) \
+  GET_OPTIONAL_PARAM_TO(meta, target, ReadIndex, parameter_name)
 
 #define GET_REQUIRED_COMMON_PARAM_TO(meta, target, parameter_name) \
   GET_REQUIRED_PARAM_TO(meta, target, Common, parameter_name)
@@ -60,6 +64,10 @@ namespace tenann {
   GET_REQUIRED_PARAM_TO(meta, target, Search, parameter_name)
 #define GET_REQUIRED_EXTRA_PARAM_TO(meta, target, parameter_name) \
   GET_REQUIRED_PARAM_TO(meta, target, Extra, parameter_name)
+#define GET_REQUIRED_WRITE_INDEX_PARAM_TO(meta, target, parameter_name) \
+  GET_REQUIRED_PARAM_TO(meta, target, WriteIndex, parameter_name)
+#define GET_REQUIRED_READ_INDEX_PARAM_TO(meta, target, parameter_name) \
+  GET_REQUIRED_PARAM_TO(meta, target, ReadIndex, parameter_name)
 
 inline void FetchParameters(const IndexMeta& meta, VectorIndexCommonParams* out_params) {
   GET_REQUIRED_COMMON_PARAM_TO(meta, *out_params, dim);
@@ -104,6 +112,25 @@ inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_p
   GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, scan_table_threshold);
   GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, polysemous_ht);
   GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, range_search_confidence)
+
+  out_params->Validate();
+}
+
+inline void FetchParameters(const IndexMeta& meta, WriteIndexOptions* out_params) {
+  GET_OPTIONAL_WRITE_INDEX_PARAM_TO(meta, *out_params, write_index_cache);
+  if (meta.write_index_options().contains("custom_cache_key")) {
+      out_params->custom_cache_key = meta.write_index_options()["custom_cache_key"];
+  }
+
+  out_params->Validate();
+}
+
+inline void FetchParameters(const IndexMeta& meta, ReadIndexOptions* out_params) {
+  GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, read_index_cache);
+  if (meta.read_index_options().contains("custom_cache_key")) {
+      out_params->custom_cache_key = meta.read_index_options()["custom_cache_key"];
+  }
+  GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, force_read_and_overwrite_cache);
 
   out_params->Validate();
 }

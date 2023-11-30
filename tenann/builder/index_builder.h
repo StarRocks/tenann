@@ -20,7 +20,6 @@
 #pragma once
 
 #include "tenann/common/seq_view.h"
-#include "tenann/index/index_cache.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
 #include "tenann/store/index_meta.h"
@@ -74,13 +73,9 @@ class IndexBuilder {
    * Once the first flush is completed, the index builder can also support adding new data until it
    * is closed.
    *
-   * @param write_index_cache
-   * @param custom_cache_key
-   *
    * @return IndexBuilder&
    */
-  virtual IndexBuilder& Flush(bool write_index_cache = false,
-                              const char* custom_cache_key = nullptr) = 0;
+  virtual IndexBuilder& Flush() = 0;
 
   // Clean resources and close this builder.
   virtual void Close() = 0;
@@ -90,8 +85,6 @@ class IndexBuilder {
 
   /** Setters */
   IndexBuilder& SetBuildOptions(const json& options);
-  IndexBuilder& SetIndexWriter(IndexWriterRef writer);
-  IndexBuilder& SetIndexCache(IndexCache* cache);
   IndexBuilder& EnableCustomRowId();
   IndexBuilder& EnableProfile();
   IndexBuilder& DisableProfile();
@@ -104,10 +97,6 @@ class IndexBuilder {
   const IndexWriter* index_writer() const;
 
   IndexRef index_ref() const;
-
-  IndexCache* index_cache();
-
-  const IndexCache* index_cache() const;
 
   RuntimeProfile* profile();
 
@@ -122,9 +111,8 @@ class IndexBuilder {
   json build_options_;
   bool use_custom_row_id_ = false;
 
-  /* writer and cache */
+  /* writer */
   IndexWriterRef index_writer_ = nullptr;
-  IndexCache* index_cache_ = nullptr;
   std::string index_save_path_ = "";
 
   /* statistics */

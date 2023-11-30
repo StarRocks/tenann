@@ -58,11 +58,15 @@ class IndexMeta {
   json& index_params();
   json& search_params();
   json& extra_params();
+  json& write_index_options();
+  json& read_index_options();
 
   const json& common_params() const;
   const json& index_params() const;
   const json& search_params() const;
   const json& extra_params() const;
+  const json& write_index_options() const;
+  const json& read_index_options() const;
 
   /// Read from a json file
   static IndexMeta Read(const std::string& path);
@@ -108,6 +112,16 @@ class IndexMeta {
   }
 
   template <typename T, typename = std::enable_if_t<!std::is_reference_v<T>>>
+  T GetRequiredWriteIndexParam(const char* key) const {
+    return GetRequired<T>(kWriteIndexKey, key);
+  }
+
+  template <typename T, typename = std::enable_if_t<!std::is_reference_v<T>>>
+  T GetRequiredReadIndexParam(const char* key) const {
+    return GetRequired<T>(kReadIndexKey, key);
+  }
+
+  template <typename T, typename = std::enable_if_t<!std::is_reference_v<T>>>
   std::optional<T> GetOptionalCommonParam(const char* key) const {
     return GetOptional<T>(kCommonKey, key);
   }
@@ -127,11 +141,23 @@ class IndexMeta {
     return GetOptional<T>(kExtraKey, key);
   }
 
+  template <typename T, typename = std::enable_if_t<!std::is_reference_v<T>>>
+  std::optional<T> GetOptionalWriteIndexParam(const char* key) const {
+    return GetOptional<T>(kWriteIndexKey, key);
+  }
+
+  template <typename T, typename = std::enable_if_t<!std::is_reference_v<T>>>
+  std::optional<T> GetOptionalReadIndexParam(const char* key) const {
+    return GetOptional<T>(kReadIndexKey, key);
+  }
+
  private:
   static constexpr const char* kCommonKey = "common";
   static constexpr const char* kIndexKey = "index";
   static constexpr const char* kSearchKey = "search";
   static constexpr const char* kExtraKey = "extra";
+  static constexpr const char* kWriteIndexKey = "write_index";
+  static constexpr const char* kReadIndexKey = "read_index";
 
   template <typename T, typename = std::enable_if_t<!std::is_reference_v<T>>>
   std::optional<T> GetOptional(const char* section_key, const char* key) const {

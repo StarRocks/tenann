@@ -103,4 +103,19 @@ struct FaissHnswSearchParams {
   void Validate() { ASSERT_PARAM_IN_RANGE(efSearch, 1, INT_MAX); }
 };
 
+struct WriteIndexOptions {
+  DEFINE_OPTIONAL_PARAM(bool, write_index_cache, false);
+  std::string custom_cache_key = "";
+
+  void Validate() {}
+};
+
+struct ReadIndexOptions {
+  DEFINE_OPTIONAL_PARAM(bool, read_index_cache, false);
+  std::string custom_cache_key = "";
+  DEFINE_OPTIONAL_PARAM(bool, force_read_and_overwrite_cache, false);
+
+  void Validate() {}
+};
+
 }  // namespace tenann
