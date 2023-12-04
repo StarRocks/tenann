@@ -20,6 +20,7 @@
 #include "faiss/IndexFlat.h"
 #include "faiss/utils/distances.h"
 #include "gtest/gtest.h"
+#include "tenann/index/index_ivfpq_util.h"
 #include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/util/random.h"
 
@@ -49,4 +50,18 @@ TEST(IndexIvfPqTest, test_reconstruction_error) {
       EXPECT_LE(actual_error - ivfpq.reconstruction_errors[list_no][offset], float_diff_threshold);
     }
   }
+}
+
+TEST(IndexIvfPqTest, test_index_ivfpq_util) {
+  tenann::IndexMeta meta;
+  meta.SetMetaVersion(0);
+  meta.SetIndexType(tenann::IndexType::kFaissIvfPq);
+  meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
+
+  auto min1 = tenann::GetIvfPqMinRows(meta);
+  EXPECT_EQ(min1, tenann::FaissIvfPqIndexParams::nlist_default * tenann::kIvfPqMinRowsPerCluster);
+
+  meta.index_params()["nlist"] = 10;
+  auto min2 = tenann::GetIvfPqMinRows(meta);
+  EXPECT_EQ(min2, 10 * tenann::kIvfPqMinRowsPerCluster);
 }
