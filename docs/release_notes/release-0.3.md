@@ -1,5 +1,12 @@
 # TenANN v0.3.x
 
+## v0.3.2-RELEASE
+Download URL: [tenann-v0.3.2-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.2-RELEASE.tar.gz)
+
+### New Features
+
+- 新增`tenan/index/index_ivfpq_util.h`，提供`GetIvfPqMinRows`方法，用于获取构建IvfPq索引所需的最小行数，
+
 ## v0.3.1-RELEASE
 Download URL: [tenann-v0.3.1-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.1-RELEASE.tar.gz)
 

@@ -14,5 +14,5 @@
 
 |     | ANN Search | ANN Search with Filter | Range Search | Range Search with Filter |
 | --- | --- | --- | --- | --- |
-| HNSW   | ✅ | ✅ | x  | x |
-| IVF-PQ | ✅ | ✅ | ✅ | ✅ |
+| HNSW   | ✅ | ✅ | ✅  | ✅  |
+| IVF-PQ | ✅ | ✅ | ✅  | ✅  |

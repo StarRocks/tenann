@@ -26,7 +26,17 @@ namespace tenann {
 
 constexpr const size_t kIvfPqMinRowsPerCluster = 39;
 
-/// Get minimum number of rows required by IndexIvfPq
+/**
+ * @brief  Get minimum number of rows required by IndexIvfPq.
+ *
+ * @param meta Index meta.
+ * @param min_rows_per_cluster Minimum data rows required by per cluster.
+ *  If min_rows_per_cluster < 1, building ivfpq will throw an error.
+ *  If 1 <= min_rows_per_cluster < 39, building ivfpq will trigger a warning.
+ *  The best practice is to set min_rows_per_cluster to 39 or higher to avoid errors and
+ *  warnings.
+ * @return size_t
+ */
 inline size_t GetIvfPqMinRows(const IndexMeta& meta,
                               size_t min_rows_per_cluster = kIvfPqMinRowsPerCluster) {
   FaissIvfPqIndexParams params;
