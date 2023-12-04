@@ -41,7 +41,11 @@ inline size_t GetIvfPqMinRows(const IndexMeta& meta,
                               size_t min_rows_per_cluster = kIvfPqMinRowsPerCluster) {
   FaissIvfPqIndexParams params;
   FetchParameters(meta, &params);
-  return min_rows_per_cluster * params.nlist;
+  auto ivf_required_min_rows = min_rows_per_cluster * params.nlist;
+  auto pq_required_min_rows = min_rows_per_cluster * (2 << params.nbits);
+  auto min_rows =
+      ivf_required_min_rows > pq_required_min_rows ? ivf_required_min_rows : pq_required_min_rows;
+  return min_rows;
 }
 
 }  // namespace tenann
