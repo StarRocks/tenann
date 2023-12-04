@@ -97,7 +97,7 @@ void FaissTestBase::InitFaissIvfPqMeta() {
   faiss_ivf_pq_meta_.common_params()["metric_type"] = MetricType::kL2Distance;
   faiss_ivf_pq_meta_.index_params()["nlist"] = int(4 * sqrt(nb_));
   faiss_ivf_pq_meta_.index_params()["M"] = 4;
-  faiss_ivf_pq_meta_.index_params()["nbits"] = 6;
+  faiss_ivf_pq_meta_.index_params()["nbits"] = 8;
   faiss_ivf_pq_meta_.search_params()["nprobe"] = int(4 * sqrt(nb_));
   faiss_ivf_pq_meta_.search_params()["max_codes"] = size_t(0);
   faiss_ivf_pq_meta_.search_params()["scan_table_threshold"] = size_t(0);

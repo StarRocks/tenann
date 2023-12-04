@@ -69,6 +69,7 @@ struct FaissIvfPqIndexParams {
   void Validate() {
     ASSERT_PARAM_IN_RANGE(nlist, 1, INT_MAX);
     ASSERT_PARAM_IN_RANGE(M, 1, INT_MAX);
+    ASSERT_PARAM_IN_RANGE(nbits, 8, 32);
   }
 };
 

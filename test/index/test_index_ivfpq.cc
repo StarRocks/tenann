@@ -59,11 +59,11 @@ TEST(IndexIvfPqTest, test_index_ivfpq_util) {
   meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
 
   // deafult pq8 requires at least 256 rows
-  auto min1 = tenann::GetIvfPqMinRows(meta);
+  auto min1 = tenann::GetIvfPqMinRows(meta, 1);
   EXPECT_EQ(min1, 256);
 
   // ivf-300 requires at least 300 rows
   meta.index_params()["nlist"] = 300;
-  auto min2 = tenann::GetIvfPqMinRows(meta);
+  auto min2 = tenann::GetIvfPqMinRows(meta, 1);
   EXPECT_EQ(min2, 300);
 }

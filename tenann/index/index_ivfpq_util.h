@@ -42,7 +42,7 @@ inline size_t GetIvfPqMinRows(const IndexMeta& meta,
   FaissIvfPqIndexParams params;
   FetchParameters(meta, &params);
   auto ivf_required_min_rows = min_rows_per_cluster * params.nlist;
-  auto pq_required_min_rows = min_rows_per_cluster * (2 << params.nbits);
+  auto pq_required_min_rows = min_rows_per_cluster * (size_t(1) << params.nbits);
   auto min_rows =
       ivf_required_min_rows > pq_required_min_rows ? ivf_required_min_rows : pq_required_min_rows;
   return min_rows;
