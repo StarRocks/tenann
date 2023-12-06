@@ -176,6 +176,22 @@ build_lapack() {
     cp -f ${TP_INSTALL_DIR}/lib/cmake/lapack/lapack-config.cmake ${TP_INSTALL_DIR}/lib/cmake/lapack/blas-config.cmake
 }
 
+build_openblas() {
+    check_if_source_exist $OPENBLAS_SOURCE
+    cd $TP_SOURCE_DIR/$OPENBLAS_SOURCE
+    mkdir -p $BUILD_DIR
+    cd $BUILD_DIR
+    # rm -rf CMakeCache.txt CMakeFiles/
+    $CMAKE_CMD -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_INSTALL_INCLUDEDIR=${TP_INSTALL_DIR}/include \
+        -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
+        -DUSE_OPENMP=1 \
+        -DNUM_PARALLEL=8 \
+        ..
+    $CMAKE_CMD --build . -j$PARALLEL --target install
+}
+
 #faiss
 build_faiss() {
     check_if_source_exist $FAISS_SOURCE
@@ -183,7 +199,7 @@ build_faiss() {
 
     mkdir -p $BUILD_DIR
     cd $BUILD_DIR
-    rm -rf CMakeCache.txt CMakeFiles/
+    # rm -rf CMakeCache.txt CMakeFiles/
     $CMAKE_CMD -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
         -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
@@ -259,7 +275,7 @@ export CXXFLAGS=$GLOBAL_CXXFLAGS
 export CFLAGS=$GLOBAL_CFLAGS
 
 build_fmt
-build_lapack # must before faiss
+build_openblas # must before faiss
 build_faiss
 build_gtest
 # build_pybind11

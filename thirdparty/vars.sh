@@ -95,11 +95,11 @@ FAISS_NAME=faiss-v1.7.3.tar.gz
 FAISS_SOURCE=faiss-1.7.3
 FAISS_MD5SUM="632c5f465e80ebf10a7e2a54e5c853f7"
 
-# lapack
-LAPACK_DOWNLOAD="https://github.com/Reference-LAPACK/lapack/archive/refs/tags/v3.11.0.tar.gz"
-LAPACK_NAME=lapack-3.11.0.tar.gz
-LAPACK_SOURCE=lapack-3.11.0
-LAPACK_MD5SUM="595b064fd448b161cd711fe346f498a7"
+# openblas
+OPENBLAS_DOWNLOAD="https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.25/OpenBLAS-0.3.25.tar.gz"
+OPENBLAS_NAME=OpenBLAS-0.3.25.tar.gz
+OPENBLAS_SOURCE=OpenBLAS-0.3.25
+OPENBLAS_MD5SUM="48384e324cd1cdcfbdb0d2e16ca55327"
 
 # gtest
 GTEST_DOWNLOAD="https://github.com/google/googletest/archive/release-1.10.0.tar.gz"
@@ -114,4 +114,4 @@ PYBIND11_SOURCE=pybind11-release-2.11.1
 PYBIND11_MD5SUM="49e92f92244021912a56935918c927d0"
 
 # all thirdparties which need to be downloaded is set in array TP_ARCHIVES
-TP_ARCHIVES="FMT FAISS LAPACK GTEST PYBIND11"
+TP_ARCHIVES="FMT FAISS OPENBLAS GTEST PYBIND11"

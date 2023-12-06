@@ -67,8 +67,8 @@ set_target_properties(faiss PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/in
 add_library(faiss_avx2 STATIC IMPORTED)
 set_target_properties(faiss_avx2 PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss_avx2.a)
 
-# lapack
-find_package(LAPACK REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/lapack")
+# openblas
+find_package(OpenBLAS REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/OpenBLAS")
 
 # openmp
 find_package(OpenMP REQUIRED)
@@ -80,7 +80,7 @@ set(WL_END_GROUP "-Wl,--end-group")
 set(TENANN_LINK_LIBS
     fmt
     faiss
-    ${LAPACK_LIBRARIES}
+    ${OpenBLAS_LIBRARY}
     OpenMP::OpenMP_CXX
     -l:libquadmath.a
     -lm)
@@ -110,7 +110,7 @@ target_compile_options(tenann_avx2 PRIVATE ${FAISS_AVX2_CXX_FLAGS})
 set(TENANN_AVX2_LINK_LIBS
     fmt
     faiss_avx2
-    ${LAPACK_LIBRARIES}
+    ${OpenBLAS_LIBRARY}
     OpenMP::OpenMP_CXX
     -l:libquadmath.a
     -lm)
