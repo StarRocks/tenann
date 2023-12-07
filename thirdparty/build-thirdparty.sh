@@ -148,6 +148,7 @@ build_fmt() {
     cd $TP_SOURCE_DIR/$FMT_SOURCE
     mkdir -p build
     cd build
+    rm -rf CMakeCache.txt CMakeFiles/
     $CMAKE_CMD -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} ../ \
         -DCMAKE_INSTALL_LIBDIR=lib64 -G "${CMAKE_GENERATOR}" -DFMT_TEST=OFF
     ${BUILD_SYSTEM} -j$PARALLEL
@@ -176,20 +177,30 @@ build_lapack() {
     cp -f ${TP_INSTALL_DIR}/lib/cmake/lapack/lapack-config.cmake ${TP_INSTALL_DIR}/lib/cmake/lapack/blas-config.cmake
 }
 
+# build_openblas() {
+#     check_if_source_exist $OPENBLAS_SOURCE
+#     cd $TP_SOURCE_DIR/$OPENBLAS_SOURCE
+#     mkdir -p $BUILD_DIR
+#     cd $BUILD_DIR
+#     # rm -rf CMakeCache.txt CMakeFiles/
+#     $CMAKE_CMD -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
+#         -DCMAKE_INSTALL_LIBDIR=lib \
+#         -DCMAKE_INSTALL_INCLUDEDIR=${TP_INSTALL_DIR}/include \
+#         -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
+#         -DUSE_OPENMP=1 \
+#         -DNUM_PARALLEL=8 \
+#         ..
+#     $CMAKE_CMD --build . -j$PARALLEL --target install
+# }
+
 build_openblas() {
+    restore_compile_flags
     check_if_source_exist $OPENBLAS_SOURCE
     cd $TP_SOURCE_DIR/$OPENBLAS_SOURCE
-    mkdir -p $BUILD_DIR
-    cd $BUILD_DIR
-    # rm -rf CMakeCache.txt CMakeFiles/
-    $CMAKE_CMD -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
-        -DCMAKE_INSTALL_LIBDIR=lib \
-        -DCMAKE_INSTALL_INCLUDEDIR=${TP_INSTALL_DIR}/include \
-        -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
-        -DUSE_OPENMP=1 \
-        -DNUM_PARALLEL=8 \
-        ..
-    $CMAKE_CMD --build . -j$PARALLEL --target install
+    make clean
+    BLAS_FLAGS="DYNAMIC_ARCH=1 NO_SHARED=1 NO_AVX512=1 USE_THREAD=0 USE_OPENMP=0"
+    make -j$PARALLEL $BLAS_FLAGS
+    make PREFIX=${TP_INSTALL_DIR} $BLAS_FLAGS install
 }
 
 #faiss
@@ -199,7 +210,7 @@ build_faiss() {
 
     mkdir -p $BUILD_DIR
     cd $BUILD_DIR
-    # rm -rf CMakeCache.txt CMakeFiles/
+    rm -rf CMakeCache.txt CMakeFiles/
     $CMAKE_CMD -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
         -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \

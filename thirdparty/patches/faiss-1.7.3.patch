@@ -13,9 +13,9 @@ index fd3ddb3..73b5757 100644
 -  find_package(LAPACK REQUIRED)
 -  target_link_libraries(faiss PRIVATE ${LAPACK_LIBRARIES})
 -  target_link_libraries(faiss_avx2 PRIVATE ${LAPACK_LIBRARIES})
-+  find_package(OpenBLAS REQUIRED PATHS ${CMAKE_INSTALL_DATAROOTDIR}/OpenBLAS)
-+  target_link_libraries(faiss PRIVATE ${OpenBLAS_LIBRARY})
-+  target_link_libraries(faiss_avx2 PRIVATE ${OpenBLAS_LIBRARY})
++  find_package(OpenBLAS REQUIRED PATHS ${CMAKE_INSTALL_DATAROOTDIR}/openblas)
++  target_link_libraries(faiss PRIVATE ${OpenBLAS_LIBRARIES})
++  target_link_libraries(faiss_avx2 PRIVATE ${OpenBLAS_LIBRARIES})
  endif()
  
  install(TARGETS faiss
