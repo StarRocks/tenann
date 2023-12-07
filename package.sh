@@ -40,8 +40,7 @@ mkdir -p ${TENANN_OUTPUT}/tmp
 cp /opt/gcc/usr/lib64/libquadmath.a ${TENANN_OUTPUT}/tmp
 cp /usr/local/lib/libgfortran.a ${TENANN_OUTPUT}/tmp
 cp /opt/gcc/usr/lib64/libgomp.a ${TENANN_OUTPUT}/tmp
-cp ${TENANN_THIRDPARTY}/installed/lib/libblas.a ${TENANN_OUTPUT}/tmp
-cp ${TENANN_THIRDPARTY}/installed/lib/liblapack.a ${TENANN_OUTPUT}/tmp
+cp ${TENANN_THIRDPARTY}/installed/lib/libopenblas-r0.3.25.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_OUTPUT}/lib/libtenann.a ${TENANN_OUTPUT}/tmp
 cp ${TENANN_OUTPUT}/lib/libtenann_avx2.a ${TENANN_OUTPUT}/tmp
@@ -51,8 +50,7 @@ cd ${TENANN_OUTPUT}/tmp
 echo "create libtenann-bundle.a
 addlib libtenann.a
 addlib libfaiss.a
-addlib liblapack.a
-addlib libblas.a
+addlib libopenblas-r0.3.25.a
 addlib libgomp.a
 addlib libgfortran.a
 addlib libquadmath.a
@@ -66,9 +64,8 @@ cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
 cd ${TENANN_OUTPUT}/tmp
 echo "create libtenann-bundle-avx2.a
 addlib libtenann_avx2.a
-addlib libfaiss.a
-addlib liblapack.a
-addlib libblas.a
+addlib libfaiss_avx2.a
+addlib libopenblas-r0.3.25.a
 addlib libgomp.a
 addlib libgfortran.a
 addlib libquadmath.a
