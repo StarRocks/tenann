@@ -29,6 +29,17 @@ if [ -z $BUILD_TYPE ]; then
     export BUILD_TYPE=Release
 fi
 
+# set COMPILER
+if [[ ! -z ${TENANN_GCC_HOME} ]]; then
+    export CC=${TENANN_GCC_HOME}/bin/gcc
+    export CPP=${TENANN_GCC_HOME}/bin/cpp
+    export CXX=${TENANN_GCC_HOME}/bin/g++
+    export PATH=${TENANN_GCC_HOME}/bin:$PATH
+else
+    echo "TENANN_GCC_HOME environment variable is not set"
+    exit 1
+fi
+
 cd $TENANN_HOME
 if [ -z $TENANN_VERSION ]; then
     tag_name=$(git describe --tags --exact-match 2>/dev/null)
@@ -53,7 +64,7 @@ if [[ $OSTYPE == darwin* ]]; then
     PARALLEL=$(sysctl -n hw.ncpu)
     # We know for sure that build-thirdparty.sh will fail on darwin platform, so just skip the step.
 else
-    if [[ ! -f ${TENANN_THIRDPARTY}/installed/include/pybind11/pybind11.h ]]; then
+    if [[ ! -f ${TENANN_THIRDPARTY}/installed/include/faiss/Index.h ]]; then
         echo "Thirdparty libraries need to be build ..."
         sh ${TENANN_THIRDPARTY}/build-thirdparty.sh
     fi
