@@ -42,11 +42,16 @@ std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0) {
   }
   return data;
 }
+// dimension of the vectors to index
+constexpr const uint32_t d = 1024;
+// size of the database we plan to index
+constexpr const size_t nb = 100000;
+// size of the query vectors we plan to test
+constexpr const size_t nq = 10;
+constexpr const auto metric = tenann::MetricType::kL2Distance;
 
-int main() {
+auto GetHnswMeta() {
   tenann::IndexMeta meta;
-
-  auto metric = tenann::MetricType::kCosineSimilarity;
   // set meta values
   meta.SetMetaVersion(0);
   meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
@@ -58,15 +63,31 @@ int main() {
   meta.index_params()["M"] = 128;
   meta.search_params()["efSearch"] = 40;
   meta.extra_params()["comments"] = "my comments";
+  return meta;
+}
 
-  // dimension of the vectors to index
-  uint32_t d = 128;
-  // size of the database we plan to index
-  size_t nb = 20000;
-  // size of the query vectors we plan to test
-  size_t nq = 10;
+auto GetIvfPqMeta() {
+  tenann::IndexMeta meta;
+  // set meta values
+  meta.SetMetaVersion(0);
+  meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
+  meta.SetIndexType(tenann::IndexType::kFaissIvfPq);
+  meta.common_params()["dim"] = d;
+  meta.common_params()["is_vector_normed"] = false;
+  meta.common_params()["metric_type"] = metric;
+  meta.index_params()["nlist"] = 256;
+  meta.index_params()["M"] = d / 4;
+  meta.index_params()["nbits"] = 8;
+  meta.search_params()["nprobe"] = 128;
+  meta.extra_params()["comments"] = "my comments";
+  return meta;
+}
+
+int main() {
+  auto meta = GetIvfPqMeta();
+
   // index save path
-  std::string index_path = "/tmp/faiss_hnsw_index";
+  std::string index_path = "/tmp/faiss_index";
 
   std::vector<int64_t> ids(nb);
   for (int i = 0; i < nb; i++) {
@@ -91,27 +112,27 @@ int main() {
   auto single_thread_timer = T_ADD_TIMER(profile, "single");
   auto multi_thread_timer = T_ADD_TIMER(profile, "multi");
 
-  T_LOG(WARNING) << "Build with single thread...";
-  tenann::OmpSetNumThreads(1);
+  T_LOG(WARNING) << "Build with 4 threads...";
+  tenann::OmpSetNumThreads(4);
   {
     T_SCOPED_TIMER(single_thread_timer);
     index_builder1->Open(index_path)
         .Add({base_col});
   }
 
-  T_LOG(WARNING) << "Build with 8 threads...";
-  tenann::OmpSetNumThreads(8);
+  T_LOG(WARNING) << "Build with 12 threads...";
+  tenann::OmpSetNumThreads(12);
   {
     T_SCOPED_TIMER(multi_thread_timer);
     index_builder2->Open(index_path)
         .Add({base_col});
   }
 
-  std::cout << "Build with single thread: "
+  std::cout << "Build with 4 threads: "
             << tenann::PrettyPrinter::print(single_thread_timer->value(), tenann::TUnit::TIME_NS)
             << "\n";
 
-  std::cout << "Build with 8 threads: "
+  std::cout << "Build with 12 threads: "
             << tenann::PrettyPrinter::print(multi_thread_timer->value(), tenann::TUnit::TIME_NS)
             << "\n";
 }
