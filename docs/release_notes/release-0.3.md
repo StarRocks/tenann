@@ -1,5 +1,13 @@
 # TenANN v0.3.x
 
+## v0.3.3-RELEASE
+Download URL: [tenann-v0.3.3-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.3-RELEASE.tar.gz)
+
+### Improvements
+
+- 替换底层BLAS库为OpenBLAS，IVFPQ构建速度提升10倍
+
+
 ## v0.3.2-RELEASE
 Download URL: [tenann-v0.3.2-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.2-RELEASE.tar.gz)
 
