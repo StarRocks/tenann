@@ -58,6 +58,9 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
     index_ivfpq->polysemous_ht = search_params_.polysemous_ht;
     index_ivfpq->range_search_confidence = search_params_.range_search_confidence;
 
+    VLOG(VERBOSE_DEBUG) << "nlist: " << index_ivfpq->invlists->nlist << ", M: " << index_ivfpq->pq.M
+                        << ", nbits: " << index_ivfpq->pq.nbits;
+
     return std::make_shared<Index>(index_ivfpq.release(),  //
                                    IndexType::kFaissIvfPq,  //
                                    [](void* index) { delete static_cast<IndexIvfPq*>(index); });

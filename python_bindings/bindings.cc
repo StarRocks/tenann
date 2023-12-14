@@ -39,6 +39,16 @@ class TenANN {
   TenANN() = default;
   ~TenANN() = default;
 
+  TenANN& SetLogLevel(int level) {
+    tenann::SetLogLevel(level);
+    return *this;
+  }
+
+  TenANN& SetVLogLevel(int level) {
+    tenann::SetVLogLevel(level);
+    return *this;
+  }
+
   TenANN& CreateBuilderFromMeta(const std::string& input_meta) {
     tenann::IndexMeta meta(tenann::json::parse(input_meta));
     index_builder_ = tenann::IndexFactory::CreateBuilderFromMeta(meta);
@@ -156,5 +166,7 @@ PYBIND11_MODULE(tenann_py, m) {
       .def("flush", &TenANN::Flush)
       .def("create_searcher", &TenANN::CreateSearcherFromMeta)
       .def("read_index", &TenANN::ReadIndex)
-      .def("ann_search", &TenANN::AnnSearch);
+      .def("ann_search", &TenANN::AnnSearch)
+      .def("set_log_level", &TenANN::SetLogLevel)
+      .def("set_vlog_level", &TenANN::SetVLogLevel);
 }

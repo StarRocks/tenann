@@ -26,7 +26,7 @@
 namespace tenann {
 
 IndexWriter::IndexWriter(const IndexMeta& meta) : index_meta_(meta) {
-  FetchParameters(meta, &write_index_options_);
+  FetchParameters(meta, &index_writer_options_);
 }
 
 IndexWriter::~IndexWriter() = default;
@@ -34,9 +34,9 @@ IndexWriter::~IndexWriter() = default;
 const IndexMeta& IndexWriter::index_meta() const { return index_meta_; }
 
 void IndexWriter::WriteIndex(IndexRef index, const std::string& path, bool memory_only) {
-  if (write_index_options_.write_index_cache) {
+  if (index_writer_options_.write_index_cache) {
     T_LOG_IF(ERROR, index_cache_ == nullptr) << "index cache not set";
-    const std::string& cache_key = !write_index_options_.custom_cache_key.empty() ? write_index_options_.custom_cache_key : path;
+    const std::string& cache_key = !index_writer_options_.custom_cache_key.empty() ? index_writer_options_.custom_cache_key : path;
     IndexCacheHandle handle;
     index_cache_->Insert(cache_key, index, &handle);
   }

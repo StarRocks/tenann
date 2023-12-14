@@ -33,8 +33,8 @@ class IvfPqRangeSearchTest : public FaissTestBase {
  public:
   IvfPqRangeSearchTest() : FaissTestBase() {
     InitFaissIvfPqMeta();
-    faiss_ivf_pq_meta_.write_index_options()["write_index_cache"] = true;
-    faiss_ivf_pq_meta_.write_index_options()["custom_cache_key"] = kCacheKey;
+    faiss_ivf_pq_meta_.index_writer_options()["write_index_cache"] = true;
+    faiss_ivf_pq_meta_.index_writer_options()["custom_cache_key"] = kCacheKey;
     faiss_ivf_pq_index_builder_ = IndexFactory::CreateBuilderFromMeta(faiss_ivf_pq_meta_);
   }
 
@@ -51,8 +51,8 @@ class IvfPqRangeSearchTest : public FaissTestBase {
   }
 
   std::unique_ptr<AnnSearcher> GetAnnSearcher() {
-    faiss_ivf_pq_meta_.read_index_options()["read_index_cache"] = true;
-    faiss_ivf_pq_meta_.read_index_options()["custom_cache_key"] = kCacheKey;
+    faiss_ivf_pq_meta_.index_reader_options()["read_index_cache"] = true;
+    faiss_ivf_pq_meta_.index_reader_options()["custom_cache_key"] = kCacheKey;
     auto searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_ivf_pq_meta_);
     searcher->ReadIndex("");
     return searcher;

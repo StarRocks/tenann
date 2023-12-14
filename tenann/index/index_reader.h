@@ -55,7 +55,7 @@ class IndexReader {
   /// @brief index meta
   IndexMeta index_meta_;
   /// @brief read options
-  ReadIndexOptions read_index_options_;
+  ReadIndexOptions index_reader_options_;
   /// @brief cache
   IndexCache* index_cache_ = nullptr;
   /**

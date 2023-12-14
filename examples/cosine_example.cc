@@ -75,8 +75,8 @@ int main() {
   meta.index_params()["M"] = 128;
   meta.search_params()["efSearch"] = 80;
   meta.extra_params()["comments"] = "my comments";
-  meta.write_index_options()["write_index_cache"] = true;
-  meta.read_index_options()["read_index_cache"] = true;
+  meta.index_writer_options()["write_index_cache"] = true;
+  meta.index_reader_options()["read_index_cache"] = true;
 
   // dimension of the vectors to index
   uint32_t d = 128;

@@ -21,6 +21,9 @@
 
 namespace tenann {
 
+int T_MIN_LOG_LEVEL = T_LOG_LEVEL_INFO;
+int T_V_LOG_LEVEL = VERBOSE_CRITICAL;
+
 std::string Backtrace() { return ""; }
 
 namespace detail {
@@ -43,5 +46,8 @@ LogError::Entry& LogError::GetEntry() {
 }
 
 }  // namespace detail
+
+void SetLogLevel(int level) { T_MIN_LOG_LEVEL = level; }
+void SetVLogLevel(int level) { T_V_LOG_LEVEL = level; }
 
 }  // namespace tenann

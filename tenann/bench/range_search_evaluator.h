@@ -92,9 +92,9 @@ class RangeSearchEvaluator : public Evaluator<RangeQuerySet, RangeSearchMetrics>
     auto index_str = IndexStr(index_meta_);
     auto index_path = fmt::format("{}/{}_{}", index_save_dir_, evaluator_name_, index_str);
 
-    VLOG_CRITICAL(verbose_level_) << "Start building index: " << index_path << " ...";
+    VLOG(VERBOSE_CRITICAL) << "Start building index: " << index_path << " ...";
     if (FileExists(index_path) && !force_rebuild) {
-      VLOG_CRITICAL(verbose_level_)
+      VLOG(VERBOSE_CRITICAL)
           << "Index already exists: " << index_path << ", skip index building.";
       return *this;
     }
@@ -112,7 +112,7 @@ class RangeSearchEvaluator : public Evaluator<RangeQuerySet, RangeSearchMetrics>
     builder->Flush();
     builder->Close();
 
-    VLOG_CRITICAL(verbose_level_) << "Done index building: " << index_path;
+    VLOG(VERBOSE_CRITICAL) << "Done index building: " << index_path;
     return *this;
   }
 

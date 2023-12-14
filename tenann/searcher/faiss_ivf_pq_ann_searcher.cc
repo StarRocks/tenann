@@ -66,6 +66,8 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int6
     faiss_search_parameters.sel = id_filter_adapter.get();
   }
 
+  VLOG(VERBOSE_DEBUG) << "nprobe: " << faiss_search_parameters.nprobe;
+
   faiss_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data),
                       k, reinterpret_cast<float*>(result_distances), result_ids,
                       &faiss_search_parameters);
@@ -100,6 +102,9 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
     id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(id_filter);
     dynamic_search_parameters.sel = id_filter_adapter.get();
   }
+
+  VLOG(VERBOSE_DEBUG) << "range: " << range << ", limit: " << limit
+                      << ", nprobe: " << dynamic_search_parameters.nprobe;
 
   faiss::RangeSearchResult results(ANN_SEARCHER_QUERY_COUNT);
   index_ivfpq->range_search(ANN_SEARCHER_QUERY_COUNT,

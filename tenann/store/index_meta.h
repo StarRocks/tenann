@@ -58,15 +58,15 @@ class IndexMeta {
   json& index_params();
   json& search_params();
   json& extra_params();
-  json& write_index_options();
-  json& read_index_options();
+  json& index_writer_options();
+  json& index_reader_options();
 
   const json& common_params() const;
   const json& index_params() const;
   const json& search_params() const;
   const json& extra_params() const;
-  const json& write_index_options() const;
-  const json& read_index_options() const;
+  const json& index_writer_options() const;
+  const json& index_reader_options() const;
 
   /// Read from a json file
   static IndexMeta Read(const std::string& path);

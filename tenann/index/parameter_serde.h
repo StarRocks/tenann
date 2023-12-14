@@ -118,8 +118,8 @@ inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_p
 
 inline void FetchParameters(const IndexMeta& meta, WriteIndexOptions* out_params) {
   GET_OPTIONAL_WRITE_INDEX_PARAM_TO(meta, *out_params, write_index_cache);
-  if (meta.write_index_options().contains("custom_cache_key")) {
-      out_params->custom_cache_key = meta.write_index_options()["custom_cache_key"];
+  if (meta.index_writer_options().contains("custom_cache_key")) {
+      out_params->custom_cache_key = meta.index_writer_options()["custom_cache_key"];
   }
 
   out_params->Validate();
@@ -127,8 +127,8 @@ inline void FetchParameters(const IndexMeta& meta, WriteIndexOptions* out_params
 
 inline void FetchParameters(const IndexMeta& meta, ReadIndexOptions* out_params) {
   GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, read_index_cache);
-  if (meta.read_index_options().contains("custom_cache_key")) {
-      out_params->custom_cache_key = meta.read_index_options()["custom_cache_key"];
+  if (meta.index_reader_options().contains("custom_cache_key")) {
+      out_params->custom_cache_key = meta.index_reader_options()["custom_cache_key"];
   }
   GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, force_read_and_overwrite_cache);
 

@@ -27,13 +27,6 @@
 
 #define RETURN_SELF_AFTER(stmt) stmt return *this;
 
-#define VERBOSE_CRITICAL (0)
-#define VERBOSE_INFO (1)
-#define VERBOSE_DEBUG (2)
-#define VLOG_CRITICAL(level) T_LOG_IF(INFO, level >= VERBOSE_CRITICAL)
-#define VLOG_INFO(level) T_LOG_IF(INFO, level >= VERBOSE_INFO)
-#define VLOG_DEBUG(level) T_LOG_IF(INFO, level >= VERBOSE_DEBUG)
-
 namespace tenann {
 
 template <typename QuerySet, typename EvaluationMetrics>
@@ -53,8 +46,6 @@ class Evaluator {
   virtual ~Evaluator() = default;
 
   Self& SetMetricType(MetricType metric_type) { RETURN_SELF_AFTER(metric_type_ = metric_type;) }
-
-  Self& SetVerboseLevel(int level) { RETURN_SELF_AFTER(verbose_level_ = level;) }
 
   Self& SetDim(int dim) { RETURN_SELF_AFTER(dim_ = dim;) }
 
@@ -76,18 +67,18 @@ class Evaluator {
 
     std::vector<std::tuple<json, json, EvaluationMetrics>> evaluation_results;
     for (const auto& search_params : search_params_list) {
-      VLOG_INFO(verbose_level_) << "Evaluating params: " << search_params << " ...";
+      VLOG(VERBOSE_INFO) << "Evaluating params: " << search_params << " ...";
       EvaluationMetrics global_metrics = CreateEvaluationMetrics();
       for (int64_t i = 0; i < nq_; i++) {
         auto query_metrics = EvaluateSingleQuery(i, search_params);
 
-        VLOG_DEBUG(verbose_level_)
+        VLOG(VERBOSE_DEBUG)
             << "Evaluation results of query " << i << ": " << query_metrics.Str();
         MergeEvaluationMetrics(global_metrics, query_metrics);
       }
 
       FinalizeEvaluationMetrics(global_metrics);
-      VLOG_INFO(verbose_level_) << "Evaluaton results: " << global_metrics.Str();
+      VLOG(VERBOSE_INFO) << "Evaluaton results: " << global_metrics.Str();
       evaluation_results.emplace_back(index_params_, search_params, global_metrics);
     };
 
@@ -108,7 +99,6 @@ class Evaluator {
   virtual void FinalizeEvaluationMetrics(EvaluationMetrics& dst) = 0;
 
  protected:
-  int verbose_level_ = VERBOSE_CRITICAL;
   MetricType metric_type_;
   int dim_ = -1;
   const float* base_ = nullptr;

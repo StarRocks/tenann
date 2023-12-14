@@ -24,6 +24,8 @@
 namespace tenann {
 
 void FaissTestBase::SetUp() {
+  SetVLogLevel(VERBOSE_DEBUG);
+
   meta_.common_params()["dim"] = 128;
   meta_.common_params()["metric_type"] = MetricType::kL2Distance;
 
@@ -80,9 +82,9 @@ void FaissTestBase::InitFaissHnswMeta() {
   faiss_hnsw_meta_.search_params()["efSearch"] = 40;
   faiss_hnsw_meta_.search_params()["check_relative_distance"] = true;
   faiss_hnsw_meta_.extra_params()["comments"] = "my comments";
-  faiss_hnsw_meta_.write_index_options()["write_index_cache"] = true;
-  faiss_hnsw_meta_.write_index_options()["custom_cache_key"] = "test";
-  faiss_hnsw_meta_.read_index_options()["read_index_cache"] = false;
+  faiss_hnsw_meta_.index_writer_options()["write_index_cache"] = true;
+  faiss_hnsw_meta_.index_writer_options()["custom_cache_key"] = "test";
+  faiss_hnsw_meta_.index_reader_options()["read_index_cache"] = false;
 }
 
 void FaissTestBase::InitFaissIvfPqMeta() {
@@ -103,8 +105,8 @@ void FaissTestBase::InitFaissIvfPqMeta() {
   faiss_ivf_pq_meta_.search_params()["scan_table_threshold"] = size_t(0);
   faiss_ivf_pq_meta_.search_params()["polysemous_ht"] = int(0);
   faiss_ivf_pq_meta_.extra_params()["comments"] = "my comments";
-  faiss_ivf_pq_meta_.write_index_options()["write_index_cache"] = false;
-  faiss_ivf_pq_meta_.read_index_options()["read_index_cache"] = false;
+  faiss_ivf_pq_meta_.index_writer_options()["write_index_cache"] = false;
+  faiss_ivf_pq_meta_.index_reader_options()["read_index_cache"] = false;
 }
 
 std::vector<uint8_t> FaissTestBase::RandomBoolVectors(uint32_t n, int seed) {

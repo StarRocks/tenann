@@ -56,6 +56,10 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
     index_hnsw->hnsw.efSearch = search_params_.efSearch;
     index_hnsw->hnsw.check_relative_distance = search_params_.check_relative_distance;
 
+    VLOG(VERBOSE_DEBUG) << "efConstruction: " << index_hnsw->hnsw.efConstruction
+                        << ", efSearch: " << index_hnsw->hnsw.efSearch
+                        << ", check_relative_distance: " << index_hnsw->hnsw.check_relative_distance;
+
     // create shared index ref
     return std::make_shared<Index>(index.release(),        //
                                    IndexType::kFaissHnsw,  //

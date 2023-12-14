@@ -265,6 +265,10 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
     }
     faiss_search_parameters.sel = id_filter_adapter.get();
   }
+
+  VLOG(VERBOSE_DEBUG) << "efSearch: " << faiss_search_parameters.efSearch
+                      << ", check_relative_distance: " << faiss_search_parameters.check_relative_distance;
+
   // transform the query vector first if a pre-transform is set
   const float* x = reinterpret_cast<const float*>(query_vector.data);
   if (faiss_transform_ != nullptr) {
@@ -321,6 +325,11 @@ void FaissHnswAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float rang
   faiss_search_parameters.efSearch = search_params_.efSearch;
   faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
   std::shared_ptr<IdFilterAdapter> id_filter_adapter;
+
+  VLOG(VERBOSE_DEBUG) << "efSearch: " << faiss_search_parameters.efSearch
+                      << ", check_relative_distance: " << faiss_search_parameters.check_relative_distance
+                      << ", range: " << range << ", radius: " << radius << ", limit: " << limit
+                      << ", result_order: " << result_order;
 
   if (id_filter) {
     if (faiss_id_map_ != nullptr) {

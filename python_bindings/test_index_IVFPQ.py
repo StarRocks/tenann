@@ -68,6 +68,7 @@ class TestIndexHNSW(unittest.TestCase):
             print("AnnSearcher created successfully.")
         except Exception as e:
             cls.fail("An error occurred while creating the searcher:", e)
+        cls.ann.set_vlog_level(3)  # VERBOSE_DEBUG
 
     def test_1_create_function(self):
         # 新创建临时 ANN

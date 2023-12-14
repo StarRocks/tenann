@@ -29,6 +29,9 @@
 
 namespace tenann {
 
+extern int T_MIN_LOG_LEVEL;
+extern int T_V_LOG_LEVEL;
+
 namespace detail {
 /*!
  * \brief Class to accumulate an error message and throw it. Do not use
@@ -114,16 +117,18 @@ class LogError {
  */
 class LogMessage {
  public:
-  LogMessage(const std::string& file, int lineno, int level) {
+  LogMessage(const std::string& file, int lineno, int level) : level_(level) {
+    if (level < T_MIN_LOG_LEVEL) return;
     std::time_t t = std::time(nullptr);
     stream_ << "[" << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << "] " << file << ":"
             << lineno << level_strings_[level];
   }
-  T_NO_INLINE ~LogMessage() { std::cerr << stream_.str() << std::endl; }
+  T_NO_INLINE ~LogMessage() { if (level_ >= T_MIN_LOG_LEVEL) std::cerr << stream_.str() << std::endl; }
   std::ostringstream& stream() { return stream_; }
 
  private:
   std::ostringstream stream_;
+  int level_;
   static const char* level_strings_[];
 };
 
@@ -183,6 +188,15 @@ T_CHECK_FUNC(_NE, !=)
 #define T_LOG_INFO ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_INFO).stream()
 #define T_LOG_ERROR ::tenann::detail::LogError(__FILE__, __LINE__).stream()
 #define T_LOG_WARNING ::tenann::detail::LogMessage(__FILE__, __LINE__, T_LOG_LEVEL_WARNING).stream()
+
+#define VERBOSE_NULL (0)
+#define VERBOSE_CRITICAL (1)
+#define VERBOSE_INFO (2)
+#define VERBOSE_DEBUG (3)
+#define VLOG(level) T_LOG_IF(INFO, level <= T_V_LOG_LEVEL)
+
+void SetLogLevel(int level);
+void SetVLogLevel(int level);
 
 #define T_CHECK_BINARY_OP(name, op, x, y)                          \
   if (auto __t__log__err = ::tenann::detail::LogCheck##name(x, y)) \
