@@ -42,8 +42,14 @@ bool IndexCache::Lookup(const CacheKey& key, IndexCacheHandle* handle) {
   return true;
 }
 
-void IndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle) {
-  auto index_size = index->EstimateMemoryUsage();
+void IndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle,
+                        const std::function<size_t()>& estimate_memory_usage) {
+  size_t index_size = 0;
+  if (estimate_memory_usage) {
+    index_size = estimate_memory_usage();
+  } else {
+    index_size = index->EstimateMemoryUsage();
+  }
   // create a new reference to the index and intentionally leak the reference
   void* leaked_index = reinterpret_cast<void*>(new IndexRef(index));
 

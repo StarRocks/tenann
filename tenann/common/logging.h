@@ -193,7 +193,7 @@ T_CHECK_FUNC(_NE, !=)
 #define VERBOSE_CRITICAL (1)
 #define VERBOSE_INFO (2)
 #define VERBOSE_DEBUG (3)
-#define VLOG(level) T_LOG_IF(INFO, level <= T_V_LOG_LEVEL)
+#define VLOG(level) T_LOG_IF(INFO, level <= tenann::T_V_LOG_LEVEL)
 
 void SetLogLevel(int level);
 void SetVLogLevel(int level);

@@ -49,6 +49,15 @@ class TenANN {
     return *this;
   }
 
+  TenANN& SetIndexCacheCapacity(size_t capacity) {
+    tenann::IndexCache::GetGlobalInstance()->SetCapacity(capacity);
+    return *this;
+  }
+
+  std::string GetIndexCacheStatus() {
+    return tenann::IndexCache::GetGlobalInstance()->status().dump();
+  }
+
   TenANN& CreateBuilderFromMeta(const std::string& input_meta) {
     tenann::IndexMeta meta(tenann::json::parse(input_meta));
     index_builder_ = tenann::IndexFactory::CreateBuilderFromMeta(meta);
@@ -168,5 +177,7 @@ PYBIND11_MODULE(tenann_py, m) {
       .def("read_index", &TenANN::ReadIndex)
       .def("ann_search", &TenANN::AnnSearch)
       .def("set_log_level", &TenANN::SetLogLevel)
-      .def("set_vlog_level", &TenANN::SetVLogLevel);
+      .def("set_vlog_level", &TenANN::SetVLogLevel)
+      .def("set_index_cache_capacity", &TenANN::SetIndexCacheCapacity)
+      .def("get_index_cache_status", &TenANN::GetIndexCacheStatus);
 }

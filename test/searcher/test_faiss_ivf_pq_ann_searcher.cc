@@ -194,4 +194,57 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
   }
 }
 
+TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_BlockCache_IsWork) {
+  // Training and building take a lot of time.
+  auto start = std::chrono::high_resolution_clock::now();
+
+  faiss_ivf_pq_meta_.index_reader_options()["use_block_cache"] = true;
+  T_LOG(INFO) << "set use_block_cache";
+
+  //CreateAndWriteFaissIvfPqIndex(true);
+  CreateAndWriteFaissIvfPqIndex(false);
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  printf("IVFPQ创建索引执行时间:  %d 毫秒\n", duration.count());
+
+  {
+    std::string before_cache_status = IndexCache::GetGlobalInstance()->status().dump();
+    ReadIndexAndDefaultSearch(500 * 1024);  // limit 500KB
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+    T_LOG(INFO) << "before: " << before_cache_status << "\nafter: "<< IndexCache::GetGlobalInstance()->status().dump();
+  }
+
+  {
+    // nprobe = 1, recall rate < 0.8
+    faiss_ivf_pq_meta().search_params()["nprobe"] = 1;
+    faiss_ivf_pq_meta().search_params()["max_codes"] = 0;
+    faiss_ivf_pq_meta().search_params()["scan_table_threshold"] = 0;
+    faiss_ivf_pq_meta().search_params()["polysemous_ht"] = 0;
+    ann_searcher_->SetSearchParams(faiss_ivf_pq_meta().search_params());
+
+    // search index
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
+    }
+    EXPECT_FALSE(RecallCheckResult_80Percent());
+  }
+
+  {
+    // nprobe = 4 * sqrt(nb_), recall rate > 0.8
+    ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::nprobe_key, size_t(4 * sqrt(nb_)));
+    ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::max_codes_key, size_t(0));
+    ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::scan_table_threshold_key, size_t(0));
+    ann_searcher_->SetSearchParamItem(FaissIvfPqSearchParams::polysemous_ht_key, int(0));
+
+    // search index
+    result_ids_.clear();
+    for (int i = 0; i < nq_; i++) {
+      ann_searcher_->AnnSearch(query_view_[i], k_, result_ids_.data() + i * k_);
+    }
+
+    EXPECT_TRUE(RecallCheckResult_80Percent());
+  }
+}
+
 }  // namespace tenann

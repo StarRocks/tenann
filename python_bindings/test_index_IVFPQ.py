@@ -13,7 +13,7 @@ class TestIndexHNSW(unittest.TestCase):
         nb = 10000                      # database size
         nq = 10                       # nb of queries
         M = 4
-        nbits = 4
+        nbits = 8
         nlist = math.floor(math.sqrt(nb))
         nprobe = math.floor(math.sqrt(nb))
         cls.meta_json = '''
@@ -36,6 +36,9 @@ class TestIndexHNSW(unittest.TestCase):
                     "max_codes" : 0,
                     "scan_table_threshold" : 0,
                     "polysemous_ht" : 0
+                },
+                "read_index": {
+                    "use_block_cache": true
                 },
                 "extra": {
                     "comments": "Testing IndexIVFPQ.",
@@ -69,6 +72,7 @@ class TestIndexHNSW(unittest.TestCase):
         except Exception as e:
             cls.fail("An error occurred while creating the searcher:", e)
         cls.ann.set_vlog_level(3)  # VERBOSE_DEBUG
+        cls.ann.set_index_cache_capacity(500 * 1024)  # 500KB
 
     def test_1_create_function(self):
         # 新创建临时 ANN
@@ -164,6 +168,7 @@ class TestIndexHNSW(unittest.TestCase):
             for i, query_vector in enumerate(self.xq):
                 result_ids = self.ann.ann_search(query_vector, 10)
                 print("Query {}: {}".format(i, result_ids))
+                print("Index cache status: ", self.ann.get_index_cache_status())
                 # Step 2: Calculate the recall.
                 # Compare the search results with the ground truth to calculate the recall rate.
                 true_positive_count = len(set(result_ids).intersection(set(self.ground_truth[i])))

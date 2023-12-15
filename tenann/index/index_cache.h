@@ -66,7 +66,8 @@ class IndexCache {
    * @param index index to cache
    * @param handle will be set to a valid reference to the cache entry
    */
-  void Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle);
+  void Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle,
+              const std::function<size_t()>& estimate_memory_usage = nullptr);
 
   void SetCapacity(size_t capacity);
 

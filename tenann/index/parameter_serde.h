@@ -131,6 +131,7 @@ inline void FetchParameters(const IndexMeta& meta, ReadIndexOptions* out_params)
       out_params->custom_cache_key = meta.index_reader_options()["custom_cache_key"];
   }
   GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, force_read_and_overwrite_cache);
+  GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, use_block_cache);
 
   out_params->Validate();
 }
