@@ -42,7 +42,8 @@ FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta) : IndexBuilder(meta)
   FetchParameters(meta, &extra_params_);
 
   T_CHECK(common_params_.metric_type == MetricType::kL2Distance ||
-          common_params_.metric_type == MetricType::kCosineSimilarity)
+          common_params_.metric_type == MetricType::kCosineSimilarity ||
+          common_params_.metric_type == MetricType::kInnerProduct)
       << "only l2_distance and cosine_similarity are supported";
 }
 

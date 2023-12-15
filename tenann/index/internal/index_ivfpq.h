@@ -20,6 +20,7 @@
 #pragma once
 
 #include "faiss/IndexIVFPQ.h"
+#include "faiss/IndexPreTransform.h"
 
 namespace tenann {
 
@@ -42,7 +43,8 @@ struct IndexIvfPq : faiss::IndexIVFPQ {
   /// will be greatly increased, and in the extreme case, all database vectors will be returned.
   float range_search_confidence = 0;
 
-  IndexIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M, size_t nbits_per_idx);
+  IndexIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M, size_t nbits_per_idx,
+             faiss::MetricType metric = faiss::METRIC_L2);
 
   void add_core(idx_t n, const float* x, const idx_t* xids, const idx_t* precomputed_idx) override;
 

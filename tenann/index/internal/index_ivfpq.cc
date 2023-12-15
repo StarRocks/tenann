@@ -68,8 +68,8 @@ static float* compute_residuals(const Index* quantizer, Index::idx_t n, const fl
 }
 
 IndexIvfPq::IndexIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M,
-                       size_t nbits_per_idx)
-    : IndexIVFPQ(quantizer, d, nlist, M, nbits_per_idx, faiss::METRIC_L2) {
+                       size_t nbits_per_idx, faiss::MetricType metric)
+    : IndexIVFPQ(quantizer, d, nlist, M, nbits_per_idx, metric) {
   /* The following lines are added by tenann */
   reconstruction_errors.resize(nlist);
   /* End tenann.*/
@@ -232,10 +232,9 @@ void IndexIvfPq::custom_range_search_preassigned(idx_t nx, const float* x, float
 
   int pmode = this->parallel_mode & ~PARALLEL_MODE_NO_HEAP_INIT;
   // don't start parallel section if single query
-  bool do_parallel = omp_get_max_threads() >= 2 && (pmode == 3   ? false
-                                                    : pmode == 0 ? nx > 1
-                                                    : pmode == 1 ? nprobe > 1
-                                                                 : nprobe * nx > 1);
+  bool do_parallel =
+      omp_get_max_threads() >= 2 &&
+      (pmode == 3 ? false : pmode == 0 ? nx > 1 : pmode == 1 ? nprobe > 1 : nprobe * nx > 1);
 
 #pragma omp parallel if (do_parallel) reduction(+ : nlistv, ndis)
   {

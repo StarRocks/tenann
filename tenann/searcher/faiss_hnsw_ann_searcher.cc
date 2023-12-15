@@ -267,7 +267,8 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64
   }
 
   VLOG(VERBOSE_DEBUG) << "efSearch: " << faiss_search_parameters.efSearch
-                      << ", check_relative_distance: " << faiss_search_parameters.check_relative_distance;
+                      << ", check_relative_distance: "
+                      << faiss_search_parameters.check_relative_distance;
 
   // transform the query vector first if a pre-transform is set
   const float* x = reinterpret_cast<const float*>(query_vector.data);
@@ -307,6 +308,8 @@ void FaissHnswAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float rang
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
   T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
+  T_CHECK_NE(common_params_.metric_type, MetricType::kInnerProduct)
+      << "Range search is currently not supported for inner product metric.";
 
   float radius = range;
   if (common_params_.metric_type == MetricType::kCosineSimilarity) {
@@ -327,8 +330,9 @@ void FaissHnswAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float rang
   std::shared_ptr<IdFilterAdapter> id_filter_adapter;
 
   VLOG(VERBOSE_DEBUG) << "efSearch: " << faiss_search_parameters.efSearch
-                      << ", check_relative_distance: " << faiss_search_parameters.check_relative_distance
-                      << ", range: " << range << ", radius: " << radius << ", limit: " << limit
+                      << ", check_relative_distance: "
+                      << faiss_search_parameters.check_relative_distance << ", range: " << range
+                      << ", radius: " << radius << ", limit: " << limit
                       << ", result_order: " << result_order;
 
   if (id_filter) {

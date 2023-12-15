@@ -182,13 +182,16 @@ build_lapack() {
 #     cd $TP_SOURCE_DIR/$OPENBLAS_SOURCE
 #     mkdir -p $BUILD_DIR
 #     cd $BUILD_DIR
-#     # rm -rf CMakeCache.txt CMakeFiles/
+#     rm -rf CMakeCache.txt CMakeFiles/
 #     $CMAKE_CMD -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
 #         -DCMAKE_INSTALL_LIBDIR=lib \
 #         -DCMAKE_INSTALL_INCLUDEDIR=${TP_INSTALL_DIR}/include \
 #         -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
-#         -DUSE_OPENMP=1 \
-#         -DNUM_PARALLEL=8 \
+#         -DDYNAMIC_ARCH=1 \
+#         -DNO_SHARED=1 \
+#         -DNO_AVX512=1 \
+#         -DUSE_THREAD=0 \
+#         -DUSE_OPENMP=0 \
 #         ..
 #     $CMAKE_CMD --build . -j$PARALLEL --target install
 # }

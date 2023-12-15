@@ -389,28 +389,62 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
     // read header
     uint32_t h;
     READ1(h);
-    T_LOG_IF(ERROR, h != fourcc("IwPQ"))
-        << "could not read ivfpq from file " << path << ": "
-        << "expect magic number `IwPQ` but got " << fourcc_inv_printable(h);
+    T_LOG_IF(WARNING, h != fourcc("IwPQ") && h != fourcc("IxPT"))
+        << "tenann could not read ivfpq from file " << path << ": "
+        << "expect magic number `IwPQ` and `IxPT` but got." << fourcc_inv_printable(h);
+    if (h == fourcc("IwPQ")) {
+      auto index_ivfpq = std::make_unique<IndexIvfPq>();
+      // read faiss IndexIVFPQ
+      VLOG(VERBOSE_DEBUG) << "use_block_cache: " << index_reader_options_.use_block_cache;
+      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.use_block_cache, index_cache());
+      /* read custom fields */
+      // read range_search_confidence
+      READ1(index_ivfpq->range_search_confidence);
+      // read reconstruction_errors
+      size_t num_invlists;
+      READ1(num_invlists);
+      index_ivfpq->reconstruction_errors.resize(num_invlists);
+      for (size_t i = 0; i < num_invlists; i++) {
+        READVECTOR(index_ivfpq->reconstruction_errors[i]);
+      }
 
-    auto index_ivfpq = std::make_unique<IndexIvfPq>();
-    // read faiss IndexIVFPQ
-    VLOG(VERBOSE_DEBUG) << "use_block_cache: " << index_reader_options_.use_block_cache;
-    faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.use_block_cache, index_cache());
-    /* read custom fields */
-    // read range_search_confidence
-    READ1(index_ivfpq->range_search_confidence);
-    // read reconstruction_errors
-    size_t num_invlists;
-    READ1(num_invlists);
-    index_ivfpq->reconstruction_errors.resize(num_invlists);
-    for (size_t i = 0; i < num_invlists; i++) {
-      READVECTOR(index_ivfpq->reconstruction_errors[i]);
+      return std::make_shared<Index>(index_ivfpq.release(),  //
+                                     IndexType::kFaissIvfPq,  //
+                                     [](void* index) { delete static_cast<faiss::Index*>(index); });
+    } else if (h == fourcc("IxPT")) {
+      auto index_pt = std::make_unique<faiss::IndexPreTransform>();
+      index_pt->own_fields = true;
+      faiss::read_index_header(index_pt.get(), f);
+      int nt;
+      READ1(nt);
+      for (int i = 0; i < nt; i++) {
+        index_pt->chain.push_back(read_VectorTransform(f));
+      }
+      auto index_ivfpq = std::make_unique<IndexIvfPq>();
+      READ1(h);
+      VLOG(VERBOSE_DEBUG) << "use_block_cache: " << index_reader_options_.use_block_cache;
+      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.use_block_cache, index_cache());
+      /* read custom fields */
+      // read range_search_confidence
+      READ1(index_ivfpq->range_search_confidence);
+      // read reconstruction_errors
+      size_t num_invlists;
+      READ1(num_invlists);
+      index_ivfpq->reconstruction_errors.resize(num_invlists);
+      for (size_t i = 0; i < num_invlists; i++) {
+        READVECTOR(index_ivfpq->reconstruction_errors[i]);
+      }
+      index_pt->index = index_ivfpq.release();
+      return std::make_shared<Index>(
+          index_pt.release(),      //
+          IndexType::kFaissIvfPq,  //
+          [](void* index) { delete static_cast<faiss::IndexPreTransform*>(index); });
+    } else {
+      T_LOG(INFO) << "Unknow index to tenann::reader. using faiss::reader";
+      return std::make_shared<Index>(faiss::read_index(f, IO_FLAG),  //
+                                     IndexType::kFaissIvfPq,         //
+                                     [](void* index) { delete static_cast<faiss::Index*>(index); });
     }
-
-    return std::make_shared<Index>(index_ivfpq.release(),  //
-                                   IndexType::kFaissIvfPq,  //
-                                   [](void* index) { delete static_cast<faiss::Index*>(index); });
   } catch (faiss::FaissException& e) {
     T_LOG(ERROR) << e.what();
   }

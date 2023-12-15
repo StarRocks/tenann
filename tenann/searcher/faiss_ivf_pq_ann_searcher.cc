@@ -88,6 +88,8 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissIvfPq);
   T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
+  T_CHECK_NE(common_params_.metric_type, MetricType::kInnerProduct)
+      << "Range search is currently not supported for inner product metric.";
 
   auto index_ivfpq = static_cast<const IndexIvfPq*>(index_ref_->index_raw());
 
@@ -158,6 +160,11 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
     auto idx = indices[i];
     (*result_ids)[i] = result_id_data[idx];
     (*result_distances)[i] = result_distance_data[idx];
+  }
+
+  if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+    auto distances = reinterpret_cast<float*>(result_distances->data());
+    L2DistanceToCosineSimilarity(distances, distances, result_distances->size());
   }
 }
 
