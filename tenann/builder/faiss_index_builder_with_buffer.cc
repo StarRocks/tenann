@@ -40,42 +40,6 @@ FaissIndexBuilderWithBuffer::FaissIndexBuilderWithBuffer(const IndexMeta& meta)
 
 FaissIndexBuilderWithBuffer::~FaissIndexBuilderWithBuffer(){};
 
-void FaissIndexBuilderWithBuffer::AddImpl(const std::vector<SeqView>& input_columns,
-                                          const int64_t* row_ids, const uint8_t* null_flags) {
-  auto input_seq_type = input_columns[0].seq_view_type;
-  TypedArraySeqView<float> array_seq;
-  TypedVlArraySeqView<float> vl_array_seq;
-
-  bool is_vl_array = false;
-  if (input_seq_type == SeqViewType::kArraySeqView) {
-    array_seq = TypedArraySeqView<float>(input_columns[0].seq_view.array_seq_view);
-  } else if (input_seq_type == SeqViewType::kVlArraySeqView) {
-    vl_array_seq = TypedVlArraySeqView<float>(input_columns[0].seq_view.vl_array_seq_view);
-    is_vl_array = true;
-  }
-
-  if (row_ids == nullptr && null_flags == nullptr) {
-    is_vl_array ? AddRaw(vl_array_seq) : AddRaw(array_seq);
-    return;
-  }
-
-  if (row_ids != nullptr && null_flags != nullptr) {
-    is_vl_array ? AddWithRowIdsAndNullFlags(vl_array_seq, row_ids, null_flags)
-                : AddWithRowIdsAndNullFlags(array_seq, row_ids, null_flags);
-    return;
-  }
-
-  if (row_ids != nullptr && null_flags == nullptr) {
-    is_vl_array ? AddWithRowIds(vl_array_seq, row_ids) : AddWithRowIds(array_seq, row_ids);
-    return;
-  }
-
-  if (row_ids == nullptr && null_flags != nullptr) {
-    T_LOG(ERROR) << "adding nullable data without rowids is not supported";
-    return;
-  }
-}
-
 IndexBuilder& FaissIndexBuilderWithBuffer::Flush() {
   try {
     T_SCOPED_TIMER(flush_total_timer_);
@@ -97,19 +61,12 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush() {
         } else {
           GetFaissIndex()->add(data_buffer_.size() / common_params_.dim, data_buffer_.data());
         }
-      } else if (is_vl_array_) {
-        GetFaissIndex()->train(vl_array_seq_.size, vl_array_seq_.data);
-        if (with_row_ids) {
-          GetFaissIndex()->add_with_ids(vl_array_seq_.size, vl_array_seq_.data, row_id_);
-        } else {
-          GetFaissIndex()->add(vl_array_seq_.size, vl_array_seq_.data);
-        }
       } else {
-        GetFaissIndex()->train(array_seq_.size, array_seq_.data);
+        GetFaissIndex()->train(input_row_iterator_->size(), input_row_iterator_->data());
         if (with_row_ids) {
-          GetFaissIndex()->add_with_ids(array_seq_.size, array_seq_.data, row_id_);
+          GetFaissIndex()->add_with_ids(input_row_iterator_->size(), input_row_iterator_->data(), row_id_);
         } else {
-          GetFaissIndex()->add(array_seq_.size, array_seq_.data);
+          GetFaissIndex()->add(input_row_iterator_->size(), input_row_iterator_->data());
         }
       }
     }
@@ -121,148 +78,69 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush() {
   return *this;
 }
 
-void FaissIndexBuilderWithBuffer::Merge(const TypedArraySeqView<float>& input_column,
-                                        const int64_t* row_ids) {
+void FaissIndexBuilderWithBuffer::Merge(const TypedSliceIterator<float>& input_row_iterator,
+                                        const idx_t* row_ids) {
   if (inputs_live_longer_than_this_ == false) {
-    data_buffer_.insert(data_buffer_.end(), input_column.data,
-                        input_column.data + input_column.size * input_column.dim);
+    data_buffer_.insert(data_buffer_.end(), input_row_iterator.data(),
+                        input_row_iterator.data() + input_row_iterator.size() * common_params_.dim);
     if (row_ids != nullptr) {
-      id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
+      id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_row_iterator.size());
     }
   } else {
-    if (array_seq_.size == 0) {
-      array_seq_ = input_column;
+    if (input_row_iterator_ == nullptr) {
+      input_row_iterator_ = std::make_unique<TypedSliceIterator<float>>(input_row_iterator);
       if (row_ids != nullptr) {
         row_id_ = row_ids;
       }
     } else {
       if (data_buffer_.size() == 0) {
-        T_CHECK(array_seq_.dim == input_column.dim);
-        data_buffer_.assign(array_seq_.data, array_seq_.data + array_seq_.size * array_seq_.dim);
-        data_buffer_.insert(data_buffer_.end(), input_column.data,
-                            input_column.data + input_column.size * input_column.dim);
+        data_buffer_.assign(input_row_iterator_->data(), input_row_iterator_->data() + input_row_iterator_->size() * common_params_.dim);
+        data_buffer_.insert(data_buffer_.end(), input_row_iterator.data(),
+                            input_row_iterator.data() + input_row_iterator.size() * common_params_.dim);
         if (row_ids != nullptr) {
-          id_buffer_.assign(row_id_, row_id_ + array_seq_.size);
-          id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
+          id_buffer_.assign(row_id_, row_id_ + input_row_iterator_->size());
+          id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_row_iterator.size());
         }
       } else {
-        data_buffer_.insert(data_buffer_.end(), input_column.data,
-                            input_column.data + input_column.size * input_column.dim);
+        data_buffer_.insert(data_buffer_.end(), input_row_iterator.data(),
+                            input_row_iterator.data() +input_row_iterator.size() * common_params_.dim);
         if (row_ids != nullptr) {
-          id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
+          id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_row_iterator.size());
         }
       }
     }
   }
 }
 
-void FaissIndexBuilderWithBuffer::Merge(const TypedVlArraySeqView<float>& input_column,
-                                        const int64_t* row_ids) {
-  if (inputs_live_longer_than_this_ == false) {
-    data_buffer_.insert(data_buffer_.end(), input_column.data,
-                        input_column.data + input_column.size * common_params_.dim);
-    if (row_ids != nullptr) {
-      id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
-    }
+void FaissIndexBuilderWithBuffer::AddRaw(const TypedSliceIterator<float>& input_row_iterator) {
+  auto faiss_index = GetFaissIndex();
+  if (faiss_index->is_trained) {
+    faiss_index->add(input_row_iterator.size(), input_row_iterator.data());
   } else {
-    if (vl_array_seq_.size == 0) {
-      vl_array_seq_ = input_column;
-      if (row_ids != nullptr) {
-        row_id_ = row_ids;
-      }
-    } else {
-      if (data_buffer_.size() == 0) {
-        data_buffer_.assign(vl_array_seq_.data,
-                            vl_array_seq_.data + vl_array_seq_.size * common_params_.dim);
-        data_buffer_.insert(data_buffer_.end(), input_column.data,
-                            input_column.data + input_column.size * common_params_.dim);
-        if (row_ids != nullptr) {
-          id_buffer_.assign(row_id_, row_id_ + vl_array_seq_.size);
-          id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
-        }
-      } else {
-        data_buffer_.insert(data_buffer_.end(), input_column.data,
-                            input_column.data + input_column.size * common_params_.dim);
-        if (row_ids != nullptr) {
-          id_buffer_.insert(id_buffer_.end(), row_ids, row_ids + input_column.size);
-        }
-      }
-    }
+    Merge(input_row_iterator, nullptr);
   }
 }
 
-void FaissIndexBuilderWithBuffer::AddRaw(const TypedArraySeqView<float>& input_column) {
+void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedSliceIterator<float>& input_row_iterator,
+                                      const idx_t* row_ids) {
   auto faiss_index = GetFaissIndex();
   if (faiss_index->is_trained) {
-    faiss_index->add(input_column.size, input_column.data);
+    FaissIndexAddBatch(faiss_index, input_row_iterator.size(), input_row_iterator.data(), row_ids);
   } else {
-    Merge(input_column);
-  }
-}
-
-void FaissIndexBuilderWithBuffer::AddRaw(const TypedVlArraySeqView<float>& input_column) {
-  is_vl_array_ = true;
-  CheckDimension(input_column, common_params_.dim);
-  auto faiss_index = GetFaissIndex();
-  if (faiss_index->is_trained) {
-    faiss_index->add(input_column.size, input_column.data);
-  } else {
-    Merge(input_column);
-  }
-}
-
-void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedArraySeqView<float>& input_column,
-                                                const int64_t* row_ids) {
-  auto faiss_index = GetFaissIndex();
-  if (faiss_index->is_trained) {
-    faiss_index->add_with_ids(input_column.size, input_column.data, row_ids);
-  } else {
-    Merge(input_column, row_ids);
-  }
-}
-
-void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
-                                                const int64_t* row_ids) {
-  is_vl_array_ = true;
-  CheckDimension(input_column, common_params_.dim);
-  auto faiss_index = GetFaissIndex();
-  if (faiss_index->is_trained) {
-    faiss_index->add_with_ids(input_column.size, input_column.data, row_ids);
-  } else {
-    Merge(input_column, row_ids);
+    Merge(input_row_iterator, row_ids);
   }
 }
 
 void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(
-    const TypedArraySeqView<float>& input_column, const int64_t* row_ids,
+    const TypedSliceIterator<float>& input_row_iterator, const idx_t* row_ids,
     const uint8_t* null_flags) {
   auto faiss_index = GetFaissIndex();
-  size_t i = 0;
-  for (auto slice : input_column) {
+  input_row_iterator.ForEach([=](idx_t i, const float* slice_data, idx_t slice_length) {
     if (null_flags[i] == 0) {
-      data_buffer_.insert(data_buffer_.end(), slice.data, slice.data + slice.size);
+      data_buffer_.insert(data_buffer_.end(), slice_data, slice_data + slice_length);
       id_buffer_.push_back(row_ids[i]);
     }
-    i += 1;
-  }
-}
-
-void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(
-    const TypedVlArraySeqView<float>& input_column, const int64_t* row_ids,
-    const uint8_t* null_flags) {
-  is_vl_array_ = true;
-  auto faiss_index = GetFaissIndex();
-  size_t i = 0;
-  for (auto slice : input_column) {
-    if (null_flags[i] == 0) {
-      T_LOG_IF(ERROR, slice.size != common_params_.dim)
-          << "invalid size for vector " << i << " : expected " << common_params_.dim << " but got "
-          << slice.size;
-      data_buffer_.insert(data_buffer_.end(), slice.data, slice.data + slice.size);
-      id_buffer_.push_back(row_ids[i]);
-    }
-    i += 1;
-  }
+  });
 }
 
 }  // namespace tenann

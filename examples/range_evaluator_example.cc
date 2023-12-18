@@ -77,12 +77,12 @@ void Eval(MetricType metric_type, float threshold, int64_t limit, const std::vec
 
   auto meta = PrepareHnswMeta(metric_type);
   auto index_params = PrepareHnswParams(16, 500);
+  SetVLogLevel(verbose);
 
   RangeSearchEvaluator evaluator(
       metric_type == MetricType::kL2Distance ? "range_eval_exmaple_l2" : "range_eval_exmaple_cos",
       meta, ".");
   evaluator
-      .SetVerboseLevel(verbose)    //
       .SetMetricType(metric_type)  //
       .SetDim(dim)                 //
       .SetBase(nb, base.data())    //

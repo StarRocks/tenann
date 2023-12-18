@@ -100,9 +100,9 @@ class Evaluator {
 
  protected:
   MetricType metric_type_;
-  int dim_ = -1;
+  uint32_t dim_ = 0;
   const float* base_ = nullptr;
-  int64_t nb_ = 0;
+  uint32_t nb_ = 0;
   int64_t nq_ = 0;
 
   QuerySet query_set_;

@@ -62,22 +62,7 @@ class FaissIndexBuilder : public IndexBuilder {
   virtual void AddImpl(const std::vector<SeqView>& input_columns, const idx_t* row_ids = nullptr,
                        const uint8_t* null_flags = nullptr);
 
-  [[deprecated]] virtual void AddRaw(const TypedArraySeqView<float>& input_column);
-  [[deprecated]] virtual void AddRaw(const TypedVlArraySeqView<float>& input_column);
-
-  [[deprecated]] virtual void AddWithRowIds(const TypedArraySeqView<float>& input_column,
-                                            const idx_t* row_ids);
-  [[deprecated]] virtual void AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
-                                            const idx_t* row_ids);
-
-  [[deprecated]] virtual void AddWithRowIdsAndNullFlags(
-      const TypedArraySeqView<float>& input_column, const idx_t* row_ids,
-      const uint8_t* null_flags);
-  [[deprecated]] virtual void AddWithRowIdsAndNullFlags(
-      const TypedVlArraySeqView<float>& input_column, const idx_t* row_ids,
-      const uint8_t* null_flags);
-
-  virtual void AddRaw(const float* data, idx_t num_rows);
+  virtual void AddRaw(const TypedSliceIterator<float>& input_row_iterator);
 
   virtual void AddWithRowIds(const TypedSliceIterator<float>& input_row_iterator,
                              const idx_t* row_ids);
@@ -89,8 +74,6 @@ class FaissIndexBuilder : public IndexBuilder {
                           const idx_t* rowids = nullptr);
   void FaissIndexAddSingle(faiss ::Index* index, const float* data, const idx_t* rowid = nullptr);
 
-  [[deprecated]] static void CheckDimension(const TypedVlArraySeqView<float>& input_column,
-                                            int dim);
   static void CheckDimension(const TypedSliceIterator<float>& input_column, idx_t dim);
 
   faiss::Index* GetFaissIndex();

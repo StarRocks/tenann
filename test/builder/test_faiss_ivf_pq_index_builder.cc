@@ -96,6 +96,16 @@ TEST_F(FaissIvfPqIndexBuilderTest, Add) {
       .Flush()
       .Add({base_view()}, ids().data(), nullptr, true)
       .Close();
+  // inputs_live_longer_than_this(false)
+  std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
+      ->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), nullptr, false)
+      .Add({base_view()}, ids().data(), nullptr, false)
+      .Add({base_view()}, ids().data(), nullptr, false)
+      .Flush()
+      .Add({base_view()}, ids().data(), nullptr, false)
+      .Close();
   // use_custom_row_id_(false), null_map(not null)
   EXPECT_THROW(std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())
                    ->Open()

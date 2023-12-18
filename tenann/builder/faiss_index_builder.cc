@@ -156,7 +156,7 @@ void FaissIndexBuilder::AddImpl(const std::vector<SeqView>& input_columns, const
   T_DCHECK_NOTNULL(input_row_iterator);
 
   if (row_ids == nullptr && null_flags == nullptr) {
-    AddRaw(input_row_iterator->data(), input_row_iterator->size());
+    AddRaw(*input_row_iterator);
     return;
   }
 
@@ -174,60 +174,9 @@ void FaissIndexBuilder::AddImpl(const std::vector<SeqView>& input_columns, const
   }
 }
 
-void FaissIndexBuilder::AddRaw(const TypedArraySeqView<float>& input_column) {
+void FaissIndexBuilder::AddRaw(const TypedSliceIterator<float>& input_row_iterator) {
   auto faiss_index = GetFaissIndex();
-  faiss_index->add(input_column.size, input_column.data);
-}
-
-void FaissIndexBuilder::AddRaw(const TypedVlArraySeqView<float>& input_column) {
-  CheckDimension(input_column, common_params_.dim);
-  auto faiss_index = GetFaissIndex();
-  faiss_index->add(input_column.size, input_column.data);
-}
-
-void FaissIndexBuilder::AddWithRowIds(const TypedArraySeqView<float>& input_column,
-                                      const idx_t* row_ids) {
-  auto faiss_index = GetFaissIndex();
-  FaissIndexAddBatch(faiss_index, input_column.size, input_column.data, row_ids);
-}
-
-void FaissIndexBuilder::AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
-                                      const int64_t* row_ids) {
-  CheckDimension(input_column, common_params_.dim);
-  auto faiss_index = GetFaissIndex();
-  FaissIndexAddBatch(faiss_index, input_column.size, input_column.data, row_ids);
-}
-
-void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
-                                                  const idx_t* row_ids, const uint8_t* null_flags) {
-  auto faiss_index = GetFaissIndex();
-  idx_t i = 0;
-  for (auto slice : input_column) {
-    if (null_flags[i] == 0) {
-      FaissIndexAddSingle(faiss_index, slice.data, row_ids + i);
-    }
-    i += 1;
-  }
-}
-
-void FaissIndexBuilder::AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,
-                                                  const idx_t* row_ids, const uint8_t* null_flags) {
-  auto faiss_index = GetFaissIndex();
-  idx_t i = 0;
-  for (auto slice : input_column) {
-    if (null_flags[i] == 0) {
-      T_LOG_IF(ERROR, slice.size != common_params_.dim)
-          << "invalid size for vector " << i << " : expected " << common_params_.dim << " but got "
-          << slice.size;
-      FaissIndexAddSingle(faiss_index, slice.data, row_ids + i);
-    }
-    i += 1;
-  }
-}
-
-void FaissIndexBuilder::AddRaw(const float* data, idx_t num_rows) {
-  auto faiss_index = GetFaissIndex();
-  faiss_index->add(num_rows, data);
+  faiss_index->add(input_row_iterator.size(), input_row_iterator.data());
 }
 
 void FaissIndexBuilder::AddWithRowIds(const TypedSliceIterator<float>& input_row_iterator,
@@ -262,16 +211,6 @@ void FaissIndexBuilder::FaissIndexAddSingle(faiss::Index* index, const float* da
     index->add_with_ids(1, data, rowid);
   } else {
     index->add(1, data);
-  }
-}
-
-void FaissIndexBuilder::CheckDimension(const TypedVlArraySeqView<float>& input_column, int dim) {
-  // check vector sizes
-  idx_t i = 0;
-  for (auto slice : input_column) {
-    T_LOG_IF(ERROR, slice.size != dim)
-        << "invalid size for vector " << i << " : expected " << dim << " but got " << slice.size;
-    i += 1;
   }
 }
 

@@ -84,6 +84,7 @@ class FaissTestBase : public ::testing::Test {
   void InitAccurateQueryResult(bool use_custom_row_id, int id_filter_count);
   void CreateAndWriteFaissHnswIndex(bool use_custom_row_id = false, int id_filter_count = INT_MAX);
   void CreateAndWriteFaissIvfPqIndex(bool use_custom_row_id = false, int id_filter_count = INT_MAX);
+  void MultiAddCreateAndWriteFaissIvfPqIndex();
   void ReadIndexAndDefaultSearch(size_t limit_cache_capacity = 0);
 
   // log output: build_Release/Testing/Temporary/LastTest.log
@@ -125,6 +126,12 @@ class FaissTestBase : public ::testing::Test {
   std::unique_ptr<IndexBuilder> faiss_hnsw_index_builder_;
   std::unique_ptr<IndexBuilder> faiss_ivf_pq_index_builder_;
   std::unique_ptr<AnnSearcher> ann_searcher_;
+
+  // for multi-add
+  float* base1_ = nullptr;
+  float* base2_ = nullptr;
+  ArraySeqView base_view1_;
+  ArraySeqView base_view2_;
 };
 
 }  // namespace tenann

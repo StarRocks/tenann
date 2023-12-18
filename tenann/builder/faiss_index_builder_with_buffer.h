@@ -33,32 +33,14 @@ class FaissIndexBuilderWithBuffer : public FaissIndexBuilder {
   IndexBuilder& Flush() override;
 
  protected:
-  [[deprecated]] void AddImpl(const std::vector<SeqView>& input_columns,
-                              const int64_t* row_ids = nullptr,
-                              const uint8_t* null_flags = nullptr) override;
-
-  [[deprecated]] void Merge(const TypedArraySeqView<float>& input_column,
-                            const int64_t* row_ids = nullptr);
-  [[deprecated]] void Merge(const TypedVlArraySeqView<float>& input_column,
-                            const int64_t* row_ids = nullptr);
-  [[deprecated]] void AddRaw(const TypedArraySeqView<float>& input_column) override;
-  [[deprecated]] void AddRaw(const TypedVlArraySeqView<float>& input_column) override;
-
-  [[deprecated]] void AddWithRowIds(const TypedArraySeqView<float>& input_column,
-                                    const int64_t* row_ids) override;
-  [[deprecated]] void AddWithRowIds(const TypedVlArraySeqView<float>& input_column,
-                                    const int64_t* row_ids) override;
-
-  [[deprecated]] void AddWithRowIdsAndNullFlags(const TypedArraySeqView<float>& input_column,
-                                                const int64_t* row_ids,
-                                                const uint8_t* null_flags) override;
-  [[deprecated]] void AddWithRowIdsAndNullFlags(const TypedVlArraySeqView<float>& input_column,
-                                                const int64_t* row_ids,
-                                                const uint8_t* null_flags) override;
+  void Merge(const TypedSliceIterator<float>& input_row_iterator, const idx_t* row_ids);
+  void AddRaw(const TypedSliceIterator<float>& input_row_iterator) override;
+  void AddWithRowIds(const TypedSliceIterator<float>& input_row_iterator, const idx_t* row_ids) override;
+  void AddWithRowIdsAndNullFlags(const TypedSliceIterator<float>& input_row_iterator, const idx_t* row_ids,
+                                 const uint8_t* null_flags) override;
 
  protected:
-  TypedArraySeqView<float> array_seq_;
-  TypedVlArraySeqView<float> vl_array_seq_;
+  std::unique_ptr<TypedSliceIterator<float>> input_row_iterator_ = nullptr;
   const int64_t* row_id_ = nullptr;
   std::vector<float> data_buffer_;
   std::vector<int64_t> id_buffer_;

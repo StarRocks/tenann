@@ -41,10 +41,20 @@ void FaissTestBase::SetUp() {
 
   // generate data and query
   base_ = RandomVectors(nb_, d_);
+  base1_ = base_.data();
+  base2_ = base_.data() + nb_ / 2;
   base_view_ = ArraySeqView{.data = reinterpret_cast<uint8_t*>(base_.data()),
                             .dim = d_,
                             .size = static_cast<uint32_t>(nb_),
                             .elem_type = PrimitiveType::kFloatType};
+  base_view1_ = ArraySeqView{.data = reinterpret_cast<uint8_t*>(base_.data()),
+                             .dim = d_,
+                             .size = static_cast<uint32_t>(nb_ / 2),
+                             .elem_type = PrimitiveType::kFloatType};
+  base_view2_ = ArraySeqView{.data = reinterpret_cast<uint8_t*>(base_.data() + nb_ / 2 * d_),
+                             .dim = d_,
+                             .size = static_cast<uint32_t>(nb_ - nb_ / 2),
+                             .elem_type = PrimitiveType::kFloatType};
 
   int offset_num = nb_ + 1;
   offsets_.resize(offset_num);
@@ -210,6 +220,18 @@ void FaissTestBase::CreateAndWriteFaissIvfPqIndex(bool use_custom_row_id, int id
         .Flush()
         .Close();
   }
+
+  meta_ = faiss_ivf_pq_meta_;
+}
+
+void FaissTestBase::MultiAddCreateAndWriteFaissIvfPqIndex() {
+  InitAccurateQueryResult(false, INT_MAX);
+
+  faiss_ivf_pq_index_builder_->Open(index_with_primary_key_path_)
+      .Add({base_view1_}, nullptr, nullptr)
+      .Add({base_view2_}, nullptr, nullptr)
+      .Flush()
+      .Close();
 
   meta_ = faiss_ivf_pq_meta_;
 }
