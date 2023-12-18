@@ -74,9 +74,8 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
     VLOG(VERBOSE_DEBUG) << "nlist: " << index_ivfpq->invlists->nlist << ", M: " << index_ivfpq->pq.M
                         << ", nbits: " << index_ivfpq->pq.nbits;
 
-    if (common_params_.metric_type == MetricType::kCosineSimilarity ||
-        common_params_.metric_type == MetricType::kInnerProduct ||
-        common_params_.is_vector_normed) {
+    if (common_params_.metric_type == MetricType::kCosineSimilarity &&
+        !common_params_.is_vector_normed) {
       auto index_pt = std::make_unique<faiss::IndexPreTransform>(index_ivfpq.release());
       index_pt->own_fields = true;
       auto vector_transform =
