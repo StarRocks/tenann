@@ -33,7 +33,7 @@
 std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0) {
   std::mt19937 rng(seed);
   std::vector<float> data(n * dim);
-  std::uniform_real_distribution<> distrib;
+  std::normal_distribution<> distrib(0.0, 1.0);
   for (int64_t i = 0; i < n * dim; i++) {
     data[i] = distrib(rng);
   }
@@ -116,9 +116,9 @@ int main() {
   meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
   meta.SetIndexType(tenann::IndexType::kFaissIvfPq);
   meta.common_params()["dim"] = 16;
-  meta.common_params()["is_vector_normed"] = true;
+  meta.common_params()["is_vector_normed"] = false;
   meta.common_params()["metric_type"] =
-      tenann::MetricType::kInnerProduct;  // kL2Distance kCosineSimilarity kInnerProduct
+      tenann::MetricType::kCosineSimilarity;  // kL2Distance kCosineSimilarity kInnerProduct
   meta.index_params()["M"] = 8;
   meta.search_params()["nbits"] = 8;
   meta.extra_params()["comments"] = "my comments";
@@ -161,9 +161,7 @@ int main() {
   try {
     auto index_builder1 = tenann::IndexFactory::CreateBuilderFromMeta(meta);
     tenann::IndexWriterRef index_writer = tenann::IndexFactory::CreateWriterFromMeta(meta);
-    index_builder1->SetIndexWriter(index_writer)
-        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-        .Open(index_path);
+    index_builder1->Open(index_path);
     const int64_t step = 1000;
     auto* data = base.data();
     for (int64_t i = 0; i < nb; i += step) {
@@ -176,18 +174,15 @@ int main() {
       data += step;
     }
     T_LOG(WARNING) << "Flushing data...";
-    index_builder1->Flush(true);
+    index_builder1->Flush();
     index_builder1->Close();
 
     std::shared_ptr<tenann::IndexReader> reader = tenann::IndexFactory::CreateReaderFromMeta(meta);
     auto ann_searcher = tenann::AnnSearcherFactory::CreateSearcherFromMeta(meta);
-    ann_searcher
-        ->SetIndexReader(reader)  //
-        .SetIndexCache(tenann::IndexCache::GetGlobalInstance())
-        .ReadIndex(index_path);
+    ann_searcher->ReadIndex(index_path);
 
     std::vector<int64_t> result_ids(nq * k);
-
+    std::vector<float> result_distances(nq * k);
     // search index
     for (int i = 0; i < nq; i++) {
       auto query_view =
@@ -195,11 +190,18 @@ int main() {
                                    .size = d,
                                    .elem_type = tenann::PrimitiveType::kFloatType};
 
-      ann_searcher->AnnSearch(query_view, k, result_ids.data() + i * k);
+      ann_searcher->AnnSearch(query_view, k, result_ids.data() + i * k,
+                              reinterpret_cast<uint8_t*>(result_distances.data() + i * k));
 
       std::cout << "Result of query " << i << ": ";
       for (int j = 0; j < k; j++) {
         std::cout << result_ids[i * k + j] << ",";
+      }
+      std::cout << "\n";
+
+      std::cout << "distances of query " << i << ": ";
+      for (int j = 0; j < k; j++) {
+        std::cout << result_distances[i * k + j] << ",";
       }
       std::cout << "\n";
     }
