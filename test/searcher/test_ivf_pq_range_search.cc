@@ -50,7 +50,7 @@ class IvfPqRangeSearchTest : public FaissTestBase {
     }
   }
 
-  std::unique_ptr<AnnSearcher> GetAnnSearcher() {
+  std::shared_ptr<AnnSearcher> GetAnnSearcher() {
     faiss_ivf_pq_meta_.index_reader_options()["read_index_cache"] = true;
     faiss_ivf_pq_meta_.index_reader_options()["custom_cache_key"] = kCacheKey;
     auto searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_ivf_pq_meta_);

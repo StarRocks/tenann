@@ -65,11 +65,11 @@ class FaissTestBase : public ::testing::Test {
   ArraySeqView& base_view() { return base_view_; }
   VlArraySeqView& base_vl_view() { return base_vl_view_; }
   std::vector<PrimitiveSeqView>& query_view() { return query_view_; }
-  std::unique_ptr<IndexBuilder>& faiss_hnsw_index_builder() { return faiss_hnsw_index_builder_; }
-  std::unique_ptr<IndexBuilder>& faiss_ivf_pq_index_builder() {
+  std::shared_ptr<IndexBuilder>& faiss_hnsw_index_builder() { return faiss_hnsw_index_builder_; }
+  std::shared_ptr<IndexBuilder>& faiss_ivf_pq_index_builder() {
     return faiss_ivf_pq_index_builder_;
   }
-  std::unique_ptr<AnnSearcher>& ann_searcher() { return ann_searcher_; }
+  std::shared_ptr<AnnSearcher>& ann_searcher() { return ann_searcher_; }
 
  protected:
   void SetUp() override;
@@ -123,9 +123,9 @@ class FaissTestBase : public ::testing::Test {
   ArraySeqView base_view_;
   VlArraySeqView base_vl_view_;
   std::vector<PrimitiveSeqView> query_view_;
-  std::unique_ptr<IndexBuilder> faiss_hnsw_index_builder_;
-  std::unique_ptr<IndexBuilder> faiss_ivf_pq_index_builder_;
-  std::unique_ptr<AnnSearcher> ann_searcher_;
+  std::shared_ptr<IndexBuilder> faiss_hnsw_index_builder_;
+  std::shared_ptr<IndexBuilder> faiss_ivf_pq_index_builder_;
+  std::shared_ptr<AnnSearcher> ann_searcher_;
 
   // for multi-add
   float* base1_ = nullptr;

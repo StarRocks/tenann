@@ -29,9 +29,9 @@
 namespace tenann {
 
 struct IndexFactory {
-  static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta);
-  static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta);
-  static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta);
+  static std::shared_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta);
+  static std::shared_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta);
+  static std::shared_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta);
 };
 
 }  // namespace tenann

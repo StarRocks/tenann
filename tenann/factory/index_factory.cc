@@ -23,7 +23,7 @@
 
 namespace tenann {
 
-std::unique_ptr<IndexReader> IndexFactory::CreateReaderFromMeta(const IndexMeta& meta) {
+std::shared_ptr<IndexReader> IndexFactory::CreateReaderFromMeta(const IndexMeta& meta) {
 #define CASE_FN(TYPE) return IndexFactoryTrait<TYPE>::CreateReaderFromMeta(meta)
 
   auto index_type = meta.index_type();
@@ -32,7 +32,7 @@ std::unique_ptr<IndexReader> IndexFactory::CreateReaderFromMeta(const IndexMeta&
 #undef CASE_FN
 }
 
-std::unique_ptr<IndexWriter> IndexFactory::CreateWriterFromMeta(const IndexMeta& meta) {
+std::shared_ptr<IndexWriter> IndexFactory::CreateWriterFromMeta(const IndexMeta& meta) {
 #define CASE_FN(TYPE) return IndexFactoryTrait<TYPE>::CreateWriterFromMeta(meta)
 
   auto index_type = meta.index_type();
@@ -41,7 +41,7 @@ std::unique_ptr<IndexWriter> IndexFactory::CreateWriterFromMeta(const IndexMeta&
 #undef CASE_FN
 }
 
-std::unique_ptr<IndexBuilder> IndexFactory::CreateBuilderFromMeta(const IndexMeta& meta) {
+std::shared_ptr<IndexBuilder> IndexFactory::CreateBuilderFromMeta(const IndexMeta& meta) {
 #define CASE_FN(TYPE) return IndexFactoryTrait<TYPE>::CreateBuilderFromMeta(meta)
 
   auto index_type = meta.index_type();

@@ -238,7 +238,7 @@ class RangeSearchEvaluator : public Evaluator<RangeQuerySet, RangeSearchMetrics>
   }
 
  protected:
-  std::unique_ptr<AnnSearcher> searcher_;
+  std::shared_ptr<AnnSearcher> searcher_;
   std::string index_save_dir_;
   std::string evaluator_name_;
 };

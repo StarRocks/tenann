@@ -25,7 +25,7 @@
 namespace tenann {
 
 struct AnnSearcherFactory {
-  static std::unique_ptr<AnnSearcher> CreateSearcherFromMeta(const IndexMeta& meta);
+  static std::shared_ptr<AnnSearcher> CreateSearcherFromMeta(const IndexMeta& meta);
 };
 
 }  // namespace tenann

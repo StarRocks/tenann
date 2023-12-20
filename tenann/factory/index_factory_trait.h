@@ -53,46 +53,46 @@ namespace tenann {
 /// and create corresponding factories, which will help improve maintainability
 template <IndexType type>
 struct IndexFactoryTrait {
-  [[noreturn]] static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
+  [[noreturn]] static std::shared_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
     throw Error(__FILE__, __LINE__, "method not implemented: CreateReaderFromMeta");
   };
 
-  [[noreturn]] static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
+  [[noreturn]] static std::shared_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
     throw Error(__FILE__, __LINE__, "method not implemented: CreateWriterFromMeta");
   };
 
-  [[noreturn]] static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
+  [[noreturn]] static std::shared_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
     throw Error(__FILE__, __LINE__, "method not implemented: CreateBuilderFromMeta");
   };
 };
 
 template <>
 struct IndexFactoryTrait<kFaissHnsw> {
-  static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    return std::make_unique<FaissIndexReader>(meta);
+  static std::shared_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
+    return std::make_shared<FaissIndexReader>(meta);
   };
 
-  static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    return std::make_unique<FaissIndexWriter>(meta);
+  static std::shared_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
+    return std::make_shared<FaissIndexWriter>(meta);
   };
 
-  static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    return std::make_unique<FaissHnswIndexBuilder>(meta);
+  static std::shared_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
+    return std::make_shared<FaissHnswIndexBuilder>(meta);
   };
 };
 
 template <>
 struct IndexFactoryTrait<kFaissIvfPq> {
-  static std::unique_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
-    return std::make_unique<IndexIvfPqReader>(meta);
+  static std::shared_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
+    return std::make_shared<IndexIvfPqReader>(meta);
   };
 
-  static std::unique_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
-    return std::make_unique<IndexIvfPqWriter>(meta);
+  static std::shared_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
+    return std::make_shared<IndexIvfPqWriter>(meta);
   };
 
-  static std::unique_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
-    return std::make_unique<FaissIvfPqIndexBuilder>(meta);
+  static std::shared_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
+    return std::make_shared<FaissIvfPqIndexBuilder>(meta);
   };
 };
 

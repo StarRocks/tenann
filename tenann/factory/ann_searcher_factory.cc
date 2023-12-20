@@ -24,7 +24,7 @@
 
 namespace tenann {
 
-std::unique_ptr<AnnSearcher> AnnSearcherFactory::CreateSearcherFromMeta(const IndexMeta& meta) {
+std::shared_ptr<AnnSearcher> AnnSearcherFactory::CreateSearcherFromMeta(const IndexMeta& meta) {
   if (meta.index_type() == IndexType::kFaissHnsw) {
     return std::make_unique<FaissHnswAnnSearcher>(meta);
   } else if(meta.index_type() == IndexType::kFaissIvfPq) {

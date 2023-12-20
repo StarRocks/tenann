@@ -160,8 +160,8 @@ class TenANN {
   }
 
  protected:
-  std::unique_ptr<tenann::IndexBuilder> index_builder_;
-  std::unique_ptr<tenann::AnnSearcher> ann_searcher_;
+  std::shared_ptr<tenann::IndexBuilder> index_builder_;
+  std::shared_ptr<tenann::AnnSearcher> ann_searcher_;
 };
 
 PYBIND11_MODULE(tenann_py, m) {
