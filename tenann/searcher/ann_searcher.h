@@ -50,11 +50,11 @@ class AnnSearcher : public Searcher<AnnSearcher> {
    * size k.
    * @param id_filter        User-defined rowid filter.
    */
-  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
+  virtual void AnnSearch(PrimitiveSeqView query_vector, int64_t k, int64_t* result_id,
                          uint8_t* result_distances, const IdFilter* id_filter = nullptr) = 0;
 
   /// @brief Approximate nearest neighbor search. Return only the IDs without the distances.
-  virtual void AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
+  virtual void AnnSearch(PrimitiveSeqView query_vector, int64_t k, int64_t* result_id,
                          const IdFilter* id_filter = nullptr) = 0;
 
   /**

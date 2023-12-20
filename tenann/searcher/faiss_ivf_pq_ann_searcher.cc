@@ -40,13 +40,13 @@ FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher(const IndexMeta& meta) : AnnSearche
 
 FaissIvfPqAnnSearcher::~FaissIvfPqAnnSearcher() = default;
 
-void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_id,
+void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int64_t k, int64_t* result_id,
                                       const IdFilter* id_filter) {
   std::vector<float> distances(k);
   AnnSearch(query_vector, k, result_id, reinterpret_cast<uint8_t*>(distances.data()), id_filter);
 }
 
-void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int k, int64_t* result_ids,
+void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int64_t k, int64_t* result_ids,
                                       uint8_t* result_distances, const IdFilter* id_filter) {
   T_CHECK_NOTNULL(index_ref_);
 
