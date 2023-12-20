@@ -45,9 +45,14 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
     auto factory_string =
         faiss_util::GetHnswRepr(common_params_, index_params_, use_custom_row_id_);
 
+    auto metric_type = faiss::METRIC_L2;
+    if (common_params_.metric_type == MetricType::kInnerProduct) {
+      metric_type = faiss::METRIC_INNER_PRODUCT;
+    }
+
     // create faiss index
     auto index = std::unique_ptr<faiss::Index>(
-        faiss::index_factory(common_params_.dim, factory_string.c_str(), faiss::METRIC_L2));
+        faiss::index_factory(common_params_.dim, factory_string.c_str(), metric_type));
     auto [_, __, index_hnsw] = faiss_util::UnpackHnswMutable(index.get(), common_params_);
 
     // set index parameters
