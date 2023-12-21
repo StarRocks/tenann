@@ -94,7 +94,7 @@ void FaissTestBase::InitFaissHnswMeta() {
   faiss_hnsw_meta_.extra_params()["comments"] = "my comments";
   faiss_hnsw_meta_.index_writer_options()["write_index_cache"] = true;
   faiss_hnsw_meta_.index_writer_options()["custom_cache_key"] = "test";
-  faiss_hnsw_meta_.index_reader_options()["read_index_cache"] = false;
+  faiss_hnsw_meta_.index_reader_options()["cache_index_file"] = false;
 }
 
 void FaissTestBase::InitFaissIvfPqMeta() {
