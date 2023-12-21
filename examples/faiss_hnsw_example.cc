@@ -54,7 +54,7 @@ int main() {
   meta.search_params()["efSearch"] = 40;
   meta.extra_params()["comments"] = "my comments";
   meta.index_writer_options()["write_index_cache"] = true;
-  meta.index_reader_options()["read_index_cache"] = true;
+  meta.index_reader_options()[tenann::IndexReaderOptions::cache_index_file_key] = true;
 
   // dimension of the vectors to index
   uint32_t d = 128;

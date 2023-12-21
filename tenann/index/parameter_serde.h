@@ -116,7 +116,7 @@ inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_p
   out_params->Validate();
 }
 
-inline void FetchParameters(const IndexMeta& meta, WriteIndexOptions* out_params) {
+inline void FetchParameters(const IndexMeta& meta, IndexWriterOptions* out_params) {
   GET_OPTIONAL_WRITE_INDEX_PARAM_TO(meta, *out_params, write_index_cache);
   if (meta.index_writer_options().contains("custom_cache_key")) {
       out_params->custom_cache_key = meta.index_writer_options()["custom_cache_key"];
@@ -125,13 +125,13 @@ inline void FetchParameters(const IndexMeta& meta, WriteIndexOptions* out_params
   out_params->Validate();
 }
 
-inline void FetchParameters(const IndexMeta& meta, ReadIndexOptions* out_params) {
-  GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, read_index_cache);
+inline void FetchParameters(const IndexMeta& meta, IndexReaderOptions* out_params) {
+  GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, cache_index_file);
   if (meta.index_reader_options().contains("custom_cache_key")) {
       out_params->custom_cache_key = meta.index_reader_options()["custom_cache_key"];
   }
   GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, force_read_and_overwrite_cache);
-  GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, use_block_cache);
+  GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, cache_index_block);
 
   out_params->Validate();
 }

@@ -1,8 +1,10 @@
-import unittest
-import tenann_py
 import math
 import os
+import unittest
+
 import numpy as np
+import tenann_py
+
 
 class TestIndexHNSW(unittest.TestCase):
     @classmethod
@@ -38,7 +40,7 @@ class TestIndexHNSW(unittest.TestCase):
                     "polysemous_ht" : 0
                 },
                 "read_index": {
-                    "use_block_cache": true
+                    "cache_index_block": true
                 },
                 "extra": {
                     "comments": "Testing IndexIVFPQ.",

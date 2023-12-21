@@ -146,10 +146,10 @@ InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags, te
   }
 }
 
-static void read_InvertedLists(IndexIVF* ivf, IOReader* f, int io_flags, bool use_block_cache,
+static void read_InvertedLists(IndexIVF* ivf, IOReader* f, int io_flags, bool cache_index_block,
                                tenann::IndexCache* index_cache) {
   InvertedLists* ils = nullptr;
-  if (use_block_cache) {
+  if (cache_index_block) {
     ils = read_InvertedLists_with_block_cache(f, io_flags, index_cache);
   } else {
     ils = read_InvertedLists(f, io_flags);
@@ -175,7 +175,7 @@ static void read_ProductQuantizer(ProductQuantizer* pq, IOReader* f) {
  * Ported from faiss/impl/index_read.cpp
  **************************************************************/
 
-static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags, bool use_block_cache,
+static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags, bool cache_index_block,
                        tenann::IndexCache* index_cache) {
   bool legacy = h == fourcc("IvQR") || h == fourcc("IvPQ");
 
@@ -189,7 +189,7 @@ static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags, 
     ArrayInvertedLists* ail = set_array_invlist(ivpq, ids);
     for (size_t i = 0; i < ail->nlist; i++) READVECTOR(ail->codes[i]);
   } else {
-    read_InvertedLists(ivpq, f, io_flags, use_block_cache, index_cache);
+    read_InvertedLists(ivpq, f, io_flags, cache_index_block, index_cache);
   }
 
   if (ivpq->is_trained) {
@@ -395,8 +395,8 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
     if (h == fourcc("IwPQ")) {
       auto index_ivfpq = std::make_unique<IndexIvfPq>();
       // read faiss IndexIVFPQ
-      VLOG(VERBOSE_DEBUG) << "use_block_cache: " << index_reader_options_.use_block_cache;
-      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.use_block_cache, index_cache());
+      VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
+      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block, index_cache());
       /* read custom fields */
       // read range_search_confidence
       READ1(index_ivfpq->range_search_confidence);
@@ -422,8 +422,8 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
       }
       auto index_ivfpq = std::make_unique<IndexIvfPq>();
       READ1(h);
-      VLOG(VERBOSE_DEBUG) << "use_block_cache: " << index_reader_options_.use_block_cache;
-      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.use_block_cache, index_cache());
+      VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
+      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block, index_cache());
       /* read custom fields */
       // read range_search_confidence
       READ1(index_ivfpq->range_search_confidence);

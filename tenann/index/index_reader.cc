@@ -33,7 +33,7 @@ IndexReader::~IndexReader() = default;
 const IndexMeta& IndexReader::index_meta() const { return index_meta_; }
 
 IndexRef IndexReader::ReadIndex(const std::string& path) {
-  if (index_reader_options_.read_index_cache) {
+  if (index_reader_options_.cache_index_file) {
     auto cache_key = !index_reader_options_.custom_cache_key.empty() ? index_reader_options_.custom_cache_key : path;
     T_LOG_IF(ERROR, index_cache_ == nullptr) << "index cache not set";
     if (index_reader_options_.force_read_and_overwrite_cache) {

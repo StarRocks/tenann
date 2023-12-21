@@ -17,7 +17,7 @@ int main(int argc, char const* argv[]) {
   meta.common_params()["metric_type"] = MetricType::kL2Distance;
   meta.common_params()["dim"] = 768;
   meta.common_params()["is_vector_normed"] = false;
-  meta.index_reader_options()["read_index_cache"] = true;
+  meta.index_reader_options()[IndexReaderOptions::cache_index_file_key] = true;
 
   auto profile = new RuntimeProfile("root");
   auto init_timer = T_ADD_TIMER(profile, "round1");

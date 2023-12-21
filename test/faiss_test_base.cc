@@ -116,7 +116,7 @@ void FaissTestBase::InitFaissIvfPqMeta() {
   faiss_ivf_pq_meta_.search_params()["polysemous_ht"] = int(0);
   faiss_ivf_pq_meta_.extra_params()["comments"] = "my comments";
   faiss_ivf_pq_meta_.index_writer_options()["write_index_cache"] = false;
-  faiss_ivf_pq_meta_.index_reader_options()["read_index_cache"] = false;
+  faiss_ivf_pq_meta_.index_reader_options()[tenann::IndexReaderOptions::cache_index_file_key] = false;
 }
 
 std::vector<uint8_t> FaissTestBase::RandomBoolVectors(uint32_t n, int seed) {

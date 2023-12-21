@@ -245,8 +245,8 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_BlockCache_IsWork) 
   // Training and building take a lot of time.
   auto start = std::chrono::high_resolution_clock::now();
 
-  faiss_ivf_pq_meta_.index_reader_options()["use_block_cache"] = true;
-  T_LOG(INFO) << "set use_block_cache";
+  faiss_ivf_pq_meta_.index_reader_options()["cache_index_block"] = true;
+  T_LOG(INFO) << "set cache_index_block";
 
   //CreateAndWriteFaissIvfPqIndex(true);
   CreateAndWriteFaissIvfPqIndex(false);

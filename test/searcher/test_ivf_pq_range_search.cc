@@ -51,7 +51,7 @@ class IvfPqRangeSearchTest : public FaissTestBase {
   }
 
   std::shared_ptr<AnnSearcher> GetAnnSearcher() {
-    faiss_ivf_pq_meta_.index_reader_options()["read_index_cache"] = true;
+    faiss_ivf_pq_meta_.index_reader_options()[tenann::IndexReaderOptions::cache_index_file_key] = true;
     faiss_ivf_pq_meta_.index_reader_options()["custom_cache_key"] = kCacheKey;
     auto searcher = AnnSearcherFactory::CreateSearcherFromMeta(faiss_ivf_pq_meta_);
     searcher->ReadIndex("");

@@ -57,7 +57,7 @@ class IndexWriter {
   /* meta */
   IndexMeta index_meta_;
   /* write options */
-  WriteIndexOptions index_writer_options_;
+  IndexWriterOptions index_writer_options_;
   /* cache */
   IndexCache* index_cache_ = nullptr;
 };
