@@ -75,7 +75,7 @@ inline std::string GetHnswRepr(const VectorIndexCommonParams& common_params,
 
 inline std::tuple<const faiss::IndexIDMap*, const faiss::IndexPreTransform*,
                   const faiss::IndexHNSW*>
-UnpackHnsw(const faiss::Index* index) {
+CheckAndUnpackHnsw(const faiss::Index* index, const VectorIndexCommonParams* common_params) {
   const faiss::Index* sub_index = index;
 
   const faiss::IndexPreTransform* transform = nullptr;
@@ -86,7 +86,11 @@ UnpackHnsw(const faiss::Index* index) {
     sub_index = id_map->index;
   }
 
-  if (transform = dynamic_cast<const faiss::IndexPreTransform*>(sub_index)) {
+  if (common_params != nullptr && common_params->metric_type == MetricType::kCosineSimilarity &&
+      !common_params->is_vector_normed) {
+    auto target = FAISS_DOWN_CAST(faiss::IndexPreTransform, sub_index);
+    sub_index = target->index;
+  } else if (transform = dynamic_cast<const faiss::IndexPreTransform*>(sub_index)) {
     T_LOG(DEBUG) << " Parse Index as faiss::IndexPreTransform.";
     sub_index = transform->index;
   }
@@ -94,6 +98,20 @@ UnpackHnsw(const faiss::Index* index) {
   auto hnsw = FAISS_DOWN_CAST(faiss::IndexHNSW, sub_index);
 
   return std::make_tuple(id_map, transform, hnsw);
+}
+
+inline std::tuple<faiss::IndexIDMap*, faiss::IndexPreTransform*, faiss::IndexHNSW*>
+CheckAndUnpackHnswMutable(faiss::Index* index, const VectorIndexCommonParams* common_params) {
+  auto [id_map, transform, hnsw] = CheckAndUnpackHnsw(index, common_params);
+  return std::make_tuple(const_cast<faiss::IndexIDMap*>(id_map),
+                         const_cast<faiss::IndexPreTransform*>(transform),
+                         const_cast<faiss::IndexHNSW*>(hnsw));
+}
+
+inline std::tuple<const faiss::IndexIDMap*, const faiss::IndexPreTransform*,
+                  const faiss::IndexHNSW*>
+UnpackHnsw(const faiss::Index* index) {
+  return CheckAndUnpackHnsw(index, nullptr);
 }
 
 inline std::tuple<faiss::IndexIDMap*, faiss::IndexPreTransform*, faiss::IndexHNSW*>
@@ -122,12 +140,16 @@ inline std::string GetIvfPqRepr(const VectorIndexCommonParams& common_params,
   return oss.str();
 }
 
-inline std::tuple<const faiss::IndexPreTransform*, const tenann::IndexIvfPq*> UnpackIvfPq(
-    const faiss::Index* index) {
+inline std::tuple<const faiss::IndexPreTransform*, const tenann::IndexIvfPq*> CheckAndUnpackIvfPq(
+    const faiss::Index* index, const VectorIndexCommonParams* common_params) {
   const faiss::Index* sub_index = index;
   const faiss::IndexPreTransform* transform = nullptr;
 
-  if (transform = dynamic_cast<const faiss::IndexPreTransform*>(sub_index)) {
+  if (common_params != nullptr && common_params->metric_type == MetricType::kCosineSimilarity &&
+      !common_params->is_vector_normed) {
+    auto target = FAISS_DOWN_CAST(faiss::IndexPreTransform, sub_index);
+    sub_index = target->index;
+  } else if (transform = dynamic_cast<const faiss::IndexPreTransform*>(sub_index)) {
     T_LOG(DEBUG) << " Parse Index as faiss::IndexPreTransform.";
     sub_index = transform->index;
   }
@@ -135,6 +157,18 @@ inline std::tuple<const faiss::IndexPreTransform*, const tenann::IndexIvfPq*> Un
   auto ivfpq = FAISS_DOWN_CAST(tenann::IndexIvfPq, sub_index);
 
   return std::make_tuple(transform, ivfpq);
+}
+
+inline std::tuple<faiss::IndexPreTransform*, tenann::IndexIvfPq*> CheckAndUnpackIvfPqMutable(
+    faiss::Index* index, const VectorIndexCommonParams* common_params) {
+  auto [transform, ivfpq] = CheckAndUnpackIvfPq(index, common_params);
+  return std::make_tuple(const_cast<faiss::IndexPreTransform*>(transform),
+                         const_cast<tenann::IndexIvfPq*>(ivfpq));
+}
+
+inline std::tuple<const faiss::IndexPreTransform*, const tenann::IndexIvfPq*> UnpackIvfPq(
+    const faiss::Index* index) {
+  return CheckAndUnpackIvfPq(index, nullptr);
 }
 
 inline std::tuple<faiss::IndexPreTransform*, tenann::IndexIvfPq*> UnpackIvfPqMutable(

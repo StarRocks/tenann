@@ -69,7 +69,7 @@ size_t Index::EstimateMemoryUsage() {
     // IndexIDMap
     if (index_id_map != nullptr) {
       mem_usage += sizeof(*index_id_map);
-      index_id_map->id_map.capacity() * sizeof(faiss::Index::idx_t);
+      mem_usage += index_id_map->id_map.capacity() * sizeof(faiss::Index::idx_t);
     }
 
     // IndexPreTransform
