@@ -48,7 +48,7 @@ int main() {
   meta.SetIndexType(tenann::IndexType::kFaissHnsw);
   meta.common_params()["dim"] = 128;
   meta.common_params()["is_vector_normed"] = false;
-  meta.common_params()["metric_type"] = tenann::MetricType::kL2Distance;
+  meta.common_params()["metric_type"] = tenann::MetricType::kCosineSimilarity;
   meta.index_params()["efConstruction"] = 40;
   meta.index_params()["M"] = 32;
   meta.search_params()["efSearch"] = 40;
@@ -91,12 +91,14 @@ int main() {
 
     index_builder1->Open(index_path + "1")
         .Add({base_view})
-        .Flush();
+        .Flush()
+        .Close();
 
     index_builder2->EnableCustomRowId()
         .Open(index_path + "2")
         .Add({base_view}, ids.data())
-        .Flush();
+        .Flush()
+        .Close();
 
   } catch (tenann::Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";

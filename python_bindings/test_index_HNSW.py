@@ -22,7 +22,7 @@ class TestIndexHNSW(unittest.TestCase):
                 "common": {
                     "dim": %d,
                     "is_vector_normed": false,
-                    "metric_type": 0
+                    "metric_type": 1
                 },
                 "index": {
                     "M": %d,

@@ -106,6 +106,8 @@ def show_idmap_index(index):
     show_index_header(index)
     print("IDMap类型:", type(index.id_map))
     print("IDMap大小:", index.id_map.size())
+    print_index(index.index)
+    show_index_header(index.index)
 
 def show_pretransform_index(index):
     print("---------- IndexPreTransform 索引信息-----------------")

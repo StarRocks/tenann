@@ -78,14 +78,16 @@ inline std::tuple<const faiss::IndexIDMap*, const faiss::IndexPreTransform*,
 UnpackHnsw(const faiss::Index* index) {
   const faiss::Index* sub_index = index;
 
-  const faiss::IndexIDMap* id_map = dynamic_cast<const faiss::IndexIDMap*>(index);
   const faiss::IndexPreTransform* transform = nullptr;
+  const faiss::IndexIDMap* id_map = nullptr;
 
-  if (id_map != nullptr) {
+  if (id_map = dynamic_cast<const faiss::IndexIDMap*>(sub_index)) {
+    T_LOG(DEBUG) << " Parse Index as type faiss::IndexIDMap.";
     sub_index = id_map->index;
   }
 
   if (transform = dynamic_cast<const faiss::IndexPreTransform*>(sub_index)) {
+    T_LOG(DEBUG) << " Parse Index as faiss::IndexPreTransform.";
     sub_index = transform->index;
   }
 
@@ -126,6 +128,7 @@ inline std::tuple<const faiss::IndexPreTransform*, const tenann::IndexIvfPq*> Un
   const faiss::IndexPreTransform* transform = nullptr;
 
   if (transform = dynamic_cast<const faiss::IndexPreTransform*>(sub_index)) {
+    T_LOG(DEBUG) << " Parse Index as faiss::IndexPreTransform.";
     sub_index = transform->index;
   }
 
