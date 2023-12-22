@@ -397,7 +397,7 @@ void FaissHnswAnnSearcher::OnSearchParamsChange(const json& value) {
 void FaissHnswAnnSearcher::OnIndexLoaded() {
   // fetch and check faiss index here
   auto faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
-  auto [id_map, transform, hnsw] = faiss_util::UnpackHnsw(faiss_index, common_params_);
+  auto [id_map, transform, hnsw] = faiss_util::UnpackHnsw(faiss_index);
   faiss_id_map_ = id_map;
   faiss_transform_ = transform;
   faiss_hnsw_ = hnsw;
