@@ -1,7 +1,16 @@
 # TenANN v0.4.x
 
+## v0.4.0-RELEASE
+Download URL: [tenann-v0.4.0-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.0-RELEASE.tar.gz)
+
+### New Feature
+- 支持了距离度量为Cosine Similarity的IVFPQ索引的RangeSearch
+
+### Bug Fix
+- 修复距离度量为Cosine Similarity时，索引大小估计错误的问题
+
 ## v0.4.0-RC1
-Download URL: [tenann-v0.4.9-RC1.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.0-RC1.tar.gz)
+Download URL: [tenann-v0.4.0-RC1.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.0-RC1.tar.gz)
 
 ### API Changes
 
