@@ -26,12 +26,12 @@
 #include "faiss/impl/AuxIndexStructures.h"
 #include "faiss_ivf_pq_ann_searcher.h"
 #include "tenann/common/logging.h"
+#include "tenann/index/internal/faiss_index_util.h"
 #include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/index/parameter_serde.h"
 #include "tenann/index/parameters.h"
 #include "tenann/searcher/internal/id_filter_adapter.h"
 #include "tenann/util/distance_util.h"
-
 namespace tenann {
 
 FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher(const IndexMeta& meta) : AnnSearcher(meta) {
@@ -83,7 +83,7 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
                                         std::vector<float>* result_distances,
                                         const IdFilter* id_filter) {
   // TODO: add desending order support
-  T_CHECK(result_order != ResultOrder::kDescending) << "descending order not implemented";
+  // T_CHECK(result_order != ResultOrder::kDescending) << "descending order not implemented";
   T_CHECK_NOTNULL(index_ref_);
 
   T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissIvfPq);
@@ -91,7 +91,7 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
   T_CHECK_NE(common_params_.metric_type, MetricType::kInnerProduct)
       << "Range search is currently not supported for inner product metric.";
 
-  auto index_ivfpq = static_cast<const IndexIvfPq*>(index_ref_->index_raw());
+  auto faiss_index = static_cast<const faiss::Index*>(index_ref_->index_raw());
 
   IndexIvfPqSearchParameters dynamic_search_parameters;
   dynamic_search_parameters.nprobe = search_params_.nprobe;
@@ -108,9 +108,25 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
   VLOG(VERBOSE_DEBUG) << "range: " << range << ", limit: " << limit
                       << ", nprobe: " << dynamic_search_parameters.nprobe;
 
+  float radius = range;
+  if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+    radius = CosineSimilarityThresholdToL2Distance(range);
+    T_CHECK(result_order == ResultOrder::kDescending)
+        << "only descending order is allowed for range search results based on cosine similarity";
+  } else if (common_params_.metric_type == MetricType::kL2Distance) {
+    T_CHECK(result_order == ResultOrder::kAscending)
+        << "only ascending order is allowed for range search with l2 distance";
+  } else {
+    T_LOG(ERROR) << "using unsupported distance metric, hnsw range search only supports l2 "
+                    "distance and cosine similarity";
+  }
+
+  // Note that the parameters pass to faiss::IndexPretransform::range_search will be transparently
+  // passed to the underlying index 
+  // (here the params will be passed to tenann::IndexIvfPq::range_search).
   faiss::RangeSearchResult results(ANN_SEARCHER_QUERY_COUNT);
-  index_ivfpq->range_search(ANN_SEARCHER_QUERY_COUNT,
-                            reinterpret_cast<const float*>(query_vector.data), range, &results,
+  faiss_index->range_search(ANN_SEARCHER_QUERY_COUNT,
+                            reinterpret_cast<const float*>(query_vector.data), radius, &results,
                             &dynamic_search_parameters);
 
   // number of results returned by index search
@@ -126,33 +142,31 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
   std::vector<int64_t> indices(num_preserve_results);
   std::iota(indices.begin(), indices.end(), 0);
 
-  if (ResultOrder::kAscending == result_order) {
-    auto distance_less = [result_id_data, result_distance_data](int64_t left, int64_t right) {
-      if (result_distance_data[left] < result_distance_data[right])
-        return true;
-      else if (result_distance_data[left] > result_distance_data[right])
-        return false;
-      else
-        return result_id_data[left] < result_id_data[right];
-    };
-    std::priority_queue<int64_t, std::vector<int64_t>, decltype(distance_less)> heap(distance_less);
+  auto distance_less = [result_id_data, result_distance_data](int64_t left, int64_t right) {
+    if (result_distance_data[left] < result_distance_data[right])
+      return true;
+    else if (result_distance_data[left] > result_distance_data[right])
+      return false;
+    else
+      return result_id_data[left] < result_id_data[right];
+  };
+  std::priority_queue<int64_t, std::vector<int64_t>, decltype(distance_less)> heap(distance_less);
 
-    // insert indices to the heap and only preserve top-n results,
-    // where n = num_preserve_results
-    for (int64_t i = 0; i < num_results; i++) {
-      heap.push(i);
-      if (heap.size() > num_preserve_results) heap.pop();
-    }
+  // insert indices to the heap and only preserve top-n results,
+  // where n = num_preserve_results
+  for (int64_t i = 0; i < num_results; i++) {
+    heap.push(i);
+    if (heap.size() > num_preserve_results) heap.pop();
+  }
 
-    // recording the sorted indices
-    indices.resize(num_preserve_results);
-    int64_t j = num_preserve_results - 1;
-    while (j >= 0) {
-      auto idx = heap.top();
-      heap.pop();
-      indices[j] = idx;
-      j -= 1;
-    }
+  // recording the sorted indices
+  indices.resize(num_preserve_results);
+  int64_t j = num_preserve_results - 1;
+  while (j >= 0) {
+    auto idx = heap.top();
+    heap.pop();
+    indices[j] = idx;
+    j -= 1;
   }
 
   // fetch results by the sorted indices

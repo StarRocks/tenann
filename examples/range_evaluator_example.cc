@@ -33,8 +33,8 @@
 #include "tenann/util/runtime_profile_macros.h"
 #include "tenann/util/threads.h"
 
-static constexpr const int dim = 1024;
-static constexpr const int nb = 1000000;
+static constexpr const int dim = 128;
+static constexpr const int nb = 10000;
 static constexpr const int nq = 100;
 static constexpr const int verbose = VERBOSE_INFO;
 
@@ -56,6 +56,28 @@ json PrepareHnswParams(int M, int efConstruction) {
   json index_params;
   index_params["M"] = M;
   index_params["efConstruction"] = efConstruction;
+  return index_params;
+}
+
+IndexMeta PrepareIvfPqMeta(MetricType metric_type) {
+  IndexMeta meta;
+  meta.SetMetaVersion(0);
+  meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
+  meta.SetIndexType(tenann::IndexType::kFaissIvfPq);
+  meta.common_params()["dim"] = dim;
+  meta.common_params()["is_vector_normed"] = false;
+  meta.common_params()["metric_type"] = metric_type;
+  meta.index_writer_options()["write_index_cache"] = false;
+  meta.index_reader_options()["cache_index_block"] = true;
+  meta.index_reader_options()["cache_index_file"] = false;
+  return meta;
+}
+
+json PrepareIvfPqParams(int nlist, int M, int nbits) {
+  json index_params;
+  index_params["nlist"] = nlist;
+  index_params["M"] = M;
+  index_params["nbtis"] = nbits;
   return index_params;
 }
 
@@ -101,19 +123,48 @@ void Eval(MetricType metric_type, float threshold, int64_t limit, const std::vec
       .Evaluate(search_param_list);
 }
 
+void EvalIvfPq(MetricType metric_type, float threshold, int64_t limit,
+               const std::vector<float>& base, const std::vector<float>& query) {
+  auto query_set = GenQuerySet(query, nq, dim, threshold, limit);
+
+  auto meta = PrepareIvfPqMeta(metric_type);
+  auto index_params = PrepareIvfPqParams(16, 32, 8);
+  SetVLogLevel(verbose);
+
+  RangeSearchEvaluator evaluator(
+      metric_type == MetricType::kL2Distance ? "range_eval_exmaple_l2" : "range_eval_exmaple_cos",
+      meta, ".");
+  evaluator
+      .SetMetricType(metric_type)  //
+      .SetDim(dim)                 //
+      .SetBase(nb, base.data())    //
+      .SetQuery(nq, query_set);
+  std::vector<json> search_param_list = {
+      {{"nprobe", 16}, {"range_search_confidence", 0.1}},  //
+      {{"nprobe", 16}, {"range_search_confidence", 0.2}},  //
+      {{"nprobe", 16}, {"range_search_confidence", 0.4}},  //
+      {{"nprobe", 16}, {"range_search_confidence", 0.6}},  //
+      {{"nprobe", 16}, {"range_search_confidence", 1}},    //
+  };
+
+  evaluator
+      .BuildIndexIfNotExists(index_params)  //
+      .Evaluate(search_param_list);
+}
+
 int main(int argc, char const* argv[]) {
   auto base = RandomVectors(nb, dim, 0);
   auto query = RandomVectors(nq, dim, 1);
 
   std::cout << "======================= CosineSimlarity >= 0.8 limit 10 =======================\n";
-  Eval(MetricType::kCosineSimilarity, 0.8, 10, base, query);
+  EvalIvfPq(MetricType::kCosineSimilarity, 0.8, 10, base, query);
 
   std::cout << "======================= CosineSimlarity >= 0.8 =======================\n";
-  Eval(MetricType::kCosineSimilarity, 0.8, -1, base, query);
+  EvalIvfPq(MetricType::kCosineSimilarity, 0.8, -1, base, query);
 
-  std::cout << "======================= l2_distance <= 10 limit 10 =======================\n";
-  Eval(MetricType::kL2Distance, 12, 10, base, query);
+  // std::cout << "======================= l2_distance <= 10 limit 10 =======================\n";
+  // EvalIvfPq(MetricType::kL2Distance, 12, 10, base, query);
 
-  std::cout << "======================= l2_distance <= 10 =======================\n";
-  Eval(MetricType::kL2Distance, 12, -1, base, query);
+  // std::cout << "======================= l2_distance <= 10 =======================\n";
+  // EvalIvfPq(MetricType::kL2Distance, 12, -1, base, query);
 }
