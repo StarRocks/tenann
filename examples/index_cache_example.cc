@@ -36,7 +36,7 @@ class IndexMock {
 IndexRef CreateIndex(const std::string& name) {
   IndexRef index_ref =
       std::make_shared<Index>(new IndexMock(name),    //
-                              IndexType::kFaissHnsw,  //
+                              IndexType::kFaissIvfFlat,  //
                               [](void* index) { delete reinterpret_cast<IndexMock*>(index); });
   return index_ref;
 }
@@ -105,6 +105,7 @@ void EvictExample() {
 }
 
 int main() {
-  EvictExample();
+  // EvictExample();
+  ReadWriteExample();
   return 0;
 }
