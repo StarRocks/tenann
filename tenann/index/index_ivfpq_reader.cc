@@ -19,24 +19,25 @@
 
 #include "tenann/index/index_ivfpq_reader.h"
 
-#include <cstdio>
-#include <cstdlib>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/mman.h>
 #include <unistd.h>
-#include <fcntl.h>
+
+#include <cstdio>
+#include <cstdlib>
 
 #include "faiss/Index.h"
 #include "faiss/IndexIVFPQR.h"
+#include "faiss/MetaIndexes.h"
 #include "faiss/impl/FaissAssert.h"
 #include "faiss/impl/FaissException.h"
 #include "faiss/impl/io.h"
 #include "faiss/impl/io_macros.h"
 #include "faiss/index_io.h"
-#include "faiss/utils/hamming.h"
 #include "faiss/invlists/InvertedListsIOHook.h"
-#include "faiss/MetaIndexes.h"
+#include "faiss/utils/hamming.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/util/defer.h"
@@ -117,14 +118,13 @@ static void read_ArrayInvertedLists_sizes(IOReader* f, std::vector<size_t>& size
       sizes[idsizes[j]] = idsizes[j + 1];
     }
   } else {
-    FAISS_THROW_FMT(
-            "list_type %ud (\"%s\") not recognized",
-            list_type,
-            fourcc_inv_printable(list_type).c_str());
+    FAISS_THROW_FMT("list_type %ud (\"%s\") not recognized", list_type,
+                    fourcc_inv_printable(list_type).c_str());
   }
 }
 
-InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags, tenann::IndexCache* index_cache) {
+InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags,
+                                                   tenann::IndexCache* index_cache) {
   uint32_t h;
   READ1(h);
   if (h == fourcc("il00")) {
@@ -139,8 +139,7 @@ InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags, te
     std::vector<size_t> sizes(nlist);
     read_ArrayInvertedLists_sizes(f, sizes);
     auto bc = std::make_shared<BlockCacheInvertedListsIOHook>(index_cache);
-    return bc->read_ArrayInvertedLists(
-           f, io_flags, nlist, code_size, sizes);
+    return bc->read_ArrayInvertedLists(f, io_flags, nlist, code_size, sizes);
   } else {
     return InvertedListsIOHook::lookup(h)->read(f, io_flags);
   }
@@ -175,8 +174,8 @@ static void read_ProductQuantizer(ProductQuantizer* pq, IOReader* f) {
  * Ported from faiss/impl/index_read.cpp
  **************************************************************/
 
-static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags, bool cache_index_block,
-                       tenann::IndexCache* index_cache) {
+static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags,
+                       bool cache_index_block, tenann::IndexCache* index_cache) {
   bool legacy = h == fourcc("IvQR") || h == fourcc("IvPQ");
 
   std::vector<std::vector<Index::idx_t>> ids;
@@ -206,22 +205,23 @@ static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags, 
 
 #define INVALID_OFFSET (size_t)(-1)
 
-BlockCacheInvertedLists::BlockCacheInvertedLists(
-        size_t nlist,
-        size_t code_size,
-        const char* filename,
-        tenann::IndexCache* index_cache)
-        : InvertedLists(nlist, code_size),
-          filename(filename),
-          totsize(0),
-          index_cache(index_cache) {
-  lists.resize(nlist);
-
+BlockCacheInvertedLists::BlockCacheInvertedLists(size_t nlist, size_t code_size,
+                                                 const char* filename,
+                                                 tenann::IndexCache* index_cache)
+    : InvertedLists(nlist, code_size),
+      lists(nlist),
+      cache_keys(nlist),
+      offset_difference(nlist),
+      cache_handles(nlist),
+      invlist_locks(nlist),
+      filename(filename),
+      totsize(0),
+      index_cache(index_cache) {
   // slots starts empty
 }
 
-BlockCacheInvertedLists::BlockCacheInvertedLists(tenann::IndexCache* index_cache) :
-                                                 BlockCacheInvertedLists(0, 0, "", index_cache) {}
+BlockCacheInvertedLists::BlockCacheInvertedLists(tenann::IndexCache* index_cache)
+    : BlockCacheInvertedLists(0, 0, "", index_cache) {}
 
 BlockCacheInvertedLists::~BlockCacheInvertedLists() {
   // close file
@@ -230,18 +230,21 @@ BlockCacheInvertedLists::~BlockCacheInvertedLists() {
   }
 }
 
-size_t BlockCacheInvertedLists::list_size(size_t list_no) const {
-  return lists[list_no].size;
-}
+size_t BlockCacheInvertedLists::list_size(size_t list_no) const { return lists[list_no].size; }
 
 const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
-  tenann::IndexCacheHandle cache_handle;
-  auto found = index_cache->Lookup(cache_keys[list_no], &cache_handle);
-  if (found) {
-    VLOG(VERBOSE_DEBUG) << "   hit cache, cache_key: " << cache_keys[list_no].c_str()
-                        << ", hit_rate: " << index_cache->hit_count() * 1.0 / index_cache->lookup_count();
-    auto start_ptr = static_cast<uint8_t*>(cache_handle.index_ref()->index_raw());
-    return start_ptr + offset_difference[list_no];
+  T_CHECK(list_no < nlist);
+  {
+    std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
+    tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
+    auto found = index_cache->Lookup(cache_keys[list_no], cache_handle);
+    if (found) {
+      VLOG(VERBOSE_DEBUG) << "   hit cache, cache_key: " << cache_keys[list_no].c_str()
+                          << ", hit_rate: "
+                          << index_cache->hit_count() * 1.0 / index_cache->lookup_count();
+      auto start_ptr = static_cast<uint8_t*>(cache_handle->index_ref()->index_raw());
+      return start_ptr + offset_difference[list_no];
+    }
   }
 
   // read file and insert
@@ -254,7 +257,8 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   size_t aligned_offset = (offset / block_size) * block_size;
 
   // Adjust the size to read to include the data from the aligned offset
-  size_t aligned_size = ((offset_difference[list_no] + size + block_size - 1) / block_size) * block_size;
+  size_t aligned_size =
+      ((offset_difference[list_no] + size + block_size - 1) / block_size) * block_size;
 
   // Allocate aligned memory
   void* buffer;
@@ -263,22 +267,36 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
 
   // Seek to the aligned offset
   off_t seek_result = lseek(fd, aligned_offset, SEEK_SET);
-  FAISS_THROW_IF_NOT_FMT(seek_result != -1, "lseek to aligned_offset %zu failed: %s", aligned_offset, strerror(errno));
+  FAISS_THROW_IF_NOT_FMT(seek_result != -1, "lseek to aligned_offset %zu failed: %s",
+                         aligned_offset, strerror(errno));
 
   size_t remaining_size = totsize - aligned_offset;
   size_t expected_read_size = std::min(remaining_size, aligned_size);
   // Perform the read operation
   ssize_t read_bytes = read(fd, buffer, aligned_size);
-  FAISS_THROW_IF_NOT_FMT(read_bytes == expected_read_size, "read_bytes: %zd, expected_read_size: %zu",
-                         read_bytes, expected_read_size);
+  FAISS_THROW_IF_NOT_FMT(read_bytes == expected_read_size,
+                         "read_bytes: %zd, expected_read_size: %zu", read_bytes,
+                         expected_read_size);
 
-  auto index_ref = std::make_shared<tenann::Index>(buffer,
-                                                   tenann::IndexType::kFaissIvfPqOneInvertedList,
-                                                   [](void* index) { free(index); });
+  // auto msg = fmt::format("allocated {};\n", buffer);
+  // std::cerr << msg;
+  auto index_ref = std::make_shared<tenann::Index>(
+      buffer, tenann::IndexType::kFaissIvfPqOneInvertedList, [](void* index) {
+        // auto msg = fmt::format("freeing {};\n", index);
+        // std::cerr << msg;
+        free(index);
+      });
 
-  index_cache->Insert(cache_keys[list_no], index_ref, &cache_handle, [read_bytes]() { return read_bytes; });
-  VLOG(VERBOSE_DEBUG) << "insert cache, cache_key: " << cache_keys[list_no].c_str()
-                      << ", usage: " << index_cache->memory_usage();
+  {
+    std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
+    tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
+    index_cache->Insert(cache_keys[list_no], index_ref, cache_handle,
+                        [read_bytes]() { return read_bytes; });
+
+    VLOG(VERBOSE_DEBUG) << "insert cache, cache_key: " << cache_keys[list_no].c_str()
+                        << ", usage: " << index_cache->memory_usage();
+  }
+
   return static_cast<uint8_t*>(buffer) + offset_difference[list_no];
 }
 
@@ -301,22 +319,21 @@ const Index::idx_t* BlockCacheInvertedLists::get_ids(size_t list_no) const {
 }
 
 BlockCacheInvertedListsIOHook::BlockCacheInvertedListsIOHook(tenann::IndexCache* index_cache)
-        : InvertedListsIOHook("ilbc", typeid(BlockCacheInvertedLists).name()), index_cache(index_cache) {}
+    : InvertedListsIOHook("ilbc", typeid(BlockCacheInvertedLists).name()),
+      index_cache(index_cache) {}
 
 InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
-      IOReader* f,
-      int /* io_flags */,
-      size_t nlist,
-      size_t code_size,
-      const std::vector<size_t>& sizes) const {
-  auto ails = new BlockCacheInvertedLists(index_cache);
-  ails->filename = f->name;
-  ails->nlist = nlist;
-  ails->code_size = code_size;
+    IOReader* f, int /* io_flags */, size_t nlist, size_t code_size,
+    const std::vector<size_t>& sizes) const {
+  auto ails =
+      std::make_unique<BlockCacheInvertedLists>(nlist, code_size, f->name.c_str(), index_cache);
+  // ails->filename = f->name;
+  // ails->nlist = nlist;
+  // ails->code_size = code_size;
   ails->read_only = true;
-  ails->lists.resize(nlist);
-  ails->cache_keys.resize(nlist);
-  ails->offset_difference.resize(nlist);
+  // ails->lists.resize(nlist);
+  // ails->cache_keys.resize(nlist);
+  // ails->offset_difference.resize(nlist);
 
   FileIOReader* reader = dynamic_cast<FileIOReader*>(f);
   FAISS_THROW_IF_NOT_MSG(reader, "only supported for File objects");
@@ -325,7 +342,8 @@ InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
   size_t o = ails->start_offset;
 
   ails->fd = open(f->name.c_str(), O_RDONLY | O_DIRECT);
-  FAISS_THROW_IF_NOT_FMT(ails->fd != -1, "could not open file %s with O_DIRECT: %s", reader->name, strerror(errno));
+  FAISS_THROW_IF_NOT_FMT(ails->fd != -1, "could not open file %s with O_DIRECT: %s", reader->name,
+                         strerror(errno));
 
   struct stat buf;
   int ret = fstat(fileno(fdesc), &buf);
@@ -335,7 +353,8 @@ InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
 
   // generate cache_keys
   // cache_key = hash(filename) + fileModificationTime + blockId
-  std::string prefix = std::to_string(std::hash<std::string>{}(ails->filename)) + "_" + std::to_string(buf.st_mtime) + "_";
+  std::string prefix = std::to_string(std::hash<std::string>{}(ails->filename)) + "_" +
+                       std::to_string(buf.st_mtime) + "_";
   for (size_t i = 0; i < nlist; i++) {
     ails->cache_keys[i] = prefix + std::to_string(i);
   }
@@ -353,7 +372,7 @@ InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
   // resume normal reading of file
   fseek(fdesc, o, SEEK_SET);
 
-  return ails;
+  return ails.release();
 }
 
 }  // namespace faiss
@@ -396,7 +415,8 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
       auto index_ivfpq = std::make_unique<IndexIvfPq>();
       // read faiss IndexIVFPQ
       VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
-      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block, index_cache());
+      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block,
+                        index_cache());
       /* read custom fields */
       // read range_search_confidence
       READ1(index_ivfpq->range_search_confidence);
@@ -408,7 +428,7 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
         READVECTOR(index_ivfpq->reconstruction_errors[i]);
       }
 
-      return std::make_shared<Index>(index_ivfpq.release(),  //
+      return std::make_shared<Index>(index_ivfpq.release(),   //
                                      IndexType::kFaissIvfPq,  //
                                      [](void* index) { delete static_cast<faiss::Index*>(index); });
     } else if (h == fourcc("IxPT")) {
@@ -423,7 +443,8 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
       auto index_ivfpq = std::make_unique<IndexIvfPq>();
       READ1(h);
       VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
-      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block, index_cache());
+      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block,
+                        index_cache());
       /* read custom fields */
       // read range_search_confidence
       READ1(index_ivfpq->range_search_confidence);

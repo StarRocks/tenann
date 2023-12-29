@@ -19,79 +19,80 @@
 
 #pragma once
 
-#include "tenann/common/json.h"
-#include "tenann/index/index_reader.h"
-#include "tenann/index/index_cache.h"
-
 #include <faiss/Index.h>
 #include <faiss/IndexIVF.h>
 #include <faiss/index_io.h>
 #include <faiss/invlists/InvertedListsIOHook.h>
 #include <faiss/invlists/OnDiskInvertedLists.h>
 
+#include <mutex>
+
+#include "tenann/common/json.h"
+#include "tenann/index/index_cache.h"
+#include "tenann/index/index_reader.h"
+
 namespace faiss {
 
 Index* read_index_with_block_cache(const char* fname);
 
 struct BlockCacheInvertedLists : InvertedLists {
-    using List = OnDiskOneList;
+  using List = OnDiskOneList;
 
-    // size nlist
-    std::vector<List> lists;
-    std::vector<std::string> cache_keys;
-    std::vector<size_t> offset_difference;
+  // size nlist
+  std::vector<List> lists;
+  std::vector<std::string> cache_keys;
+  std::vector<size_t> offset_difference;
+  /// Keep references to cache handles, otherwise the allocated memory may be clean
+  mutable std::vector<tenann::IndexCacheHandle> cache_handles;
+  /// Note that this class may be accessed by multiple threads,
+  /// therefore we keep a lock for every inverted list
+  mutable std::vector<std::mutex> invlist_locks;
 
-    std::string filename;
-    size_t one_entry_size;
-    size_t totsize;
-    size_t start_offset;  // inserted lists start offset
-    size_t block_size = 4096;  // block size
-    bool read_only; /// are inverted lists mapped read-only
-    int fd = -1;
-    tenann::IndexCache* index_cache = nullptr;
+  std::string filename;
+  size_t one_entry_size;
+  size_t totsize;
+  size_t start_offset;       // inserted lists start offset
+  size_t block_size = 4096;  // block size
+  bool read_only;            /// are inverted lists mapped read-only
+  int fd = -1;
+  tenann::IndexCache* index_cache = nullptr;
 
-    BlockCacheInvertedLists(size_t nlist, size_t code_size, const char* filename, tenann::IndexCache* index_cache);
+  BlockCacheInvertedLists(size_t nlist, size_t code_size, const char* filename,
+                          tenann::IndexCache* index_cache);
 
-    size_t list_size(size_t list_no) const override;
-    const uint8_t* get_ptr(size_t list_no) const;
-    const uint8_t* get_codes(size_t list_no) const override;
-    const idx_t* get_ids(size_t list_no) const override;
+  size_t list_size(size_t list_no) const override;
+  const uint8_t* get_ptr(size_t list_no) const;
+  const uint8_t* get_codes(size_t list_no) const override;
+  const idx_t* get_ids(size_t list_no) const override;
 
-    size_t add_entries(
-        size_t list_no,
-        size_t n_entry,
-        const idx_t* ids,
-        const uint8_t* code) { return 0; }
+  size_t add_entries(size_t list_no, size_t n_entry, const idx_t* ids, const uint8_t* code) {
+    T_LOG(ERROR) << "add_entries not implemented";
+    return 0;
+  }
 
-    void update_entries(
-        size_t list_no,
-        size_t offset,
-        size_t n_entry,
-        const idx_t* ids,
-        const uint8_t* code) {}
+  void update_entries(size_t list_no, size_t offset, size_t n_entry, const idx_t* ids,
+                      const uint8_t* code) {
+    T_LOG(ERROR) << "update_entries not implemented";
+  }
 
-    void resize(size_t list_no, size_t new_size) {}
+  void resize(size_t list_no, size_t new_size) { T_LOG(ERROR) << "resize not implemented"; }
 
-    ~BlockCacheInvertedLists() override;
+  ~BlockCacheInvertedLists() override;
 
-    // private
+  // private
 
-    // empty constructor for the I/O functions
-    BlockCacheInvertedLists(tenann::IndexCache* index_cache);
+  // empty constructor for the I/O functions
+  BlockCacheInvertedLists(tenann::IndexCache* index_cache);
 };
 
 struct BlockCacheInvertedListsIOHook : InvertedListsIOHook {
-    BlockCacheInvertedListsIOHook(tenann::IndexCache* index_cache);
-    void write(const InvertedLists* ils, IOWriter* f) const {}
-    InvertedLists* read(IOReader* f, int io_flags) const { return nullptr; }
-    InvertedLists* read_ArrayInvertedLists(
-            IOReader* f,
-            int io_flags,
-            size_t nlist,
-            size_t code_size,
-            const std::vector<size_t>& sizes) const override;
+  BlockCacheInvertedListsIOHook(tenann::IndexCache* index_cache);
+  void write(const InvertedLists* ils, IOWriter* f) const {}
+  InvertedLists* read(IOReader* f, int io_flags) const { return nullptr; }
+  InvertedLists* read_ArrayInvertedLists(IOReader* f, int io_flags, size_t nlist, size_t code_size,
+                                         const std::vector<size_t>& sizes) const override;
 
-    tenann::IndexCache* index_cache = nullptr;
+  tenann::IndexCache* index_cache = nullptr;
 };
 
 }  // namespace faiss

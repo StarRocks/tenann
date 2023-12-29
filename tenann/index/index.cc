@@ -150,7 +150,7 @@ size_t Index::EstimateMemoryUsage() {
     return mem_usage;
   }
 
-  T_LOG(ERROR) << "not implemented yet";
+  T_LOG(WARNING) << "not implemented yet";
   return 1;
 }
 
