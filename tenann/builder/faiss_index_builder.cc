@@ -50,14 +50,17 @@ FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta) : IndexBuilder(meta)
 FaissIndexBuilder::~FaissIndexBuilder(){};
 
 IndexBuilder& FaissIndexBuilder::Open() {
-  T_SCOPED_TIMER(open_total_timer_);
-  T_LOG_IF(ERROR, is_opened_) << "index builder has already been opened";
+  try {
+    T_SCOPED_TIMER(open_total_timer_);
+    T_LOG_IF(ERROR, is_opened_) << "index builder has already been opened";
 
-  memory_only_ = true;
-  index_save_path_ = "";
-  index_ref_ = InitIndex();
-  SetOpenState();
-  return *this;
+    memory_only_ = true;
+    index_save_path_ = "";
+    index_ref_ = InitIndex();
+    SetOpenState();
+    return *this;
+  }
+  CATCH_FAISS_ERROR;
 }
 
 IndexBuilder& FaissIndexBuilder::Open(const std::string& path) {

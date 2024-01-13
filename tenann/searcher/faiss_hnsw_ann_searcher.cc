@@ -247,145 +247,156 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int64_t k, i
 
 void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int64_t k, int64_t* result_ids,
                                      uint8_t* result_distances, const IdFilter* id_filter) {
-  T_CHECK_NOTNULL(index_ref_);
+  try {
+    T_CHECK_NOTNULL(index_ref_);
 
-  T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
-  T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
+    T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
+    T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
 
-  faiss::SearchParametersHNSW faiss_search_parameters;
-  faiss_search_parameters.efSearch = search_params_.efSearch;
-  faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
-  std::shared_ptr<IdFilterAdapter> id_filter_adapter;
-  if (id_filter) {
-    if (faiss_id_map_ != nullptr) {
-      id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(
-          id_filter, &reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map);
+    faiss::SearchParametersHNSW faiss_search_parameters;
+    faiss_search_parameters.efSearch = search_params_.efSearch;
+    faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
+    std::shared_ptr<IdFilterAdapter> id_filter_adapter;
+    if (id_filter) {
+      if (faiss_id_map_ != nullptr) {
+        id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(
+            id_filter, &reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map);
+      } else {
+        id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(id_filter);
+      }
+      faiss_search_parameters.sel = id_filter_adapter.get();
+    }
+
+    VLOG(VERBOSE_DEBUG) << "efSearch: " << faiss_search_parameters.efSearch
+                        << ", check_relative_distance: "
+                        << faiss_search_parameters.check_relative_distance;
+
+    // transform the query vector first if a pre-transform is set
+    const float* x = reinterpret_cast<const float*>(query_vector.data);
+    if (faiss_transform_ != nullptr) {
+      const float* xt = reinterpret_cast<const faiss::IndexPreTransform*>(faiss_transform_)
+                            ->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
+      faiss::ScopeDeleter<float> del(xt == x ? nullptr : xt);
+      // search through the transformed vector
+      reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_)
+          ->search(ANN_SEARCHER_QUERY_COUNT, xt, k, reinterpret_cast<float*>(result_distances),
+                   result_ids, &faiss_search_parameters);
     } else {
-      id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(id_filter);
+      reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_)
+          ->search(ANN_SEARCHER_QUERY_COUNT, x, k, reinterpret_cast<float*>(result_distances),
+                   result_ids, &faiss_search_parameters);
     }
-    faiss_search_parameters.sel = id_filter_adapter.get();
-  }
 
-  VLOG(VERBOSE_DEBUG) << "efSearch: " << faiss_search_parameters.efSearch
-                      << ", check_relative_distance: "
-                      << faiss_search_parameters.check_relative_distance;
+    if (faiss_id_map_ != nullptr) {
+      int64_t* li = result_ids;
+      for (int64_t i = 0; i < ANN_SEARCHER_QUERY_COUNT * k; i++) {
+        li[i] = li[i] < 0
+                    ? li[i]
+                    : reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map[li[i]];
+      }
+    }
 
-  // transform the query vector first if a pre-transform is set
-  const float* x = reinterpret_cast<const float*>(query_vector.data);
-  if (faiss_transform_ != nullptr) {
-    const float* xt = reinterpret_cast<const faiss::IndexPreTransform*>(faiss_transform_)
-                          ->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
-    faiss::ScopeDeleter<float> del(xt == x ? nullptr : xt);
-    // search through the transformed vector
-    reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_)
-        ->search(ANN_SEARCHER_QUERY_COUNT, xt, k, reinterpret_cast<float*>(result_distances),
-                 result_ids, &faiss_search_parameters);
-  } else {
-    reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_)
-        ->search(ANN_SEARCHER_QUERY_COUNT, x, k, reinterpret_cast<float*>(result_distances),
-                 result_ids, &faiss_search_parameters);
-  }
-
-  if (faiss_id_map_ != nullptr) {
-    int64_t* li = result_ids;
-    for (int64_t i = 0; i < ANN_SEARCHER_QUERY_COUNT * k; i++) {
-      li[i] = li[i] < 0 ? li[i]
-                        : reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map[li[i]];
+    if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+      auto distances = reinterpret_cast<float*>(result_distances);
+      L2DistanceToCosineSimilarity(distances, distances, k);
     }
   }
-
-  if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-    auto distances = reinterpret_cast<float*>(result_distances);
-    L2DistanceToCosineSimilarity(distances, distances, k);
-  }
+  CATCH_FAISS_ERROR
 }
 
 void FaissHnswAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float range, int64_t limit,
                                        ResultOrder result_order, std::vector<int64_t>* result_ids,
                                        std::vector<float>* result_distances,
                                        const IdFilter* id_filter) {
-  T_CHECK_NOTNULL(index_ref_);
+  try {
+    T_CHECK_NOTNULL(index_ref_);
 
-  T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
-  T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
-  T_CHECK_NE(common_params_.metric_type, MetricType::kInnerProduct)
-      << "Range search is currently not supported for inner product metric.";
+    T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
+    T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
+    T_CHECK_NE(common_params_.metric_type, MetricType::kInnerProduct)
+        << "Range search is currently not supported for inner product metric.";
 
-  float radius = range;
-  if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-    radius = CosineSimilarityThresholdToL2Distance(range);
-    T_CHECK(result_order == ResultOrder::kDescending)
-        << "only descending order is allowed for range search results based on cosine similarity";
-  } else if (common_params_.metric_type == MetricType::kL2Distance) {
-    T_CHECK(result_order == ResultOrder::kAscending)
-        << "only ascending order is allowed for range search with l2 distance";
-  } else {
-    T_LOG(ERROR) << "using unsupported distance metric, hnsw range search only supports l2 "
-                    "distance and cosine similarity";
-  }
-
-  faiss::SearchParametersHNSW faiss_search_parameters;
-  faiss_search_parameters.efSearch = search_params_.efSearch;
-  faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
-  std::shared_ptr<IdFilterAdapter> id_filter_adapter;
-
-  VLOG(VERBOSE_DEBUG) << "efSearch: " << faiss_search_parameters.efSearch
-                      << ", check_relative_distance: "
-                      << faiss_search_parameters.check_relative_distance << ", range: " << range
-                      << ", radius: " << radius << ", limit: " << limit
-                      << ", result_order: " << result_order;
-
-  if (id_filter) {
-    if (faiss_id_map_ != nullptr) {
-      id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(
-          id_filter, &reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map);
+    float radius = range;
+    if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+      radius = CosineSimilarityThresholdToL2Distance(range);
+      T_CHECK(result_order == ResultOrder::kDescending)
+          << "only descending order is allowed for range search results based on cosine similarity";
+    } else if (common_params_.metric_type == MetricType::kL2Distance) {
+      T_CHECK(result_order == ResultOrder::kAscending)
+          << "only ascending order is allowed for range search with l2 distance";
     } else {
-      id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(id_filter);
+      T_LOG(ERROR) << "using unsupported distance metric, hnsw range search only supports l2 "
+                      "distance and cosine similarity";
     }
-    faiss_search_parameters.sel = id_filter_adapter.get();
-  }
 
-  // Transform the query vector first if a pre-transform is set
-  const float* x = reinterpret_cast<const float*>(query_vector.data);
-  if (faiss_transform_ != nullptr) {
-    const float* xt = reinterpret_cast<const faiss::IndexPreTransform*>(faiss_transform_)
-                          ->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
-    faiss::ScopeDeleter<float> del(xt == x ? nullptr : xt);
-    // Search with the transformed vector
-    detail::IndexHnswRangeSearch(*reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_),
-                                 ANN_SEARCHER_QUERY_COUNT, xt, radius, limit, result_ids,
-                                 result_distances, &faiss_search_parameters);
-  } else {
-    // Search with the raw vector
-    detail::IndexHnswRangeSearch(*reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_),
-                                 ANN_SEARCHER_QUERY_COUNT, x, radius, limit, result_ids,
-                                 result_distances, &faiss_search_parameters);
-  }
+    faiss::SearchParametersHNSW faiss_search_parameters;
+    faiss_search_parameters.efSearch = search_params_.efSearch;
+    faiss_search_parameters.check_relative_distance = search_params_.check_relative_distance;
+    std::shared_ptr<IdFilterAdapter> id_filter_adapter;
 
-  if (faiss_id_map_ != nullptr) {
-    int64_t* li = result_ids->data();
-    for (int64_t i = 0; i < ANN_SEARCHER_QUERY_COUNT * result_ids->size(); i++) {
-      li[i] = li[i] < 0 ? li[i]
-                        : reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map[li[i]];
+    VLOG(VERBOSE_DEBUG) << "efSearch: " << faiss_search_parameters.efSearch
+                        << ", check_relative_distance: "
+                        << faiss_search_parameters.check_relative_distance << ", range: " << range
+                        << ", radius: " << radius << ", limit: " << limit
+                        << ", result_order: " << result_order;
+
+    if (id_filter) {
+      if (faiss_id_map_ != nullptr) {
+        id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(
+            id_filter, &reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map);
+      } else {
+        id_filter_adapter = IdFilterAdapterFactory::CreateIdFilterAdapter(id_filter);
+      }
+      faiss_search_parameters.sel = id_filter_adapter.get();
+    }
+
+    // Transform the query vector first if a pre-transform is set
+    const float* x = reinterpret_cast<const float*>(query_vector.data);
+    if (faiss_transform_ != nullptr) {
+      const float* xt = reinterpret_cast<const faiss::IndexPreTransform*>(faiss_transform_)
+                            ->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
+      faiss::ScopeDeleter<float> del(xt == x ? nullptr : xt);
+      // Search with the transformed vector
+      detail::IndexHnswRangeSearch(*reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_),
+                                   ANN_SEARCHER_QUERY_COUNT, xt, radius, limit, result_ids,
+                                   result_distances, &faiss_search_parameters);
+    } else {
+      // Search with the raw vector
+      detail::IndexHnswRangeSearch(*reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_),
+                                   ANN_SEARCHER_QUERY_COUNT, x, radius, limit, result_ids,
+                                   result_distances, &faiss_search_parameters);
+    }
+
+    if (faiss_id_map_ != nullptr) {
+      int64_t* li = result_ids->data();
+      for (int64_t i = 0; i < ANN_SEARCHER_QUERY_COUNT * result_ids->size(); i++) {
+        li[i] = li[i] < 0
+                    ? li[i]
+                    : reinterpret_cast<const faiss::IndexIDMap*>(faiss_id_map_)->id_map[li[i]];
+      }
+    }
+
+    if (common_params_.metric_type == MetricType::kCosineSimilarity) {
+      auto distances = reinterpret_cast<float*>(result_distances->data());
+      L2DistanceToCosineSimilarity(distances, distances, result_distances->size());
     }
   }
-
-  if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-    auto distances = reinterpret_cast<float*>(result_distances->data());
-    L2DistanceToCosineSimilarity(distances, distances, result_distances->size());
-  }
+  CATCH_FAISS_ERROR
 }
 
 void FaissHnswAnnSearcher::OnSearchParamItemChange(const std::string& key, const json& value) {
-  if (key == FaissHnswSearchParams::efSearch_key) {
-    value.is_number_integer() && (search_params_.efSearch = value.get<int>());
-    // T_LOG(INFO) << "here:: " << key;
-  } else if (key == FaissHnswSearchParams::check_relative_distance_key) {
-    value.is_boolean() && (search_params_.check_relative_distance = value.get<bool>());
-    // T_LOG(INFO) << "here:: " << key;
-  } else {
-    T_LOG(ERROR) << "Unsupport search parameter: " << key;
+  try {
+    if (key == FaissHnswSearchParams::efSearch_key) {
+      value.is_number_integer() && (search_params_.efSearch = value.get<int>());
+      // T_LOG(INFO) << "here:: " << key;
+    } else if (key == FaissHnswSearchParams::check_relative_distance_key) {
+      value.is_boolean() && (search_params_.check_relative_distance = value.get<bool>());
+      // T_LOG(INFO) << "here:: " << key;
+    } else {
+      T_LOG(WARNING) << "Unsupport search parameter: " << key;
+    }
   }
+  CATCH_JSON_ERROR
 };
 
 void FaissHnswAnnSearcher::OnSearchParamsChange(const json& value) {
