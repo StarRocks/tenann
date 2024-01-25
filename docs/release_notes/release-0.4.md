@@ -1,5 +1,18 @@
 # TenANN v0.4.x
 
+## v0.4.1-RELEASE
+Download URL: [tenann-v0.4.1-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.1-RELEASE.tar.gz)
+
+### Improvements
+- 将Faiss的并行归一化改为串行，解决HNSW(cos)索引与StarRocks线程池冲突造成的coredump
+- 增加了索引并发构建与搜索的压测工具：stress_tool.cc
+- 增量了若干单元测试
+  
+### Bug Fix
+- 修复距离度量为Cosine Similarity时，HNSW范围查询结果错误的问题
+- 修复了BlockCache使用时CacheHandle的内存生命周期问题，解决了越界访问风险
+- 修复了多处TenANN对外接口中，未捕捉Faiss异常的问题
+
 ## v0.4.0-RELEASE
 Download URL: [tenann-v0.4.0-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.0-RELEASE.tar.gz)
 
