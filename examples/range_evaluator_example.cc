@@ -44,7 +44,7 @@ IndexMeta PrepareHnswMeta(MetricType metric_type) {
   IndexMeta meta;
   meta.SetMetaVersion(0);
   meta.SetIndexFamily(tenann::IndexFamily::kVectorIndex);
-  meta.SetIndexType(tenann::IndexType::kFaissIvfPq);
+  meta.SetIndexType(tenann::IndexType::kFaissHnsw);
   meta.common_params()["dim"] = dim;
   meta.common_params()["is_vector_normed"] = false;
   meta.common_params()["metric_type"] = metric_type;
@@ -93,7 +93,7 @@ RangeQuerySet GenQuerySet(const std::vector<float>& query_list, int64_t nq, int 
   return query_set;
 }
 
-void Eval(MetricType metric_type, float threshold, int64_t limit, const std::vector<float>& base,
+void EvalHnsw(MetricType metric_type, float threshold, int64_t limit, const std::vector<float>& base,
           const std::vector<float>& query) {
   auto query_set = GenQuerySet(query, nq, dim, threshold, limit);
 
@@ -157,10 +157,10 @@ int main(int argc, char const* argv[]) {
   auto query = RandomVectors(nq, dim, 1);
 
   std::cout << "======================= CosineSimlarity >= 0.8 limit 10 =======================\n";
-  EvalIvfPq(MetricType::kCosineSimilarity, 0.8, 10, base, query);
+  EvalHnsw(MetricType::kCosineSimilarity, 0.8, 10, base, query);
 
   std::cout << "======================= CosineSimlarity >= 0.8 =======================\n";
-  EvalIvfPq(MetricType::kCosineSimilarity, 0.8, -1, base, query);
+  EvalHnsw(MetricType::kCosineSimilarity, 0.8, -1, base, query);
 
   // std::cout << "======================= l2_distance <= 10 limit 10 =======================\n";
   // EvalIvfPq(MetricType::kL2Distance, 12, 10, base, query);

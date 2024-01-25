@@ -38,7 +38,8 @@ namespace tenann {
 namespace faiss_util {
 
 template <typename TargetIndexType>
-inline const TargetIndexType* faiss_down_cast(const faiss::Index* index, const char* target_name) {
+inline const TargetIndexType* checked_faiss_down_cast(const faiss::Index* index,
+                                                      const char* target_name) {
   auto target_index = dynamic_cast<const TargetIndexType*>(index);
   T_CHECK(target_index != nullptr)
       << "cannot unpack faiss `" << target_name
@@ -47,8 +48,8 @@ inline const TargetIndexType* faiss_down_cast(const faiss::Index* index, const c
   return target_index;
 }
 
-#define FAISS_DOWN_CAST(target_index_type, index) \
-  faiss_down_cast<target_index_type>((index), #target_index_type)
+#define CHECKED_FAISS_DOWN_CAST(target_index_type, index) \
+  checked_faiss_down_cast<target_index_type>((index), #target_index_type)
 
 /************************************************************
  * Faiss HNSW index
@@ -86,16 +87,20 @@ CheckAndUnpackHnsw(const faiss::Index* index, const VectorIndexCommonParams* com
     sub_index = id_map->index;
   }
 
+  // If [common_params] is provided, the [index] should be consistent with it. For example, if
+  // `common_params->metric_type == MetricType::kCosineSimilarity` and
+  // `!common_params->is_vector_normed` are satisfied, the [index] must be of type
+  // `faiss::IndexPreTransform`.
   if (common_params != nullptr && common_params->metric_type == MetricType::kCosineSimilarity &&
       !common_params->is_vector_normed) {
-    auto target = FAISS_DOWN_CAST(faiss::IndexPreTransform, sub_index);
-    sub_index = target->index;
+    transform = CHECKED_FAISS_DOWN_CAST(faiss::IndexPreTransform, sub_index);
+    sub_index = transform->index;
   } else if (transform = dynamic_cast<const faiss::IndexPreTransform*>(sub_index)) {
     T_LOG(DEBUG) << " Parse Index as faiss::IndexPreTransform.";
     sub_index = transform->index;
   }
 
-  auto hnsw = FAISS_DOWN_CAST(faiss::IndexHNSW, sub_index);
+  auto hnsw = CHECKED_FAISS_DOWN_CAST(faiss::IndexHNSW, sub_index);
 
   return std::make_tuple(id_map, transform, hnsw);
 }
@@ -145,16 +150,20 @@ inline std::tuple<const faiss::IndexPreTransform*, const tenann::IndexIvfPq*> Ch
   const faiss::Index* sub_index = index;
   const faiss::IndexPreTransform* transform = nullptr;
 
+  // If [common_params] is provided, the [index] should be consistent with it. For example, if
+  // `common_params->metric_type == MetricType::kCosineSimilarity` and
+  // `!common_params->is_vector_normed` are satisfied, the [index] must be of type
+  // `faiss::IndexPreTransform`.
   if (common_params != nullptr && common_params->metric_type == MetricType::kCosineSimilarity &&
       !common_params->is_vector_normed) {
-    auto target = FAISS_DOWN_CAST(faiss::IndexPreTransform, sub_index);
-    sub_index = target->index;
+    transform = CHECKED_FAISS_DOWN_CAST(faiss::IndexPreTransform, sub_index);
+    sub_index = transform->index;
   } else if (transform = dynamic_cast<const faiss::IndexPreTransform*>(sub_index)) {
     T_LOG(DEBUG) << " Parse Index as faiss::IndexPreTransform.";
     sub_index = transform->index;
   }
 
-  auto ivfpq = FAISS_DOWN_CAST(tenann::IndexIvfPq, sub_index);
+  auto ivfpq = CHECKED_FAISS_DOWN_CAST(tenann::IndexIvfPq, sub_index);
 
   return std::make_tuple(transform, ivfpq);
 }
