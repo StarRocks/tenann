@@ -19,7 +19,7 @@
 
 namespace tenann {
 
-constexpr const char* TENANN_VERSION = "v0.4.1-RELEASE";
+constexpr const char* TENANN_VERSION = "v0.4.2-RELEASE";
 
 void HelloWorld();
 int FaissTest();

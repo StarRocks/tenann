@@ -1,5 +1,11 @@
 # TenANN v0.4.x
 
+## v0.4.2-RELEASE
+Download URL: [tenann-v0.4.2-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.2-RELEASE.tar.gz)
+
+### Improvements
+- 关闭了Faiss HNSW索引的并行查询
+
 ## v0.4.1-RELEASE
 Download URL: [tenann-v0.4.1-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.1-RELEASE.tar.gz)
 
