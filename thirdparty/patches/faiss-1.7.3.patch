@@ -55,4 +55,25 @@ index 037f86b..acc1ab1 100644
 +// #pragma omp parallel for
      for (int64_t i = 0; i < nx; i++) {
          float* __restrict xi = x + i * d;
- 
+
+diff --git a/faiss/IndexHNSW.cpp b/faiss/IndexHNSW.cpp
+index 3e15940..55254eb 100644
+--- a/faiss/IndexHNSW.cpp
++++ b/faiss/IndexHNSW.cpp
+@@ -308,14 +308,14 @@ void IndexHNSW::search(
+     for (idx_t i0 = 0; i0 < n; i0 += check_period) {
+         idx_t i1 = std::min(i0 + check_period, n);
+
+-#pragma omp parallel
++// #pragma omp parallel
+         {
+             VisitedTable vt(ntotal);
+
+             DistanceComputer* dis = storage_distance_computer(storage);
+             ScopeDeleter1<DistanceComputer> del(dis);
+
+-#pragma omp for reduction(+ : n1, n2, n3, ndis, nreorder)
++// #pragma omp for reduction(+ : n1, n2, n3, ndis, nreorder)
+             for (idx_t i = i0; i < i1; i++) {
+                 idx_t* idxi = labels + i * k;
+                 float* simi = distances + i * k;
