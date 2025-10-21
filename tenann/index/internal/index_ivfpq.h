@@ -24,6 +24,8 @@
 
 namespace tenann {
 
+using faiss::idx_t;
+
 struct IndexIvfPqSearchParameters : faiss::IVFPQSearchParameters {
   float range_search_confidence;
   IndexIvfPqSearchParameters() : range_search_confidence(0) {}
@@ -46,13 +48,15 @@ struct IndexIvfPq : faiss::IndexIVFPQ {
   IndexIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M, size_t nbits_per_idx,
              faiss::MetricType metric = faiss::METRIC_L2);
 
-  void add_core(idx_t n, const float* x, const idx_t* xids, const idx_t* precomputed_idx) override;
+  void add_core(idx_t n, const float* x, const idx_t* xids, const idx_t* precomputed_idx,
+                void* inverted_list_context = nullptr) override;
 
   /// same as add_core, also:
   /// - output 2nd level residuals if residuals_2 != NULL
   /// - accepts precomputed_idx = nullptr
   void custom_add_core_o(idx_t n, const float* x, const idx_t* xids, float* residuals_2,
-                         const idx_t* precomputed_idx = nullptr);
+                         const idx_t* precomputed_idx = nullptr,
+                         void* inverted_list_context = nullptr);
 
   void range_search(idx_t n, const float* x, float radius, faiss::RangeSearchResult* result,
                     const faiss::SearchParameters* params = nullptr) const override;

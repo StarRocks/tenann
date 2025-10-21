@@ -1,0 +1,51 @@
+diff --git a/faiss/CMakeLists.txt b/faiss/CMakeLists.txt
+index 1234567..abcdefg 100644
+--- a/faiss/CMakeLists.txt
++++ b/faiss/CMakeLists.txt
+@@ -377,12 +377,14 @@ if(FAISS_USE_LTO)
+   endif()
+ endif()
+ 
+-find_package(OpenMP REQUIRED)
+-target_link_libraries(faiss PRIVATE OpenMP::OpenMP_CXX)
+-target_link_libraries(faiss_avx2 PRIVATE OpenMP::OpenMP_CXX)
+-target_link_libraries(faiss_avx512 PRIVATE OpenMP::OpenMP_CXX)
+-target_link_libraries(faiss_avx512_spr PRIVATE OpenMP::OpenMP_CXX)
+-target_link_libraries(faiss_sve PRIVATE OpenMP::OpenMP_CXX)
++find_package(OpenMP)
++if(OpenMP_CXX_FOUND)
++  target_link_libraries(faiss PRIVATE OpenMP::OpenMP_CXX)
++  target_link_libraries(faiss_avx2 PRIVATE OpenMP::OpenMP_CXX)
++  target_link_libraries(faiss_avx512 PRIVATE OpenMP::OpenMP_CXX)
++  target_link_libraries(faiss_avx512_spr PRIVATE OpenMP::OpenMP_CXX)
++  target_link_libraries(faiss_sve PRIVATE OpenMP::OpenMP_CXX)
++endif()
+ 
+ if(FAISS_ENABLE_MKL)
+   find_package(MKL)
+@@ -393,19 +395,12 @@ if(MKL_FOUND)
+   target_link_libraries(faiss_avx512 PRIVATE ${MKL_LIBRARIES})
+   target_link_libraries(faiss_avx512_spr PRIVATE ${MKL_LIBRARIES})
+ else()
+-  find_package(BLAS REQUIRED)
+-  target_link_libraries(faiss PRIVATE ${BLAS_LIBRARIES})
+-  target_link_libraries(faiss_avx2 PRIVATE ${BLAS_LIBRARIES})
+-  target_link_libraries(faiss_avx512 PRIVATE ${BLAS_LIBRARIES})
+-  target_link_libraries(faiss_avx512_spr PRIVATE ${BLAS_LIBRARIES})
+-  target_link_libraries(faiss_sve PRIVATE ${BLAS_LIBRARIES})
+-
+-  find_package(LAPACK REQUIRED)
+-  target_link_libraries(faiss PRIVATE ${LAPACK_LIBRARIES})
+-  target_link_libraries(faiss_avx2 PRIVATE ${LAPACK_LIBRARIES})
+-  target_link_libraries(faiss_avx512 PRIVATE ${LAPACK_LIBRARIES})
+-  target_link_libraries(faiss_avx512_spr PRIVATE ${LAPACK_LIBRARIES})
+-  target_link_libraries(faiss_sve PRIVATE ${LAPACK_LIBRARIES})
++  find_package(OpenBLAS REQUIRED PATHS ${CMAKE_INSTALL_DATAROOTDIR}/openblas)
++  target_link_libraries(faiss PRIVATE ${OpenBLAS_LIBRARIES})
++  target_link_libraries(faiss_avx2 PRIVATE ${OpenBLAS_LIBRARIES})
++  target_link_libraries(faiss_avx512 PRIVATE ${OpenBLAS_LIBRARIES})
++  target_link_libraries(faiss_avx512_spr PRIVATE ${OpenBLAS_LIBRARIES})
++  target_link_libraries(faiss_sve PRIVATE ${OpenBLAS_LIBRARIES})
+ endif()
+ 
+ install(TARGETS faiss

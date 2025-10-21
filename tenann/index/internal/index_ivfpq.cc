@@ -53,8 +53,8 @@ IndexIvfPq::IndexIvfPq() : faiss::IndexIVFPQ() {}
 
 IndexIvfPq::~IndexIvfPq() {}
 
-static float* compute_residuals(const Index* quantizer, Index::idx_t n, const float* x,
-                                const Index::idx_t* list_nos) {
+static float* compute_residuals(const Index* quantizer, idx_t n, const float* x,
+                                const idx_t* list_nos) {
   size_t d = quantizer->d;
   float* residuals = new float[n * d];
   // TODO: parallelize?
@@ -75,11 +75,12 @@ IndexIvfPq::IndexIvfPq(faiss::Index* quantizer, size_t d, size_t nlist, size_t M
   /* End tenann.*/
 }
 
-void IndexIvfPq::add_core(idx_t n, const float* x, const idx_t* xids, const idx_t* coarse_idx) {
+void IndexIvfPq::add_core(idx_t n, const float* x, const idx_t* xids, const idx_t* coarse_idx,
+                          void* inverted_list_context) {
   // add_core_o(n, x, xids, nullptr, coarse_idx);
 
   /* The following lines are added by tenann */
-  custom_add_core_o(n, x, xids, nullptr, coarse_idx);
+  custom_add_core_o(n, x, xids, nullptr, coarse_idx, inverted_list_context);
   /* End tenann.*/
 }
 
@@ -87,7 +88,7 @@ void IndexIvfPq::add_core(idx_t n, const float* x, const idx_t* xids, const idx_
 static int index_ivfpq_add_core_o_bs = 32768;
 
 void IndexIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, float* residuals_2,
-                                   const idx_t* precomputed_idx) {
+                                   const idx_t* precomputed_idx, void* inverted_list_context) {
   idx_t bs = index_ivfpq_add_core_o_bs;
   if (n > bs) {
     for (idx_t i0 = 0; i0 < n; i0 += bs) {
@@ -97,7 +98,7 @@ void IndexIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, f
       }
       custom_add_core_o(i1 - i0, x + i0 * d, xids ? xids + i0 : nullptr,
                         residuals_2 ? residuals_2 + i0 * d : nullptr,
-                        precomputed_idx ? precomputed_idx + i0 : nullptr);
+                        precomputed_idx ? precomputed_idx + i0 : nullptr, inverted_list_context);
     }
     return;
   }
@@ -109,27 +110,28 @@ void IndexIvfPq::custom_add_core_o(idx_t n, const float* x, const idx_t* xids, f
   FAISS_THROW_IF_NOT(is_trained);
   double t0 = getmillisecs();
   const idx_t* idx;
-  ScopeDeleter<idx_t> del_idx;
+  std::unique_ptr<idx_t[]> del_idx;
 
   if (precomputed_idx) {
     idx = precomputed_idx;
   } else {
     idx_t* idx0 = new idx_t[n];
-    del_idx.set(idx0);
+    del_idx.reset(idx0);
     quantizer->assign(n, x, idx0);
     idx = idx0;
   }
 
   double t1 = getmillisecs();
   uint8_t* xcodes = new uint8_t[n * code_size];
-  ScopeDeleter<uint8_t> del_xcodes(xcodes);
+  std::unique_ptr<uint8_t[]> del_xcodes(xcodes);
 
   const float* to_encode = nullptr;
-  ScopeDeleter<float> del_to_encode;
+  std::unique_ptr<float[]> del_to_encode;
 
   if (by_residual) {
-    to_encode = compute_residuals(quantizer, n, x, idx);
-    del_to_encode.set(to_encode);
+    float* residuals = compute_residuals(quantizer, n, x, idx);
+    to_encode = residuals;
+    del_to_encode.reset(residuals);
   } else {
     to_encode = x;
   }
@@ -340,7 +342,7 @@ static size_t precomputed_table_max_bytes = ((size_t)1) << 31;
 
 namespace {
 
-using idx_t = Index::idx_t;
+using faiss::idx_t;
 
 #define TIC t0 = get_cycles()
 #define TOC get_cycles() - t0
@@ -454,7 +456,7 @@ struct QueryTables {
    *****************************************************/
 
   // fields specific to list
-  Index::idx_t key;
+  idx_t key;
   float coarse_dis;
   std::vector<uint8_t> q_code;
 
@@ -846,7 +848,7 @@ struct IVFPQScannerT : QueryTables {
  * use_sel: store or ignore the IDSelector
  */
 template <MetricType METRIC_TYPE, class C, class PQDecoder, bool use_sel>
-struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, InvertedListScanner {
+struct IVFPQScanner : IVFPQScannerT<idx_t, METRIC_TYPE, PQDecoder>, InvertedListScanner {
   int precompute_mode;
   const IDSelector* sel;
   const IndexIvfPq* ivfpq;            // modifiled by tenann
@@ -854,7 +856,7 @@ struct IVFPQScanner : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>, Inver
 
   IVFPQScanner(const IndexIvfPq& ivfpq, bool store_pairs, int precompute_mode,
                const IDSelector* sel)
-      : IVFPQScannerT<Index::idx_t, METRIC_TYPE, PQDecoder>(ivfpq, nullptr),
+      : IVFPQScannerT<idx_t, METRIC_TYPE, PQDecoder>(ivfpq, nullptr),
         precompute_mode(precompute_mode),
         sel(sel),
         ivfpq(&ivfpq) {

@@ -44,6 +44,8 @@
 
 namespace faiss {
 
+using faiss::idx_t;
+
 /*************************************************************
  * Copied from faiss/impl/index_read.cpp
  **************************************************************/
@@ -51,7 +53,7 @@ namespace faiss {
 static void read_index_header(Index* idx, IOReader* f) {
   READ1(idx->d);
   READ1(idx->ntotal);
-  Index::idx_t dummy;
+  idx_t dummy;
   READ1(dummy);
   READ1(dummy);
   READ1(idx->is_trained);
@@ -68,7 +70,7 @@ static void read_direct_map(DirectMap* dm, IOReader* f) {
   dm->type = (DirectMap::Type)maintain_direct_map;
   READVECTOR(dm->array);
   if (dm->type == DirectMap::Hashtable) {
-    using idx_t = Index::idx_t;
+    using faiss::idx_t;
     std::vector<std::pair<idx_t, idx_t>> v;
     READVECTOR(v);
     std::unordered_map<idx_t, idx_t>& map = dm->hashtable;
@@ -80,7 +82,7 @@ static void read_direct_map(DirectMap* dm, IOReader* f) {
 }
 
 static void read_ivf_header(IndexIVF* ivf, IOReader* f,
-                            std::vector<std::vector<Index::idx_t>>* ids = nullptr) {
+                            std::vector<std::vector<idx_t>>* ids = nullptr) {
   read_index_header(ivf, f);
   READ1(ivf->nlist);
   READ1(ivf->nprobe);
@@ -95,9 +97,13 @@ static void read_ivf_header(IndexIVF* ivf, IOReader* f,
 
 // used for legacy formats
 static ArrayInvertedLists* set_array_invlist(IndexIVF* ivf,
-                                             std::vector<std::vector<Index::idx_t>>& ids) {
+                                             std::vector<std::vector<idx_t>>& ids) {
   ArrayInvertedLists* ail = new ArrayInvertedLists(ivf->nlist, ivf->code_size);
-  std::swap(ail->ids, ids);
+  // Copy ids since MaybeOwnedVector doesn't support swap with vector
+  for (size_t i = 0; i < ids.size(); i++) {
+    ail->ids[i].resize(ids[i].size());
+    std::copy(ids[i].begin(), ids[i].end(), ail->ids[i].data());
+  }
   ivf->invlists = ail;
   ivf->own_invlists = true;
   return ail;
@@ -178,7 +184,7 @@ static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags,
                        bool cache_index_block, tenann::IndexCache* index_cache) {
   bool legacy = h == fourcc("IvQR") || h == fourcc("IvPQ");
 
-  std::vector<std::vector<Index::idx_t>> ids;
+  std::vector<std::vector<idx_t>> ids;
   read_ivf_header(ivpq, f, legacy ? &ids : nullptr);
   READ1(ivpq->by_residual);
   READ1(ivpq->code_size);
@@ -309,7 +315,7 @@ const uint8_t* BlockCacheInvertedLists::get_codes(size_t list_no) const {
   return ret;
 }
 
-const Index::idx_t* BlockCacheInvertedLists::get_ids(size_t list_no) const {
+const idx_t* BlockCacheInvertedLists::get_ids(size_t list_no) const {
   if (lists[list_no].offset == INVALID_OFFSET) {
     return nullptr;
   }
@@ -342,7 +348,7 @@ InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
   size_t o = ails->start_offset;
 
   ails->fd = open(f->name.c_str(), O_RDONLY | O_DIRECT);
-  FAISS_THROW_IF_NOT_FMT(ails->fd != -1, "could not open file %s with O_DIRECT: %s", reader->name,
+  FAISS_THROW_IF_NOT_FMT(ails->fd != -1, "could not open file %s with O_DIRECT: %s", reader->name.c_str(),
                          strerror(errno));
 
   struct stat buf;
@@ -359,7 +365,7 @@ InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
     ails->cache_keys[i] = prefix + std::to_string(i);
   }
 
-  ails->one_entry_size = sizeof(BlockCacheInvertedLists::idx_t) + ails->code_size;
+  ails->one_entry_size = sizeof(idx_t) + ails->code_size;
   for (size_t i = 0; i < ails->nlist; i++) {
     BlockCacheInvertedLists::List& l = ails->lists[i];
     l.size = l.capacity = sizes[i];
@@ -468,7 +474,9 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
     }
   } catch (faiss::FaissException& e) {
     T_LOG(ERROR) << e.what();
+    return nullptr;
   }
+  return nullptr;  // Should not reach here
 }
 
 }  // namespace tenann

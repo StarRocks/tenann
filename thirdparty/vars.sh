@@ -90,16 +90,16 @@ FMT_SOURCE="fmt-8.1.1"
 FMT_MD5SUM="16dcd48ecc166f10162450bb28aabc87"
 
 # faiss
-FAISS_DOWNLOAD="https://github.com/facebookresearch/faiss/archive/refs/tags/v1.7.3.tar.gz"
-FAISS_NAME=faiss-v1.7.3.tar.gz
-FAISS_SOURCE=faiss-1.7.3
-FAISS_MD5SUM="632c5f465e80ebf10a7e2a54e5c853f7"
+FAISS_DOWNLOAD="https://github.com/facebookresearch/faiss/archive/refs/tags/v1.12.0.tar.gz"
+FAISS_NAME=faiss-v1.12.0.tar.gz
+FAISS_SOURCE=faiss-1.12.0
+FAISS_MD5SUM="cad83faab8d19607b52f4613bdeeb073"
 
 # openblas
-OPENBLAS_DOWNLOAD="https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.25/OpenBLAS-0.3.25.tar.gz"
-OPENBLAS_NAME=OpenBLAS-0.3.25.tar.gz
-OPENBLAS_SOURCE=OpenBLAS-0.3.25
-OPENBLAS_MD5SUM="48384e324cd1cdcfbdb0d2e16ca55327"
+OPENBLAS_DOWNLOAD="https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.30/OpenBLAS-0.3.30.tar.gz"
+OPENBLAS_NAME=OpenBLAS-0.3.30.tar.gz
+OPENBLAS_SOURCE=OpenBLAS-0.3.30
+OPENBLAS_MD5SUM="8db3d57f4d4485c6ae3f21ea465660e7"
 
 # gtest
 GTEST_DOWNLOAD="https://github.com/google/googletest/archive/release-1.10.0.tar.gz"

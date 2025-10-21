@@ -36,7 +36,7 @@ IndexIvfPqWriter::~IndexIvfPqWriter() = default;
 void write_index_header(const faiss::Index* idx, faiss::IOWriter* f) {
   WRITE1(idx->d);
   WRITE1(idx->ntotal);
-  faiss::Index::idx_t dummy = 1 << 20;
+  faiss::idx_t dummy = 1 << 20;
   WRITE1(dummy);
   WRITE1(dummy);
   WRITE1(idx->is_trained);

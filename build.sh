@@ -66,7 +66,7 @@ if [[ $OSTYPE == darwin* ]]; then
 else
     if [[ ! -f ${TENANN_THIRDPARTY}/installed/include/faiss/Index.h ]]; then
         echo "Thirdparty libraries need to be build ..."
-        sh ${TENANN_THIRDPARTY}/build-thirdparty.sh
+        bash ${TENANN_THIRDPARTY}/build-thirdparty.sh
     fi
     PARALLEL=$(($(nproc) / 4 + 1))
 fi

@@ -56,7 +56,7 @@ fi
 cd $TP_DIR
 
 # Download thirdparties.
-sh ${TP_DIR}/download-thirdparty.sh
+bash ${TP_DIR}/download-thirdparty.sh
 
 # set COMPILER
 if [[ ! -z ${TENANN_GCC_HOME} ]]; then
@@ -205,7 +205,6 @@ build_openblas() {
     make -j$PARALLEL $BLAS_FLAGS
     make PREFIX=${TP_INSTALL_DIR} $BLAS_FLAGS install
 }
-
 #faiss
 build_faiss() {
     check_if_source_exist $FAISS_SOURCE
@@ -214,6 +213,15 @@ build_faiss() {
     mkdir -p $BUILD_DIR
     cd $BUILD_DIR
     rm -rf CMakeCache.txt CMakeFiles/
+    echo "machine type:" $MACHINE_TYPE
+
+    if [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
+        FAISS_OPT_LEVEL=avx2
+    else
+        FAISS_OPT_LEVEL=sve
+    fi
+    echo "FAISS_OPT_LEVEL: $FAISS_OPT_LEVEL"
+
     $CMAKE_CMD -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=${TP_INSTALL_DIR} \
         -DCMAKE_INSTALL_DATAROOTDIR=${TP_INSTALL_DIR}/lib/cmake \
@@ -222,16 +230,19 @@ build_faiss() {
         -DCMAKE_C_COMPILER=$TENANN_GCC_HOME/bin/gcc \
         -DFAISS_ENABLE_GPU=OFF \
         -DFAISS_ENABLE_PYTHON=OFF \
-        -DFAISS_OPT_LEVEL=avx2 \
+        -DFAISS_OPT_LEVEL=${FAISS_OPT_LEVEL} \
         -DBUILD_SHARED_LIBS=OFF \
         -DBUILD_TESTING=OFF \
+        -DOpenMP_C_FLAGS="" \
+        -DOpenMP_CXX_FLAGS="" \
         ..
 
     ${BUILD_SYSTEM} -j$PARALLEL
     ${BUILD_SYSTEM} install
 
-    cp -f ${TP_INSTALL_DIR}/lib/cmake/faiss/faiss-config.cmake ${TP_INSTALL_DIR}/lib/cmake/faiss/faiss_avx2-config.cmake
+    cp -f ${TP_INSTALL_DIR}/lib/cmake/faiss/faiss-config.cmake ${TP_INSTALL_DIR}/lib/cmake/faiss/faiss_${FAISS_OPT_LEVEL}-config.cmake
 }
+
 
 # gtest
 build_gtest() {
@@ -280,7 +291,7 @@ strip_binary() {
 # set GLOBAL_C*FLAGS for easy restore in each sub build process
 export GLOBAL_CPPFLAGS="-I ${TP_INCLUDE_DIR}"
 # https://stackoverflow.com/questions/42597685/storage-size-of-timespec-isnt-known
-export GLOBAL_CFLAGS="-fPIC -static-libstdc++ -static-libgcc -O3 -fno-omit-frame-pointer -std=c99 -fPIC -g -D_POSIX_C_SOURCE=199309L"
+export GLOBAL_CFLAGS="-fPIC -static-libstdc++ -static-libgcc -O3 -fno-omit-frame-pointer -std=gnu99 -fPIC -g -D_POSIX_C_SOURCE=199309L"
 export GLOBAL_CXXFLAGS="-fPIC -static-libstdc++ -static-libgcc -O3 -fno-omit-frame-pointer -Wno-class-memaccess -fPIC -g"
 
 # set those GLOBAL_*FLAGS to the CFLAGS/CXXFLAGS/CPPFLAGS

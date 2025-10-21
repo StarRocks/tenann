@@ -69,7 +69,7 @@ size_t Index::EstimateMemoryUsage() {
     // IndexIDMap
     if (index_id_map != nullptr) {
       mem_usage += sizeof(*index_id_map);
-      mem_usage += index_id_map->id_map.capacity() * sizeof(faiss::Index::idx_t);
+      mem_usage += index_id_map->id_map.capacity() * sizeof(faiss::idx_t);
     }
 
     // IndexPreTransform
@@ -87,7 +87,7 @@ size_t Index::EstimateMemoryUsage() {
     mem_usage += hnsw.assign_probas.capacity() * sizeof(double) +
                  hnsw.cum_nneighbor_per_level.capacity() * sizeof(int) +
                  hnsw.levels.capacity() * sizeof(int) + hnsw.offsets.capacity() * sizeof(size_t) +
-                 hnsw.neighbors.capacity() * sizeof(faiss::HNSW::storage_idx_t);
+                 hnsw.neighbors.size() * sizeof(faiss::HNSW::storage_idx_t);
 
     // vectors
     mem_usage += index_hnsw->storage->ntotal * index_hnsw->storage->d * sizeof(float);
@@ -132,15 +132,15 @@ size_t Index::EstimateMemoryUsage() {
     if (index_ivf_pq->invlists != nullptr) {
       mem_usage += sizeof(*index_ivf_pq->invlists);
       mem_usage += index_ivf_pq->invlists->compute_ntotal() *
-                   (index_ivf_pq->code_size + sizeof(faiss::Index::idx_t));
+                   (index_ivf_pq->code_size + sizeof(faiss::idx_t));
     }
 
     // IndexIVF.DirectMap
     {
-      mem_usage += index_ivf_pq->direct_map.array.capacity() * sizeof(faiss::Index::idx_t);
+      mem_usage += index_ivf_pq->direct_map.array.capacity() * sizeof(faiss::idx_t);
       // 估算 unordered_map 占用内存大小
       auto& m = index_ivf_pq->direct_map.hashtable;
-      mem_usage += (m.size() * (sizeof(faiss::Index::idx_t) + sizeof(faiss::Index::idx_t)) +
+      mem_usage += (m.size() * (sizeof(faiss::idx_t) + sizeof(faiss::idx_t)) +
                     m.bucket_count() * (sizeof(void*) + sizeof(size_t))) *
                    1.5;
     }

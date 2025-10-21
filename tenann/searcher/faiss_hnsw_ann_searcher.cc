@@ -186,18 +186,10 @@ void IndexHnswRangeSearch(const IndexHNSW& index, idx_t n, const float* x, float
     result_ids->resize(resize);
     result_distances->resize(resize);
   } else {  // range search without result limit
-    if (index.hnsw.upper_beam != 1) {
-      T_LOG(WARNING)
-          << "upper_beam is set, but it takes no effects on hnsw range search without limit";
-    }
-
-    if (!index.hnsw.search_bounded_queue) {
-      T_LOG(WARNING) << "search_bounded_queue is set to false, but it takes no effects on hnsw "
-                        "range search without limit";
-    }
+    // Note: upper_beam and search_bounded_queue parameters were removed in FAISS 1.12.0
 
     DistanceComputer* p_dis = storage_distance_computer(index.storage);
-    ScopeDeleter1<DistanceComputer> del(p_dis);
+    std::unique_ptr<DistanceComputer> del(p_dis);
     auto& dis = *p_dis;
     dis.set_query(x);
 
@@ -205,7 +197,7 @@ void IndexHnswRangeSearch(const IndexHNSW& index, idx_t n, const float* x, float
     storage_idx_t nearest = index.hnsw.entry_point;
     float d_nearest = dis(nearest);
     for (int level = index.hnsw.max_level; level >= 1; level--) {
-      greedy_update_nearest(index.hnsw, dis, level, nearest, d_nearest);
+      detail::greedy_update_nearest(index.hnsw, dis, level, nearest, d_nearest);
     }
 
     MinimaxHeap candidates(ef);
@@ -276,7 +268,7 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int64_t k, i
     if (faiss_transform_ != nullptr) {
       const float* xt = reinterpret_cast<const faiss::IndexPreTransform*>(faiss_transform_)
                             ->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
-      faiss::ScopeDeleter<float> del(xt == x ? nullptr : xt);
+      std::unique_ptr<const float[]> del(xt == x ? nullptr : xt);
       // search through the transformed vector
       reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_)
           ->search(ANN_SEARCHER_QUERY_COUNT, xt, k, reinterpret_cast<float*>(result_distances),
@@ -355,7 +347,7 @@ void FaissHnswAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float rang
     if (faiss_transform_ != nullptr) {
       const float* xt = reinterpret_cast<const faiss::IndexPreTransform*>(faiss_transform_)
                             ->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
-      faiss::ScopeDeleter<float> del(xt == x ? nullptr : xt);
+      std::unique_ptr<const float[]> del(xt == x ? nullptr : xt);
       // Search with the transformed vector
       detail::IndexHnswRangeSearch(*reinterpret_cast<const faiss::IndexHNSW*>(faiss_hnsw_),
                                    ANN_SEARCHER_QUERY_COUNT, xt, radius, limit, result_ids,
