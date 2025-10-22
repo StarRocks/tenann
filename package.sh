@@ -36,6 +36,30 @@ TENANN_OUTPUT=${TENANN_HOME}/output
 rm -rf ${TENANN_OUTPUT}/tmp
 mkdir -p ${TENANN_OUTPUT}/tmp
 
+# Function to find library in multiple possible locations
+find_library() {
+    local lib_name=$1
+    local search_paths=(
+        "/opt/gcc/usr/lib64"
+        "/usr/local/lib"
+        "/usr/lib"
+        "/usr/lib64"
+        "/usr/lib/gcc/*/*"
+        "${TENANN_GCC_HOME}/lib64"
+        "${TENANN_GCC_HOME}/lib"
+    )
+
+    for path in "${search_paths[@]}"; do
+        local found=$(find $path -name "$lib_name" 2>/dev/null | head -n 1)
+        if [ -n "$found" ]; then
+            echo "$found"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 # Detect OpenBLAS library version dynamically
 OPENBLAS_LIB=$(find ${TENANN_THIRDPARTY}/installed/lib -name "libopenblas-r*.a" | head -n 1)
 if [ -z "$OPENBLAS_LIB" ]; then
@@ -45,10 +69,33 @@ fi
 OPENBLAS_BASENAME=$(basename "$OPENBLAS_LIB")
 echo "Detected OpenBLAS library: $OPENBLAS_BASENAME"
 
+# Find required GCC libraries
+LIBQUADMATH=$(find_library "libquadmath.a")
+LIBGFORTRAN=$(find_library "libgfortran.a")
+LIBGOMP=$(find_library "libgomp.a")
+
+if [ -z "$LIBQUADMATH" ]; then
+    echo "Error: libquadmath.a not found"
+    exit 1
+fi
+if [ -z "$LIBGFORTRAN" ]; then
+    echo "Error: libgfortran.a not found"
+    exit 1
+fi
+if [ -z "$LIBGOMP" ]; then
+    echo "Error: libgomp.a not found"
+    exit 1
+fi
+
+echo "Detected libraries:"
+echo "  libquadmath: $LIBQUADMATH"
+echo "  libgfortran: $LIBGFORTRAN"
+echo "  libgomp: $LIBGOMP"
+
 # Copy all third-party libraries to the output directory
-cp /opt/gcc/usr/lib64/libquadmath.a ${TENANN_OUTPUT}/tmp
-cp /usr/local/lib/libgfortran.a ${TENANN_OUTPUT}/tmp
-cp /opt/gcc/usr/lib64/libgomp.a ${TENANN_OUTPUT}/tmp
+cp "$LIBQUADMATH" ${TENANN_OUTPUT}/tmp
+cp "$LIBGFORTRAN" ${TENANN_OUTPUT}/tmp
+cp "$LIBGOMP" ${TENANN_OUTPUT}/tmp
 cp ${OPENBLAS_LIB} ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a ${TENANN_OUTPUT}/tmp
 
