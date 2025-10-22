@@ -36,13 +36,22 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++ -static-libgcc -gdwarf-4 -fPIC")
 
+# Detect architecture
+set(IS_ARM64 FALSE)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+    set(IS_ARM64 TRUE)
+    message(STATUS "Detected ARM64/AArch64 architecture")
+endif()
+
 # Build options
 option(WITH_AVX2 "ON for build tenann with avx2 support" OFF)
+option(WITH_SVE "ON for build tenann with ARM SVE support" OFF)
 option(WITH_TESTS "ON for build unit test or OFF for not" ON)
 option(WITH_EXAMPLES "ON for build examples or OFF for not" ON)
 option(WITH_PYTHON "ON for build python wrapper or OFF for not" ON)
 
 set(FAISS_AVX2_CXX_FLAGS $<$<COMPILE_LANGUAGE:CXX>:-mavx2 -mfma -mf16c -mpopcnt>)
+set(FAISS_SVE_CXX_FLAGS $<$<COMPILE_LANGUAGE:CXX>:-march=armv8-a+sve>)
 if (WITH_TESTS STREQUAL "ON")
     # Open code coverage before add_subdirectory(tenann)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_USE_OWN_TR1_TUPLE=0 -fprofile-arcs -ftest-coverage")
@@ -78,6 +87,13 @@ install(TARGETS tenann
 
 if(WITH_AVX2 STREQUAL "ON")
     install(TARGETS tenann_avx2
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin)
+endif()
+
+if(WITH_SVE STREQUAL "ON")
+    install(TARGETS tenann_sve
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin)

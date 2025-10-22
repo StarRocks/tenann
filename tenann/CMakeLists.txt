@@ -67,6 +67,9 @@ set_target_properties(faiss PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/in
 add_library(faiss_avx2 STATIC IMPORTED)
 set_target_properties(faiss_avx2 PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss_avx2.a)
 
+add_library(faiss_sve STATIC IMPORTED)
+set_target_properties(faiss_sve PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss_sve.a)
+
 # openblas
 find_package(OpenBLAS REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/openblas")
 
@@ -124,4 +127,34 @@ endif()
 target_link_libraries(tenann_avx2
     ${WL_START_GROUP}
     ${TENANN_AVX2_LINK_LIBS}
+    ${WL_END_GROUP})
+
+########################################################
+# tenann_sve (ARM64 SVE support)
+########################################################
+
+add_library(tenann_sve STATIC ${TENANN_SRC})
+if(NOT WITH_SVE STREQUAL "ON")
+  set_target_properties(tenann_sve PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
+target_compile_options(tenann_sve PRIVATE ${FAISS_SVE_CXX_FLAGS})
+
+set(TENANN_SVE_LINK_LIBS
+    fmt
+    faiss_sve
+    ${OpenBLAS_LIBRARIES}
+    OpenMP::OpenMP_CXX
+    -l:libquadmath.a
+    -lm)
+
+if(WITH_PYTHON STREQUAL "ON")
+    list(APPEND TENANN_SVE_LINK_LIBS "-lgfortran" ${WL_END_GROUP})
+else()
+    list(APPEND TENANN_SVE_LINK_LIBS "-l:libgfortran.a" ${WL_END_GROUP})
+endif()
+
+target_link_libraries(tenann_sve
+    ${WL_START_GROUP}
+    ${TENANN_SVE_LINK_LIBS}
     ${WL_END_GROUP})
