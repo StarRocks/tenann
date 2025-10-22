@@ -69,33 +69,38 @@ fi
 OPENBLAS_BASENAME=$(basename "$OPENBLAS_LIB")
 echo "Detected OpenBLAS library: $OPENBLAS_BASENAME"
 
-# Find required GCC libraries
-LIBQUADMATH=$(find_library "libquadmath.a")
-LIBGFORTRAN=$(find_library "libgfortran.a")
-LIBGOMP=$(find_library "libgomp.a")
-
-if [ -z "$LIBQUADMATH" ]; then
-    echo "Error: libquadmath.a not found"
-    exit 1
-fi
-if [ -z "$LIBGFORTRAN" ]; then
-    echo "Error: libgfortran.a not found"
-    exit 1
-fi
-if [ -z "$LIBGOMP" ]; then
-    echo "Error: libgomp.a not found"
-    exit 1
-fi
+# Find optional GCC libraries (may not be available on all platforms, e.g. ARM64)
+LIBQUADMATH=$(find_library "libquadmath.a" || echo "")
+LIBGFORTRAN=$(find_library "libgfortran.a" || echo "")
+LIBGOMP=$(find_library "libgomp.a" || echo "")
 
 echo "Detected libraries:"
-echo "  libquadmath: $LIBQUADMATH"
-echo "  libgfortran: $LIBGFORTRAN"
-echo "  libgomp: $LIBGOMP"
+if [ -n "$LIBQUADMATH" ]; then
+    echo "  libquadmath: $LIBQUADMATH"
+else
+    echo "  libquadmath: not found (optional, skipping)"
+fi
+if [ -n "$LIBGFORTRAN" ]; then
+    echo "  libgfortran: $LIBGFORTRAN"
+else
+    echo "  libgfortran: not found (optional, skipping)"
+fi
+if [ -n "$LIBGOMP" ]; then
+    echo "  libgomp: $LIBGOMP"
+else
+    echo "  libgomp: not found (optional, skipping)"
+fi
 
 # Copy all third-party libraries to the output directory
-cp "$LIBQUADMATH" ${TENANN_OUTPUT}/tmp
-cp "$LIBGFORTRAN" ${TENANN_OUTPUT}/tmp
-cp "$LIBGOMP" ${TENANN_OUTPUT}/tmp
+if [ -n "$LIBQUADMATH" ]; then
+    cp "$LIBQUADMATH" ${TENANN_OUTPUT}/tmp
+fi
+if [ -n "$LIBGFORTRAN" ]; then
+    cp "$LIBGFORTRAN" ${TENANN_OUTPUT}/tmp
+fi
+if [ -n "$LIBGOMP" ]; then
+    cp "$LIBGOMP" ${TENANN_OUTPUT}/tmp
+fi
 cp ${OPENBLAS_LIB} ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a ${TENANN_OUTPUT}/tmp
 
@@ -118,15 +123,27 @@ fi
 
 # Merge all static libraries into one
 cd ${TENANN_OUTPUT}/tmp
-echo "create libtenann-bundle.a
+cat >libtenann-bundle.mri <<EOF
+create libtenann-bundle.a
 addlib libtenann.a
 addlib libfaiss.a
 addlib ${OPENBLAS_BASENAME}
-addlib libgomp.a
-addlib libgfortran.a
-addlib libquadmath.a
+EOF
+
+if [ -n "$LIBGOMP" ]; then
+    echo "addlib libgomp.a" >>libtenann-bundle.mri
+fi
+if [ -n "$LIBGFORTRAN" ]; then
+    echo "addlib libgfortran.a" >>libtenann-bundle.mri
+fi
+if [ -n "$LIBQUADMATH" ]; then
+    echo "addlib libquadmath.a" >>libtenann-bundle.mri
+fi
+
+cat >>libtenann-bundle.mri <<EOF
 save
-end" >libtenann-bundle.mri
+end
+EOF
 
 ar -M <libtenann-bundle.mri
 cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
@@ -135,15 +152,27 @@ echo "Created libtenann-bundle.a"
 # Merge all static libraries into one (AVX2 variant)
 if [ -f "${TENANN_OUTPUT}/tmp/libtenann_avx2.a" ]; then
     cd ${TENANN_OUTPUT}/tmp
-    echo "create libtenann-bundle-avx2.a
+    cat >libtenann-bundle-avx2.mri <<EOF
+create libtenann-bundle-avx2.a
 addlib libtenann_avx2.a
 addlib libfaiss_avx2.a
 addlib ${OPENBLAS_BASENAME}
-addlib libgomp.a
-addlib libgfortran.a
-addlib libquadmath.a
+EOF
+
+    if [ -n "$LIBGOMP" ]; then
+        echo "addlib libgomp.a" >>libtenann-bundle-avx2.mri
+    fi
+    if [ -n "$LIBGFORTRAN" ]; then
+        echo "addlib libgfortran.a" >>libtenann-bundle-avx2.mri
+    fi
+    if [ -n "$LIBQUADMATH" ]; then
+        echo "addlib libquadmath.a" >>libtenann-bundle-avx2.mri
+    fi
+
+    cat >>libtenann-bundle-avx2.mri <<EOF
 save
-end" >libtenann-bundle-avx2.mri
+end
+EOF
 
     ar -M <libtenann-bundle-avx2.mri
     cp ${TENANN_OUTPUT}/tmp/libtenann-bundle-avx2.a ${TENANN_OUTPUT}/lib
@@ -153,15 +182,27 @@ fi
 # Merge all static libraries into one (SVE variant for ARM64)
 if [ -f "${TENANN_OUTPUT}/tmp/libtenann_sve.a" ]; then
     cd ${TENANN_OUTPUT}/tmp
-    echo "create libtenann-bundle-sve.a
+    cat >libtenann-bundle-sve.mri <<EOF
+create libtenann-bundle-sve.a
 addlib libtenann_sve.a
 addlib libfaiss_sve.a
 addlib ${OPENBLAS_BASENAME}
-addlib libgomp.a
-addlib libgfortran.a
-addlib libquadmath.a
+EOF
+
+    if [ -n "$LIBGOMP" ]; then
+        echo "addlib libgomp.a" >>libtenann-bundle-sve.mri
+    fi
+    if [ -n "$LIBGFORTRAN" ]; then
+        echo "addlib libgfortran.a" >>libtenann-bundle-sve.mri
+    fi
+    if [ -n "$LIBQUADMATH" ]; then
+        echo "addlib libquadmath.a" >>libtenann-bundle-sve.mri
+    fi
+
+    cat >>libtenann-bundle-sve.mri <<EOF
 save
-end" >libtenann-bundle-sve.mri
+end
+EOF
 
     ar -M <libtenann-bundle-sve.mri
     cp ${TENANN_OUTPUT}/tmp/libtenann-bundle-sve.a ${TENANN_OUTPUT}/lib
