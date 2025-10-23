@@ -1,5 +1,18 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b80a5f4c9..049e474f0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -19,7 +19,7 @@
+ # the License.
+ # =============================================================================
+ 
+-cmake_minimum_required(VERSION 3.24.0 FATAL_ERROR)
++cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
+ 
+ set(FAISS_LANGUAGES CXX)
+ 
 diff --git a/faiss/CMakeLists.txt b/faiss/CMakeLists.txt
-index 1234567..abcdefg 100644
+index 0ad036967..230b1c536 100644
 --- a/faiss/CMakeLists.txt
 +++ b/faiss/CMakeLists.txt
 @@ -377,12 +377,14 @@ if(FAISS_USE_LTO)
