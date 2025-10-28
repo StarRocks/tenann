@@ -40,13 +40,13 @@ mkdir -p ${TENANN_OUTPUT}/tmp
 find_library() {
     local lib_name=$1
     local search_paths=(
+        "${TENANN_GCC_HOME}/lib64"
+        "${TENANN_GCC_HOME}/lib"
         "/opt/gcc/usr/lib64"
         "/usr/local/lib"
         "/usr/lib"
         "/usr/lib64"
         "/usr/lib/gcc/*/*"
-        "${TENANN_GCC_HOME}/lib64"
-        "${TENANN_GCC_HOME}/lib"
     )
 
     for path in "${search_paths[@]}"; do
@@ -61,7 +61,7 @@ find_library() {
 }
 
 # Detect OpenBLAS library version dynamically
-OPENBLAS_LIB=$(find ${TENANN_THIRDPARTY}/installed/lib -name "libopenblas-r*.a" | head -n 1)
+OPENBLAS_LIB=$(find ${TENANN_THIRDPARTY}/installed/lib -name "libopenblas*r*.a" | head -n 1)
 if [ -z "$OPENBLAS_LIB" ]; then
     echo "Error: OpenBLAS library not found in ${TENANN_THIRDPARTY}/installed/lib"
     exit 1

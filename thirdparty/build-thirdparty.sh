@@ -201,7 +201,15 @@ build_openblas() {
     check_if_source_exist $OPENBLAS_SOURCE
     cd $TP_SOURCE_DIR/$OPENBLAS_SOURCE
     make clean
-    BLAS_FLAGS="DYNAMIC_ARCH=1 NO_SHARED=1 NO_AVX512=1 USE_THREAD=0 USE_OPENMP=0"
+    if [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
+        # HASWELL provides AVX2+FMA support
+        BLAS_FLAGS="TARGET=HASWELL NO_SHARED=1 NO_AVX512=1 USE_THREAD=0 USE_OPENMP=0 NO_FBLAS=1 ONLY_CBLAS=1"
+    elif [[ "${MACHINE_TYPE}" == "aarch64" ]]; then
+        # ARMV8SVE provides basic SVE support (armv8-a+sve)
+        BLAS_FLAGS="TARGET=ARMV8SVE NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 NO_SME=1 NO_FBLAS=1 ONLY_CBLAS=1"
+    else
+        BLAS_FLAGS="NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 NO_FBLAS=1 ONLY_CBLAS=1"
+    fi
     make -j$PARALLEL $BLAS_FLAGS
     make PREFIX=${TP_INSTALL_DIR} $BLAS_FLAGS install
 }
