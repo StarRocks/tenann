@@ -211,3 +211,83 @@ fi
 
 # Clean temporary directory
 rm -rf ${TENANN_OUTPUT}/tmp
+
+# Create final distribution package
+RELEASE_VERSION="tenann-v0.5.0-RELEASE"
+RELEASE_DIR="${TENANN_HOME}/${RELEASE_VERSION}"
+
+echo "Creating release package: ${RELEASE_VERSION}"
+
+# Clean up any previous release directory
+rm -rf ${RELEASE_DIR}
+mkdir -p ${RELEASE_DIR}
+
+# Copy include directory
+echo "Copying headers from ${TENANN_OUTPUT}/include to ${RELEASE_DIR}/include"
+cp -r ${TENANN_OUTPUT}/include ${RELEASE_DIR}/
+
+# Copy bundled libraries based on architecture
+if [ "$MACHINE_TYPE" == "x86_64" ]; then
+    echo "Detected x86_64 architecture"
+
+    # For x86_64, include both standard and AVX2 versions
+    if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/
+        echo "  Added libtenann-bundle.a"
+    else
+        echo "Error: libtenann-bundle.a not found"
+        exit 1
+    fi
+
+    if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle-avx2.a" ]; then
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle-avx2.a ${RELEASE_DIR}/
+        echo "  Added libtenann-bundle-avx2.a"
+    else
+        echo "Warning: libtenann-bundle-avx2.a not found, skipping"
+    fi
+
+    PACKAGE_NAME="${RELEASE_VERSION}-x86_64.tar.gz"
+
+elif [ "$MACHINE_TYPE" == "aarch64" ] || [ "$MACHINE_TYPE" == "arm64" ]; then
+    echo "Detected ARM64 architecture"
+
+    # For ARM64, rename SVE version to standard name
+    if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle-sve.a" ]; then
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle-sve.a ${RELEASE_DIR}/libtenann-bundle.a
+        echo "  Added libtenann-bundle.a (from SVE variant)"
+    elif [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/
+        echo "  Added libtenann-bundle.a"
+    else
+        echo "Error: No bundle library found for ARM64"
+        exit 1
+    fi
+
+    PACKAGE_NAME="${RELEASE_VERSION}-arm64.tar.gz"
+
+else
+    echo "Warning: Unknown architecture $MACHINE_TYPE, using generic package name"
+
+    # For other architectures, just copy standard bundle
+    if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/
+        echo "  Added libtenann-bundle.a"
+    else
+        echo "Error: libtenann-bundle.a not found"
+        exit 1
+    fi
+
+    PACKAGE_NAME="${RELEASE_VERSION}-${MACHINE_TYPE}.tar.gz"
+fi
+
+# Create tarball
+cd ${TENANN_HOME}
+tar czf ${PACKAGE_NAME} ${RELEASE_VERSION}
+
+echo ""
+echo "========================================="
+echo "Release package created successfully!"
+echo "Package: ${TENANN_HOME}/${PACKAGE_NAME}"
+echo "Contents:"
+tar tzf ${PACKAGE_NAME} | head -20
+echo "========================================="
