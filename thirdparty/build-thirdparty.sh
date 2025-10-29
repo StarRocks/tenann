@@ -203,15 +203,14 @@ build_openblas() {
     make clean
     if [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
         # HASWELL provides AVX2+FMA support
-        BLAS_FLAGS="TARGET=HASWELL NO_SHARED=1 NO_AVX512=1 USE_THREAD=0 USE_OPENMP=0"
+        BLAS_FLAGS="TARGET=HASWELL NO_SHARED=1 NO_AVX512=1 USE_THREAD=0 USE_OPENMP=0 NOFORTRAN=1"
     elif [[ "${MACHINE_TYPE}" == "aarch64" ]]; then
         # ARMV8SVE provides basic SVE support (armv8-a+sve)
-        BLAS_FLAGS="TARGET=ARMV8SVE NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 NO_SME=1"
+        BLAS_FLAGS="TARGET=ARMV8SVE NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 NO_SME=1 NOFORTRAN=1"
     else
         BLAS_FLAGS="NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0"
     fi
-    # Build 'libs' target to skip tests (default 'all' target includes tests)
-    make -j$PARALLEL $BLAS_FLAGS libs
+    make -j$PARALLEL $BLAS_FLAGS libs netlib
     make PREFIX=${TP_INSTALL_DIR} $BLAS_FLAGS install
 }
 #faiss

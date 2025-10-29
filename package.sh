@@ -36,30 +36,6 @@ TENANN_OUTPUT=${TENANN_HOME}/output
 rm -rf ${TENANN_OUTPUT}/tmp
 mkdir -p ${TENANN_OUTPUT}/tmp
 
-# Function to find library in multiple possible locations
-find_library() {
-    local lib_name=$1
-    local search_paths=(
-        "${TENANN_GCC_HOME}/lib64"
-        "${TENANN_GCC_HOME}/lib"
-        "/opt/gcc/usr/lib64"
-        "/usr/local/lib"
-        "/usr/lib"
-        "/usr/lib64"
-        "/usr/lib/gcc/*/*"
-    )
-
-    for path in "${search_paths[@]}"; do
-        local found=$(find $path -name "$lib_name" 2>/dev/null | head -n 1)
-        if [ -n "$found" ]; then
-            echo "$found"
-            return 0
-        fi
-    done
-
-    return 1
-}
-
 # Detect OpenBLAS library version dynamically
 OPENBLAS_LIB=$(find ${TENANN_THIRDPARTY}/installed/lib -name "libopenblas*r*.a" | head -n 1)
 if [ -z "$OPENBLAS_LIB" ]; then
@@ -69,38 +45,7 @@ fi
 OPENBLAS_BASENAME=$(basename "$OPENBLAS_LIB")
 echo "Detected OpenBLAS library: $OPENBLAS_BASENAME"
 
-# Find optional GCC libraries (may not be available on all platforms, e.g. ARM64)
-LIBQUADMATH=$(find_library "libquadmath.a" || echo "")
-LIBGFORTRAN=$(find_library "libgfortran.a" || echo "")
-LIBGOMP=$(find_library "libgomp.a" || echo "")
-
-echo "Detected libraries:"
-if [ -n "$LIBQUADMATH" ]; then
-    echo "  libquadmath: $LIBQUADMATH"
-else
-    echo "  libquadmath: not found (optional, skipping)"
-fi
-if [ -n "$LIBGFORTRAN" ]; then
-    echo "  libgfortran: $LIBGFORTRAN"
-else
-    echo "  libgfortran: not found (optional, skipping)"
-fi
-if [ -n "$LIBGOMP" ]; then
-    echo "  libgomp: $LIBGOMP"
-else
-    echo "  libgomp: not found (optional, skipping)"
-fi
-
-# Copy all third-party libraries to the output directory
-if [ -n "$LIBQUADMATH" ]; then
-    cp "$LIBQUADMATH" ${TENANN_OUTPUT}/tmp
-fi
-if [ -n "$LIBGFORTRAN" ]; then
-    cp "$LIBGFORTRAN" ${TENANN_OUTPUT}/tmp
-fi
-if [ -n "$LIBGOMP" ]; then
-    cp "$LIBGOMP" ${TENANN_OUTPUT}/tmp
-fi
+# Copy third-party libraries to the output directory
 cp ${OPENBLAS_LIB} ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a ${TENANN_OUTPUT}/tmp
 
@@ -123,90 +68,64 @@ fi
 
 # Merge all static libraries into one
 cd ${TENANN_OUTPUT}/tmp
-cat >libtenann-bundle.mri <<EOF
+
+# For ARM64, use SVE variant as the default bundle; otherwise use base variant
+if [[ "$MACHINE_TYPE" == "aarch64" ]] || [[ "$MACHINE_TYPE" == "arm64" ]]; then
+    # On ARM64, create bundle from SVE libraries (if available)
+    if [ -f "${TENANN_OUTPUT}/tmp/libtenann_sve.a" ]; then
+        cat >libtenann-bundle.mri <<EOF
+create libtenann-bundle.a
+addlib libtenann_sve.a
+addlib libfaiss_sve.a
+addlib ${OPENBLAS_BASENAME}
+save
+end
+EOF
+        ar -M <libtenann-bundle.mri
+        cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
+        echo "Created libtenann-bundle.a (ARM SVE variant)"
+    else
+        # Fallback to base libraries if SVE not available
+        cat >libtenann-bundle.mri <<EOF
 create libtenann-bundle.a
 addlib libtenann.a
 addlib libfaiss.a
 addlib ${OPENBLAS_BASENAME}
-EOF
-
-if [ -n "$LIBGOMP" ]; then
-    echo "addlib libgomp.a" >>libtenann-bundle.mri
-fi
-if [ -n "$LIBGFORTRAN" ]; then
-    echo "addlib libgfortran.a" >>libtenann-bundle.mri
-fi
-if [ -n "$LIBQUADMATH" ]; then
-    echo "addlib libquadmath.a" >>libtenann-bundle.mri
-fi
-
-cat >>libtenann-bundle.mri <<EOF
 save
 end
 EOF
+        ar -M <libtenann-bundle.mri
+        cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
+        echo "Created libtenann-bundle.a"
+    fi
+else
+    # On x86_64, create base bundle
+    cat >libtenann-bundle.mri <<EOF
+create libtenann-bundle.a
+addlib libtenann.a
+addlib libfaiss.a
+addlib ${OPENBLAS_BASENAME}
+save
+end
+EOF
+    ar -M <libtenann-bundle.mri
+    cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
+    echo "Created libtenann-bundle.a"
 
-ar -M <libtenann-bundle.mri
-cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
-echo "Created libtenann-bundle.a"
-
-# Merge all static libraries into one (AVX2 variant)
-if [ -f "${TENANN_OUTPUT}/tmp/libtenann_avx2.a" ]; then
-    cd ${TENANN_OUTPUT}/tmp
-    cat >libtenann-bundle-avx2.mri <<EOF
+    # Create AVX2 variant if available
+    if [ -f "${TENANN_OUTPUT}/tmp/libtenann_avx2.a" ]; then
+        cat >libtenann-bundle-avx2.mri <<EOF
 create libtenann-bundle-avx2.a
 addlib libtenann_avx2.a
 addlib libfaiss_avx2.a
 addlib ${OPENBLAS_BASENAME}
-EOF
-
-    if [ -n "$LIBGOMP" ]; then
-        echo "addlib libgomp.a" >>libtenann-bundle-avx2.mri
-    fi
-    if [ -n "$LIBGFORTRAN" ]; then
-        echo "addlib libgfortran.a" >>libtenann-bundle-avx2.mri
-    fi
-    if [ -n "$LIBQUADMATH" ]; then
-        echo "addlib libquadmath.a" >>libtenann-bundle-avx2.mri
-    fi
-
-    cat >>libtenann-bundle-avx2.mri <<EOF
 save
 end
 EOF
-
-    ar -M <libtenann-bundle-avx2.mri
-    cp ${TENANN_OUTPUT}/tmp/libtenann-bundle-avx2.a ${TENANN_OUTPUT}/lib
-    echo "Created libtenann-bundle-avx2.a"
-fi
-
-# Merge all static libraries into one (SVE variant for ARM64)
-if [ -f "${TENANN_OUTPUT}/tmp/libtenann_sve.a" ]; then
-    cd ${TENANN_OUTPUT}/tmp
-    cat >libtenann-bundle-sve.mri <<EOF
-create libtenann-bundle-sve.a
-addlib libtenann_sve.a
-addlib libfaiss_sve.a
-addlib ${OPENBLAS_BASENAME}
-EOF
-
-    if [ -n "$LIBGOMP" ]; then
-        echo "addlib libgomp.a" >>libtenann-bundle-sve.mri
+        ar -M <libtenann-bundle-avx2.mri
+        cp ${TENANN_OUTPUT}/tmp/libtenann-bundle-avx2.a ${TENANN_OUTPUT}/lib
+        echo "Created libtenann-bundle-avx2.a"
     fi
-    if [ -n "$LIBGFORTRAN" ]; then
-        echo "addlib libgfortran.a" >>libtenann-bundle-sve.mri
-    fi
-    if [ -n "$LIBQUADMATH" ]; then
-        echo "addlib libquadmath.a" >>libtenann-bundle-sve.mri
-    fi
-
-    cat >>libtenann-bundle-sve.mri <<EOF
-save
-end
-EOF
-
-    ar -M <libtenann-bundle-sve.mri
-    cp ${TENANN_OUTPUT}/tmp/libtenann-bundle-sve.a ${TENANN_OUTPUT}/lib
-    echo "Created libtenann-bundle-sve.a"
 fi
 
 # Clean temporary directory
@@ -220,7 +139,7 @@ echo "Creating release package: ${RELEASE_VERSION}"
 
 # Clean up any previous release directory
 rm -rf ${RELEASE_DIR}
-mkdir -p ${RELEASE_DIR}
+mkdir -p ${RELEASE_DIR}/lib
 
 # Copy include directory
 echo "Copying headers from ${TENANN_OUTPUT}/include to ${RELEASE_DIR}/include"
@@ -232,7 +151,7 @@ if [ "$MACHINE_TYPE" == "x86_64" ]; then
 
     # For x86_64, include both standard and AVX2 versions
     if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
-        cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/lib/
         echo "  Added libtenann-bundle.a"
     else
         echo "Error: libtenann-bundle.a not found"
@@ -240,7 +159,7 @@ if [ "$MACHINE_TYPE" == "x86_64" ]; then
     fi
 
     if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle-avx2.a" ]; then
-        cp ${TENANN_OUTPUT}/lib/libtenann-bundle-avx2.a ${RELEASE_DIR}/
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle-avx2.a ${RELEASE_DIR}/lib/
         echo "  Added libtenann-bundle-avx2.a"
     else
         echo "Warning: libtenann-bundle-avx2.a not found, skipping"
@@ -251,15 +170,12 @@ if [ "$MACHINE_TYPE" == "x86_64" ]; then
 elif [ "$MACHINE_TYPE" == "aarch64" ] || [ "$MACHINE_TYPE" == "arm64" ]; then
     echo "Detected ARM64 architecture"
 
-    # For ARM64, rename SVE version to standard name
-    if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle-sve.a" ]; then
-        cp ${TENANN_OUTPUT}/lib/libtenann-bundle-sve.a ${RELEASE_DIR}/libtenann-bundle.a
-        echo "  Added libtenann-bundle.a (from SVE variant)"
-    elif [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
-        cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/
-        echo "  Added libtenann-bundle.a"
+    # For ARM64, libtenann-bundle.a is already the SVE variant
+    if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/lib/
+        echo "  Added libtenann-bundle.a (SVE variant)"
     else
-        echo "Error: No bundle library found for ARM64"
+        echo "Error: libtenann-bundle.a not found for ARM64"
         exit 1
     fi
 
@@ -270,7 +186,7 @@ else
 
     # For other architectures, just copy standard bundle
     if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
-        cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/lib/
         echo "  Added libtenann-bundle.a"
     else
         echo "Error: libtenann-bundle.a not found"
@@ -289,5 +205,5 @@ echo "========================================="
 echo "Release package created successfully!"
 echo "Package: ${TENANN_HOME}/${PACKAGE_NAME}"
 echo "Contents:"
-tar tzf ${PACKAGE_NAME} | head -20
+tar tzf ${PACKAGE_NAME}
 echo "========================================="
