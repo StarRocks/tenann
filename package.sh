@@ -173,7 +173,7 @@ elif [ "$MACHINE_TYPE" == "aarch64" ] || [ "$MACHINE_TYPE" == "arm64" ]; then
     # For ARM64, libtenann-bundle.a is already the SVE variant
     if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
         cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/lib/
-        echo "  Added libtenann-bundle.a (SVE variant)"
+        echo "  Added libtenann-bundle.a"
     else
         echo "Error: libtenann-bundle.a not found for ARM64"
         exit 1

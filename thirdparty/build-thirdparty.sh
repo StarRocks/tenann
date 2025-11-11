@@ -206,7 +206,7 @@ build_openblas() {
         BLAS_FLAGS="TARGET=HASWELL NO_SHARED=1 NO_AVX512=1 USE_THREAD=0 USE_OPENMP=0 NOFORTRAN=1"
     elif [[ "${MACHINE_TYPE}" == "aarch64" ]]; then
         # ARMV8SVE provides basic SVE support (armv8-a+sve)
-        BLAS_FLAGS="TARGET=ARMV8SVE NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 NO_SME=1 NOFORTRAN=1"
+        BLAS_FLAGS="TARGET=ARMV8 NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 NO_SME=1 NOFORTRAN=1"
     else
         BLAS_FLAGS="NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0"
     fi
@@ -226,7 +226,7 @@ build_faiss() {
     if [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
         FAISS_OPT_LEVEL=avx2
     else
-        FAISS_OPT_LEVEL=sve
+        FAISS_OPT_LEVEL=generic
     fi
     echo "FAISS_OPT_LEVEL: $FAISS_OPT_LEVEL"
 

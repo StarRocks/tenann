@@ -208,11 +208,6 @@ if [ -e /proc/cpuinfo ]; then
     fi
 fi
 
-# For ARM64, always enable SVE variant (built by default)
-if [[ "$MACHINE_TYPE" == "aarch64" ]] || [[ "$MACHINE_TYPE" == "arm64" ]]; then
-    WITH_SVE=ON
-fi
-
 if [[ ${HELP} -eq 1 ]]; then
     usage
     exit
