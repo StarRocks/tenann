@@ -39,6 +39,7 @@
 #include "faiss/invlists/InvertedListsIOHook.h"
 #include "faiss/utils/hamming.h"
 #include "tenann/common/logging.h"
+#include "tenann/index/custom_io_reader.h"
 #include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/util/defer.h"
 
@@ -130,7 +131,8 @@ static void read_ArrayInvertedLists_sizes(IOReader* f, std::vector<size_t>& size
 }
 
 InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags,
-                                                   tenann::IndexCache* index_cache) {
+                                                   tenann::IndexCache* index_cache,
+                                                   tenann::IndexFileReaderPtr file_reader = nullptr) {
   uint32_t h;
   READ1(h);
   if (h == fourcc("il00")) {
@@ -145,17 +147,22 @@ InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags,
     std::vector<size_t> sizes(nlist);
     read_ArrayInvertedLists_sizes(f, sizes);
     auto bc = std::make_shared<BlockCacheInvertedListsIOHook>(index_cache);
-    return bc->read_ArrayInvertedLists(f, io_flags, nlist, code_size, sizes);
+    if (file_reader) {
+      return bc->read_ArrayInvertedLists(f, io_flags, nlist, code_size, sizes, std::move(file_reader));
+    } else {
+      return bc->read_ArrayInvertedLists(f, io_flags, nlist, code_size, sizes);
+    }
   } else {
     return InvertedListsIOHook::lookup(h)->read(f, io_flags);
   }
 }
 
 static void read_InvertedLists(IndexIVF* ivf, IOReader* f, int io_flags, bool cache_index_block,
-                               tenann::IndexCache* index_cache) {
+                               tenann::IndexCache* index_cache,
+                               tenann::IndexFileReaderPtr file_reader = nullptr) {
   InvertedLists* ils = nullptr;
   if (cache_index_block) {
-    ils = read_InvertedLists_with_block_cache(f, io_flags, index_cache);
+    ils = read_InvertedLists_with_block_cache(f, io_flags, index_cache, std::move(file_reader));
   } else {
     ils = read_InvertedLists(f, io_flags);
   }
@@ -181,7 +188,8 @@ static void read_ProductQuantizer(ProductQuantizer* pq, IOReader* f) {
  **************************************************************/
 
 static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags,
-                       bool cache_index_block, tenann::IndexCache* index_cache) {
+                       bool cache_index_block, tenann::IndexCache* index_cache,
+                       tenann::IndexFileReaderPtr file_reader = nullptr) {
   bool legacy = h == fourcc("IvQR") || h == fourcc("IvPQ");
 
   std::vector<std::vector<idx_t>> ids;
@@ -194,7 +202,7 @@ static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags,
     ArrayInvertedLists* ail = set_array_invlist(ivpq, ids);
     for (size_t i = 0; i < ail->nlist; i++) READVECTOR(ail->codes[i]);
   } else {
-    read_InvertedLists(ivpq, f, io_flags, cache_index_block, index_cache);
+    read_InvertedLists(ivpq, f, io_flags, cache_index_block, index_cache, std::move(file_reader));
   }
 
   if (ivpq->is_trained) {
@@ -230,7 +238,7 @@ BlockCacheInvertedLists::BlockCacheInvertedLists(tenann::IndexCache* index_cache
     : BlockCacheInvertedLists(0, 0, "", index_cache) {}
 
 BlockCacheInvertedLists::~BlockCacheInvertedLists() {
-  // close file
+  // close file (only if using local fd)
   if (fd != -1) {
     close(fd);
   }
@@ -259,37 +267,51 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   size_t offset = lists[list_no].offset;
   size_t size = lists[list_no].size * one_entry_size;
 
-  // Align the offset to the block size
-  size_t aligned_offset = (offset / block_size) * block_size;
+  ssize_t read_bytes = 0;
+  void* buffer = nullptr;
 
-  // Adjust the size to read to include the data from the aligned offset
-  size_t aligned_size =
-      ((offset_difference[list_no] + size + block_size - 1) / block_size) * block_size;
+  if (file_reader) {
+    // ---- Remote file system path: use IndexFileReader::ReadAt ----
+    // No O_DIRECT / alignment needed for remote FS.
+    buffer = malloc(size);
+    FAISS_THROW_IF_NOT_FMT(buffer != nullptr, "malloc(%zu) failed", size);
 
-  // Allocate aligned memory
-  void* buffer;
-  int err = posix_memalign(&buffer, block_size, aligned_size);
-  FAISS_THROW_IF_NOT_FMT(err == 0, "posix_memalign error: %d", err);
+    read_bytes = file_reader->ReadAt(offset, buffer, size);
+    FAISS_THROW_IF_NOT_FMT(read_bytes == static_cast<ssize_t>(size),
+                           "ReadAt: read_bytes: %zd, expected: %zu", read_bytes, size);
 
-  // Seek to the aligned offset
-  off_t seek_result = lseek(fd, aligned_offset, SEEK_SET);
-  FAISS_THROW_IF_NOT_FMT(seek_result != -1, "lseek to aligned_offset %zu failed: %s",
-                         aligned_offset, strerror(errno));
+    // No alignment offset for remote reads
+    offset_difference[list_no] = 0;
+  } else {
+    // ---- Local file system path: original POSIX O_DIRECT logic ----
 
-  size_t remaining_size = totsize - aligned_offset;
-  size_t expected_read_size = std::min(remaining_size, aligned_size);
-  // Perform the read operation
-  ssize_t read_bytes = read(fd, buffer, aligned_size);
-  FAISS_THROW_IF_NOT_FMT(read_bytes == expected_read_size,
-                         "read_bytes: %zd, expected_read_size: %zu", read_bytes,
-                         expected_read_size);
+    // Align the offset to the block size
+    size_t aligned_offset = (offset / block_size) * block_size;
 
-  // auto msg = fmt::format("allocated {};\n", buffer);
-  // std::cerr << msg;
+    // Adjust the size to read to include the data from the aligned offset
+    size_t aligned_size =
+        ((offset_difference[list_no] + size + block_size - 1) / block_size) * block_size;
+
+    // Allocate aligned memory
+    int err = posix_memalign(&buffer, block_size, aligned_size);
+    FAISS_THROW_IF_NOT_FMT(err == 0, "posix_memalign error: %d", err);
+
+    // Seek to the aligned offset
+    off_t seek_result = lseek(fd, aligned_offset, SEEK_SET);
+    FAISS_THROW_IF_NOT_FMT(seek_result != -1, "lseek to aligned_offset %zu failed: %s",
+                           aligned_offset, strerror(errno));
+
+    size_t remaining_size = totsize - aligned_offset;
+    size_t expected_read_size = std::min(remaining_size, aligned_size);
+    // Perform the read operation
+    read_bytes = read(fd, buffer, aligned_size);
+    FAISS_THROW_IF_NOT_FMT(read_bytes == expected_read_size,
+                           "read_bytes: %zd, expected_read_size: %zu", read_bytes,
+                           expected_read_size);
+  }
+
   auto index_ref = std::make_shared<tenann::Index>(
       buffer, tenann::IndexType::kFaissIvfPqOneInvertedList, [](void* index) {
-        // auto msg = fmt::format("freeing {};\n", index);
-        // std::cerr << msg;
         free(index);
       });
 
@@ -328,18 +350,13 @@ BlockCacheInvertedListsIOHook::BlockCacheInvertedListsIOHook(tenann::IndexCache*
     : InvertedListsIOHook("ilbc", typeid(BlockCacheInvertedLists).name()),
       index_cache(index_cache) {}
 
+// Original local-file version
 InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
     IOReader* f, int /* io_flags */, size_t nlist, size_t code_size,
     const std::vector<size_t>& sizes) const {
   auto ails =
       std::make_unique<BlockCacheInvertedLists>(nlist, code_size, f->name.c_str(), index_cache);
-  // ails->filename = f->name;
-  // ails->nlist = nlist;
-  // ails->code_size = code_size;
   ails->read_only = true;
-  // ails->lists.resize(nlist);
-  // ails->cache_keys.resize(nlist);
-  // ails->offset_difference.resize(nlist);
 
   FileIOReader* reader = dynamic_cast<FileIOReader*>(f);
   FAISS_THROW_IF_NOT_MSG(reader, "only supported for File objects");
@@ -381,6 +398,51 @@ InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
   return ails.release();
 }
 
+// Remote file system version: uses IndexFileReader instead of POSIX fd
+InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
+    IOReader* f, int /* io_flags */, size_t nlist, size_t code_size,
+    const std::vector<size_t>& sizes,
+    tenann::IndexFileReaderPtr file_reader) const {
+  auto ails =
+      std::make_unique<BlockCacheInvertedLists>(nlist, code_size, f->name.c_str(), index_cache);
+  ails->read_only = true;
+  ails->file_reader = file_reader;
+  // fd stays -1; all reads go through file_reader
+
+  ails->totsize = file_reader->GetSize();
+
+  // Use CustomFaissIOReader::bytes_read() to determine the start offset of
+  // inverted list data. The IOReader has consumed the file header sequentially,
+  // so bytes_read() tells us exactly where inverted lists data starts.
+  tenann::CustomFaissIOReader* custom_reader = dynamic_cast<tenann::CustomFaissIOReader*>(f);
+  ails->start_offset = custom_reader ? custom_reader->bytes_read() : 0;
+  size_t o = ails->start_offset;
+
+  // For remote FS, use hash(filename) + file_size as cache key (no mtime available).
+  std::string prefix = std::to_string(std::hash<std::string>{}(ails->filename)) + "_" +
+                       std::to_string(ails->totsize) + "_";
+  for (size_t i = 0; i < nlist; i++) {
+    ails->cache_keys[i] = prefix + std::to_string(i);
+  }
+
+  ails->one_entry_size = sizeof(idx_t) + ails->code_size;
+  for (size_t i = 0; i < ails->nlist; i++) {
+    BlockCacheInvertedLists::List& l = ails->lists[i];
+    l.size = l.capacity = sizes[i];
+    l.offset = o;
+    o += l.size * ails->one_entry_size;
+
+    // No block alignment needed for remote FS reads
+    ails->offset_difference[i] = 0;
+  }
+
+  // Advance file_reader past inverted lists data so the caller can
+  // continue reading trailing fields (range_search_confidence, etc.).
+  file_reader->Seek(o);
+
+  return ails.release();
+}
+
 }  // namespace faiss
 
 namespace tenann {
@@ -393,8 +455,12 @@ static constexpr const int IO_FLAG = faiss::IO_FLAG_READ_ONLY;
 IndexIvfPqReader::~IndexIvfPqReader() = default;
 
 IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
-  // open the index file and close it automatically
-  // when we leave the current scope through `Defer`
+  if (file_reader_) {
+    // ---- Remote file system path: use CustomFaissIOReader ----
+    return ReadIndexFileFromReader(path);
+  }
+
+  // ---- Local file system path: original fopen logic ----
   auto file = fopen(path.c_str(), "rb");
   Defer defer([file]() {
     if (file != nullptr) fclose(file);
@@ -477,6 +543,70 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
     return nullptr;
   }
   return nullptr;  // Should not reach here
+}
+
+IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
+  try {
+    CustomFaissIOReader reader(file_reader_);
+    auto* f = &reader;
+
+    uint32_t h;
+    READ1(h);
+    T_LOG_IF(WARNING, h != fourcc("IwPQ") && h != fourcc("IxPT"))
+        << "tenann could not read ivfpq from file " << path << ": "
+        << "expect magic number `IwPQ` and `IxPT` but got." << fourcc_inv_printable(h);
+    if (h == fourcc("IwPQ")) {
+      auto index_ivfpq = std::make_unique<IndexIvfPq>();
+      VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
+      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block,
+                        index_cache(), file_reader_);
+      READ1(index_ivfpq->range_search_confidence);
+      size_t num_invlists;
+      READ1(num_invlists);
+      index_ivfpq->reconstruction_errors.resize(num_invlists);
+      for (size_t i = 0; i < num_invlists; i++) {
+        READVECTOR(index_ivfpq->reconstruction_errors[i]);
+      }
+      return std::make_shared<Index>(index_ivfpq.release(),   //
+                                     IndexType::kFaissIvfPq,  //
+                                     [](void* index) { delete static_cast<faiss::Index*>(index); });
+    } else if (h == fourcc("IxPT")) {
+      auto index_pt = std::make_unique<faiss::IndexPreTransform>();
+      index_pt->own_fields = true;
+      faiss::read_index_header(index_pt.get(), f);
+      int nt;
+      READ1(nt);
+      for (int i = 0; i < nt; i++) {
+        index_pt->chain.push_back(read_VectorTransform(f));
+      }
+      auto index_ivfpq = std::make_unique<IndexIvfPq>();
+      READ1(h);
+      VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
+      faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block,
+                        index_cache(), file_reader_);
+      READ1(index_ivfpq->range_search_confidence);
+      size_t num_invlists;
+      READ1(num_invlists);
+      index_ivfpq->reconstruction_errors.resize(num_invlists);
+      for (size_t i = 0; i < num_invlists; i++) {
+        READVECTOR(index_ivfpq->reconstruction_errors[i]);
+      }
+      index_pt->index = index_ivfpq.release();
+      return std::make_shared<Index>(
+          index_pt.release(),      //
+          IndexType::kFaissIvfPq,  //
+          [](void* index) { delete static_cast<faiss::IndexPreTransform*>(index); });
+    } else {
+      T_LOG(INFO) << "Unknow index to tenann::reader. using faiss::reader";
+      return std::make_shared<Index>(faiss::read_index(f, IO_FLAG),  //
+                                     IndexType::kFaissIvfPq,         //
+                                     [](void* index) { delete static_cast<faiss::Index*>(index); });
+    }
+  } catch (faiss::FaissException& e) {
+    T_LOG(ERROR) << e.what();
+    return nullptr;
+  }
+  return nullptr;
 }
 
 }  // namespace tenann

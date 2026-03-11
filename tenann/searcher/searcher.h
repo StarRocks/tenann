@@ -23,6 +23,7 @@
 
 #include "tenann/common/macros.h"
 #include "tenann/index/index_reader.h"
+#include "tenann/store/index_file_reader.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/factory/index_factory.h"
 
@@ -48,6 +49,16 @@ class Searcher {
 
   ChildSearcher& ReadIndex(const std::string& path) {
     index_ref_ = index_reader_->ReadIndex(path);
+    is_index_loaded_ = true;
+
+    OnIndexLoaded();
+    return static_cast<ChildSearcher&>(*this);
+  };
+
+  /// Read index via an external file reader (for remote file systems).
+  ChildSearcher& ReadIndex(IndexFileReaderPtr file_reader) {
+    index_reader_->SetFileReader(file_reader);
+    index_ref_ = index_reader_->ReadIndex(file_reader->filename());
     is_index_loaded_ = true;
 
     OnIndexLoaded();

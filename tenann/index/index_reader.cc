@@ -63,8 +63,15 @@ IndexReader& IndexReader::SetIndexCache(IndexCache* cache) {
   return *this;
 }
 
+IndexReader& IndexReader::SetFileReader(IndexFileReaderPtr reader) {
+  file_reader_ = std::move(reader);
+  return *this;
+}
+
 IndexCache* IndexReader::index_cache() { return index_cache_; }
 
 const IndexCache* IndexReader::index_cache() const { return index_cache_; }
+
+IndexFileReaderPtr IndexReader::file_reader() const { return file_reader_; }
 
 }  // namespace tenann
