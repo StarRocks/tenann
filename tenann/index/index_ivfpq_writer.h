@@ -19,6 +19,9 @@
 
 #pragma once
 
+#include "faiss/Index.h"
+#include "faiss/impl/io.h"
+
 #include "tenann/common/json.h"
 #include "tenann/index/index_writer.h"
 
@@ -34,6 +37,10 @@ class IndexIvfPqWriter: public IndexWriter {
 
   // Write index file
   void WriteIndexFile(IndexRef index, const std::string& path) override;
+
+ private:
+  // Shared logic for writing index content via an IOWriter
+  void WriteIndexContent(const faiss::Index* faiss_index, faiss::IOWriter* f);
 };
 
 }  // namespace tenann

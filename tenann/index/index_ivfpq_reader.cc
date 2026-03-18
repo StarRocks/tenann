@@ -39,7 +39,7 @@
 #include "faiss/invlists/InvertedListsIOHook.h"
 #include "faiss/utils/hamming.h"
 #include "tenann/common/logging.h"
-#include "tenann/index/custom_io_reader.h"
+#include "tenann/index/faiss_io_reader_adapter.h"
 #include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/util/defer.h"
 
@@ -411,11 +411,11 @@ InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
 
   ails->totsize = file_reader->GetSize();
 
-  // Use CustomFaissIOReader::bytes_read() to determine the start offset of
+  // Use FaissIOReaderAdapter::bytes_read() to determine the start offset of
   // inverted list data. The IOReader has consumed the file header sequentially,
   // so bytes_read() tells us exactly where inverted lists data starts.
-  tenann::CustomFaissIOReader* custom_reader = dynamic_cast<tenann::CustomFaissIOReader*>(f);
-  ails->start_offset = custom_reader ? custom_reader->bytes_read() : 0;
+  tenann::FaissIOReaderAdapter* faiss_reader = dynamic_cast<tenann::FaissIOReaderAdapter*>(f);
+  ails->start_offset = faiss_reader ? faiss_reader->bytes_read() : 0;
   size_t o = ails->start_offset;
 
   // For remote FS, use hash(filename) + file_size as cache key (no mtime available).
@@ -456,7 +456,7 @@ IndexIvfPqReader::~IndexIvfPqReader() = default;
 
 IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
   if (file_reader_) {
-    // ---- Remote file system path: use CustomFaissIOReader ----
+    // ---- Remote file system path: use FaissIOReaderAdapter ----
     return ReadIndexFileFromReader(path);
   }
 
@@ -547,7 +547,7 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
 
 IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
   try {
-    CustomFaissIOReader reader(file_reader_);
+    FaissIOReaderAdapter reader(file_reader_);
     auto* f = &reader;
 
     uint32_t h;

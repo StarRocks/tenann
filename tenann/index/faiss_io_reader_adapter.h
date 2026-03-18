@@ -29,9 +29,9 @@ namespace tenann {
 
 /// A faiss::IOReader implementation that delegates all reads to an
 /// IndexFileReader, allowing FAISS to read from remote file systems.
-class CustomFaissIOReader : public faiss::IOReader {
+class FaissIOReaderAdapter : public faiss::IOReader {
  public:
-  explicit CustomFaissIOReader(IndexFileReaderPtr reader) : reader_(std::move(reader)), bytes_read_(0) {
+  explicit FaissIOReaderAdapter(IndexFileReaderPtr reader) : reader_(std::move(reader)), bytes_read_(0) {
     name = reader_->filename();
   }
 

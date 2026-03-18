@@ -23,7 +23,7 @@
 #include "faiss/impl/FaissException.h"
 #include "faiss/index_io.h"
 #include "tenann/common/logging.h"
-#include "tenann/index/custom_io_reader.h"
+#include "tenann/index/faiss_io_reader_adapter.h"
 
 namespace tenann {
 
@@ -36,7 +36,7 @@ IndexRef FaissIndexReader::ReadIndexFile(const std::string& path) {
     if (file_reader_) {
       // Use external file reader (for remote file systems).
       // Cannot use MMAP with remote FS, use IO_FLAG_READ_ONLY instead.
-      CustomFaissIOReader io_reader(file_reader_);
+      FaissIOReaderAdapter io_reader(file_reader_);
       raw_index = faiss::read_index(&io_reader, faiss::IO_FLAG_READ_ONLY);
     } else {
       // Local file path: use MMAP for best performance.

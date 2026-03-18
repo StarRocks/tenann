@@ -23,6 +23,7 @@
 #include "faiss/impl/FaissException.h"
 #include "faiss/index_io.h"
 #include "tenann/common/logging.h"
+#include "tenann/index/faiss_io_writer_adapter.h"
 
 namespace tenann {
 
@@ -31,7 +32,12 @@ FaissIndexWriter::~FaissIndexWriter() = default;
 void FaissIndexWriter::WriteIndexFile(IndexRef index, const std::string& path) {
   try {
     auto faiss_index = static_cast<faiss::Index*>(index->index_raw());
-    faiss::write_index(faiss_index, path.c_str());
+    if (file_writer_) {
+      FaissIOWriterAdapter adapter(file_writer_);
+      faiss::write_index(faiss_index, &adapter);
+    } else {
+      faiss::write_index(faiss_index, path.c_str());
+    }
   } catch (faiss::FaissException& e) {
     T_LOG(ERROR) << e.what();
   }

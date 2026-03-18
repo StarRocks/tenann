@@ -53,6 +53,11 @@ IndexWriter& IndexWriter::SetIndexCache(IndexCache* cache) {
   return *this;
 }
 
+IndexWriter& IndexWriter::SetFileWriter(IndexFileWriterPtr writer) {
+  file_writer_ = std::move(writer);
+  return *this;
+}
+
 IndexCache* IndexWriter::index_cache() { return index_cache_; }
 
 const IndexCache* IndexWriter::index_cache() const { return index_cache_; }

@@ -39,6 +39,12 @@ IndexBuilder& IndexBuilder::SetBuildOptions(const json& options) {
   return *this;
 }
 
+IndexBuilder& IndexBuilder::SetFileWriter(IndexFileWriterPtr writer) {
+  T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
+  index_writer_->SetFileWriter(std::move(writer));
+  return *this;
+}
+
 IndexBuilder& IndexBuilder::EnableCustomRowId() {
   T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
   use_custom_row_id_ = true;

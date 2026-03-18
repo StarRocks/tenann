@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "tenann/index/custom_io_reader.h"
+#include "tenann/index/faiss_io_reader_adapter.h"
 #include "tenann/store/index_file_reader.h"
 
 namespace tenann {
@@ -165,9 +165,9 @@ TEST_F(IndexFileReaderTest, LocalFileReader_ReadPastEnd) {
   EXPECT_EQ(n, 24);
 }
 
-TEST_F(IndexFileReaderTest, CustomFaissIOReader_Basic) {
+TEST_F(IndexFileReaderTest, FaissIOReaderAdapter_Basic) {
   auto file_reader = std::make_shared<LocalIndexFileReader>(test_file_);
-  CustomFaissIOReader io_reader(file_reader);
+  FaissIOReaderAdapter io_reader(file_reader);
 
   EXPECT_EQ(io_reader.name, test_file_);
   EXPECT_EQ(io_reader.bytes_read(), 0u);
@@ -180,9 +180,9 @@ TEST_F(IndexFileReaderTest, CustomFaissIOReader_Basic) {
   EXPECT_EQ(memcmp(buf.data(), test_data_.data(), 32), 0);
 }
 
-TEST_F(IndexFileReaderTest, CustomFaissIOReader_PartialRead) {
+TEST_F(IndexFileReaderTest, FaissIOReaderAdapter_PartialRead) {
   auto file_reader = std::make_shared<LocalIndexFileReader>(test_file_);
-  CustomFaissIOReader io_reader(file_reader);
+  FaissIOReaderAdapter io_reader(file_reader);
 
   // Read 100 items of 1 byte
   std::vector<uint8_t> buf(100);
@@ -197,9 +197,9 @@ TEST_F(IndexFileReaderTest, CustomFaissIOReader_PartialRead) {
   EXPECT_EQ(memcmp(buf.data(), test_data_.data() + 100, 100), 0);
 }
 
-TEST_F(IndexFileReaderTest, CustomFaissIOReader_ReadPastEnd) {
+TEST_F(IndexFileReaderTest, FaissIOReaderAdapter_ReadPastEnd) {
   auto file_reader = std::make_shared<LocalIndexFileReader>(test_file_);
-  CustomFaissIOReader io_reader(file_reader);
+  FaissIOReaderAdapter io_reader(file_reader);
 
   // Try to read 200 items of 8 bytes (1600 bytes > 1024)
   std::vector<uint8_t> buf(1600, 0);
@@ -209,9 +209,9 @@ TEST_F(IndexFileReaderTest, CustomFaissIOReader_ReadPastEnd) {
   EXPECT_EQ(io_reader.bytes_read(), 1024u);
 }
 
-TEST_F(IndexFileReaderTest, CustomFaissIOReader_BytesReadTracking) {
+TEST_F(IndexFileReaderTest, FaissIOReaderAdapter_BytesReadTracking) {
   auto file_reader = std::make_shared<LocalIndexFileReader>(test_file_);
-  CustomFaissIOReader io_reader(file_reader);
+  FaissIOReaderAdapter io_reader(file_reader);
 
   std::vector<uint8_t> buf(256);
   io_reader(buf.data(), 1, 50);

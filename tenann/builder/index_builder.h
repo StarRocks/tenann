@@ -22,6 +22,7 @@
 #include "tenann/common/seq_view.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
+#include "tenann/store/index_file_writer.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/util/runtime_profile.h"
 
@@ -85,6 +86,7 @@ class IndexBuilder {
 
   /** Setters */
   IndexBuilder& SetBuildOptions(const json& options);
+  IndexBuilder& SetFileWriter(IndexFileWriterPtr writer);
   IndexBuilder& EnableCustomRowId();
   IndexBuilder& EnableProfile();
   IndexBuilder& DisableProfile();
