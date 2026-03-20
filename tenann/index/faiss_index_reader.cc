@@ -23,6 +23,7 @@
 #include "faiss/impl/FaissException.h"
 #include "faiss/index_io.h"
 #include "tenann/common/logging.h"
+#include "tenann/index/faiss_io_reader_adapter.h"
 
 namespace tenann {
 
@@ -30,14 +31,25 @@ FaissIndexReader::~FaissIndexReader() = default;
 
 IndexRef FaissIndexReader::ReadIndexFile(const std::string& path) {
   try {
-    auto faiss_index =
-        std::unique_ptr<faiss::Index>(faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP));
-    return std::make_shared<Index>(faiss_index.release(),  //
+    faiss::Index* raw_index = nullptr;
+
+    if (file_reader_) {
+      // Use external file reader (for remote file systems).
+      // Cannot use MMAP with remote FS, use IO_FLAG_READ_ONLY instead.
+      FaissIOReaderAdapter io_reader(file_reader_);
+      raw_index = faiss::read_index(&io_reader, faiss::IO_FLAG_READ_ONLY);
+    } else {
+      // Local file path: use MMAP for best performance.
+      raw_index = faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP);
+    }
+
+    return std::make_shared<Index>(raw_index,  //
                                    (IndexType)index_meta_.index_type(),
                                    [](void* index) { delete static_cast<faiss::Index*>(index); });
   } catch (faiss::FaissException& e) {
     T_LOG(ERROR) << e.what();
   }
+  return nullptr;
 }
 
 }  // namespace tenann

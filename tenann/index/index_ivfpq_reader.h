@@ -30,6 +30,7 @@
 #include "tenann/common/json.h"
 #include "tenann/index/index_cache.h"
 #include "tenann/index/index_reader.h"
+#include "tenann/store/index_file_reader.h"
 
 namespace faiss {
 
@@ -41,7 +42,7 @@ struct BlockCacheInvertedLists : InvertedLists {
   // size nlist
   std::vector<List> lists;
   std::vector<std::string> cache_keys;
-  std::vector<size_t> offset_difference;
+  mutable std::vector<size_t> offset_difference;
   /// Keep references to cache handles, otherwise the allocated memory may be clean
   mutable std::vector<tenann::IndexCacheHandle> cache_handles;
   /// Note that this class may be accessed by multiple threads,
@@ -56,6 +57,9 @@ struct BlockCacheInvertedLists : InvertedLists {
   bool read_only;            /// are inverted lists mapped read-only
   int fd = -1;
   tenann::IndexCache* index_cache = nullptr;
+  /// Optional external file reader for remote file systems.
+  /// When set, reads go through this reader instead of POSIX fd.
+  tenann::IndexFileReaderPtr file_reader;
 
   BlockCacheInvertedLists(size_t nlist, size_t code_size, const char* filename,
                           tenann::IndexCache* index_cache);
@@ -91,6 +95,10 @@ struct BlockCacheInvertedListsIOHook : InvertedListsIOHook {
   InvertedLists* read(IOReader* f, int io_flags) const { return nullptr; }
   InvertedLists* read_ArrayInvertedLists(IOReader* f, int io_flags, size_t nlist, size_t code_size,
                                          const std::vector<size_t>& sizes) const override;
+  /// Overload that accepts an external file reader for remote file systems.
+  InvertedLists* read_ArrayInvertedLists(IOReader* f, int io_flags, size_t nlist, size_t code_size,
+                                         const std::vector<size_t>& sizes,
+                                         tenann::IndexFileReaderPtr file_reader) const;
 
   tenann::IndexCache* index_cache = nullptr;
 };
@@ -108,6 +116,10 @@ class IndexIvfPqReader : public IndexReader {
   T_FORBID_MOVE(IndexIvfPqReader);
 
   IndexRef ReadIndexFile(const std::string& path) override;
+
+ private:
+  /// Read index file via external IndexFileReader (for remote file systems).
+  IndexRef ReadIndexFileFromReader(const std::string& path);
 };
 
 }  // namespace tenann

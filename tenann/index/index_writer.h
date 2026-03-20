@@ -25,6 +25,7 @@
 #include "tenann/index/index.h"
 #include "tenann/index/index_cache.h"
 #include "tenann/index/parameters.h"
+#include "tenann/store/index_file_writer.h"
 
 namespace tenann {
 
@@ -45,6 +46,7 @@ class IndexWriter {
 
   /** Setters */
   IndexWriter& SetIndexCache(IndexCache* cache);
+  IndexWriter& SetFileWriter(IndexFileWriterPtr writer);
 
   /** Getters */
   const IndexMeta& index_meta() const;
@@ -60,6 +62,8 @@ class IndexWriter {
   IndexWriterOptions index_writer_options_;
   /* cache */
   IndexCache* index_cache_ = nullptr;
+  /* optional external file writer for remote file systems */
+  IndexFileWriterPtr file_writer_;
 };
 
 using IndexWriterRef = std::shared_ptr<IndexWriter>;

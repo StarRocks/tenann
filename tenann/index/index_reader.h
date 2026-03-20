@@ -25,6 +25,7 @@
 #include "tenann/index/index.h"
 #include "tenann/index/parameters.h"
 #include "tenann/index/index_cache.h"
+#include "tenann/store/index_file_reader.h"
 
 namespace tenann {
 
@@ -45,11 +46,13 @@ class IndexReader {
 
   /** Setters */
   IndexReader& SetIndexCache(IndexCache* cache);
+  IndexReader& SetFileReader(IndexFileReaderPtr reader);
 
   /** Getters */
   const IndexMeta& index_meta() const;
   IndexCache* index_cache();
   const IndexCache* index_cache() const;
+  IndexFileReaderPtr file_reader() const;
 
  protected:
   /// @brief index meta
@@ -64,6 +67,8 @@ class IndexReader {
    *
    */
   IndexCacheHandle cache_handle_;
+  /// @brief optional external file reader for remote file systems
+  IndexFileReaderPtr file_reader_;
 
   IndexRef ForceReadIndexAndOverwriteCache(const std::string& path, const std::string& cache_key);
 };
