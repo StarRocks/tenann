@@ -31,7 +31,7 @@ class FaissHnswAnnSearcher : public AnnSearcher {
   T_FORBID_MOVE(FaissHnswAnnSearcher);
   T_FORBID_COPY_AND_ASSIGN(FaissHnswAnnSearcher);
 
-  /// ANN搜索接口，只返回k近邻的id
+  /// ANN search interface, returns only the IDs of k nearest neighbors
   void AnnSearch(PrimitiveSeqView query_vector, int64_t k, int64_t* result_id,
                  const IdFilter* id_filter = nullptr) override;
 

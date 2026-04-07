@@ -114,12 +114,12 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
   }
 
   {
-    // 构造 IdFilter 对所有 ids 不感兴趣，搜索返回值应全为 -1
+    // Construct an IdFilter that rejects all IDs; search results should all be -1
     class DerivedIdFilter : public IdFilter {
      public:
       bool IsMember(idx_t id) const override { return false; }
       ~DerivedIdFilter() override = default;
-    } id_filter;  // 实例化匿名类的对象
+    } id_filter;
     // search index
     result_ids_.clear();
     for (int i = 0; i < nq_; i++) {
@@ -131,7 +131,7 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
 
   // test RangeIdFilter
   {
-    // 构造 RangeIdFilter 只对[0, id_filter_count_)范围的 ids 感兴趣
+    // Construct RangeIdFilter that only accepts IDs in [0, id_filter_count_)
     RangeIdFilter id_filter(0, id_filter_count_, false);
     result_ids_.clear();
     for (int i = 0; i < nq_; i++) {
@@ -142,7 +142,7 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
 
   // test ArrayIdFilter
   {
-    // 构造 ArrayIdFilter 只对[0, id_filter_count_)范围的 ids 感兴趣
+    // Construct ArrayIdFilter that only accepts IDs in [0, id_filter_count_)
     ArrayIdFilter id_filter(ids_.data(), id_filter_count_);
     result_ids_.clear();
     for (int i = 0; i < nq_; i++) {
@@ -153,7 +153,7 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
 
   // test BatchIdFilter
   {
-    // 构造 BatchIdFilter 只对[0, id_filter_count_)范围的 ids 感兴趣
+    // Construct BatchIdFilter that only accepts IDs in [0, id_filter_count_)
     BatchIdFilter id_filter(ids_.data(), id_filter_count_);
     result_ids_.clear();
     for (int i = 0; i < nq_; i++) {
@@ -164,7 +164,7 @@ TEST_F(FaissHnswAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
 
   // test BitmapIdFilter
   {
-    // 构造 BitmapIdFilter 只对[0, id_filter_count_)范围的 ids 感兴趣
+    // Construct BitmapIdFilter that only accepts IDs in [0, id_filter_count_)
     std::vector<uint8_t> bitmap((nb_ + 7) / 8, 0);
     for (int i = 0; i < id_filter_count_ && i < nb_; ++i) {
       uint64_t id = ids_[i];

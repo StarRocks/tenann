@@ -40,7 +40,7 @@ std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 0) {
   return data;
 }
 
-// 计算向量之间的欧氏距离
+// Calculate Euclidean distance between vectors
 float calculateEuclideanDistance(std::vector<float>::const_iterator vec1_begin,
                                  std::vector<float>::const_iterator vec1_end,
                                  std::vector<float>::const_iterator vec2_begin) {
@@ -84,12 +84,12 @@ float ComputeRecall(const std::vector<int64_t>& accurate_query_result_ids,
   return result;
 }
 
-// 初始化准确查询结果
+// Initialize ground truth query results
 std::vector<int64_t> initAccurateQueryResult(const std::vector<float>& base,
                                              const std::vector<float>& query, uint32_t d,
                                              int64_t nb, int64_t nq, int64_t k) {
   std::vector<int64_t> accurate_query_result_ids;
-  // 搜索索引
+  // Search index
   for (int64_t i = 0; i < nq; i++) {
     std::vector<std::pair<float, int64_t>> distances;
     for (int64_t j = 0; j < nb; j++) {
@@ -148,9 +148,9 @@ int main() {
   T_LOG(WARNING) << "Generating query vectors...";
   auto query = RandomVectors(nq, d, /*seed=*/1);
 
-  // 执行暴力检索
+  // Perform brute-force search
   std::vector<int64_t> searchResults = initAccurateQueryResult(base, query, d, nb, nq, k);
-  // 输出结果集
+  // Print results
   std::cout << "Search Results:" << std::endl;
   for (const auto& result : searchResults) {
     std::cout << result << " ";
@@ -205,7 +205,7 @@ int main() {
       }
       std::cout << "\n";
     }
-    std::cout << "召回率： " << ComputeRecall(searchResults, result_ids, d, nb, nq, k);
+    std::cout << "Recall: " << ComputeRecall(searchResults, result_ids, d, nb, nq, k);
   } catch (tenann::Error& e) {
     std::cerr << "Exception caught: " << e.what() << "\n";
   }

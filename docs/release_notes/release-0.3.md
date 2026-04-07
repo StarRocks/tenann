@@ -5,70 +5,69 @@ Download URL: [tenann-v0.3.3-RELEASE.tar.gz](https://mirrors.tencent.com/reposit
 
 ### Improvements
 
-- 替换底层BLAS库为OpenBLAS，IVFPQ构建速度提升10倍
-
+- Replaced the underlying BLAS library with OpenBLAS, improving IVFPQ build speed by 10x
 
 ## v0.3.2-RELEASE
 Download URL: [tenann-v0.3.2-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.2-RELEASE.tar.gz)
 
 ### New Features
 
-- 新增`tenan/index/index_ivfpq_util.h`，提供`GetIvfPqMinRows`方法，用于获取构建IvfPq索引所需的最小行数，
+- Added `tenann/index/index_ivfpq_util.h`, providing the `GetIvfPqMinRows` method to get the minimum number of rows required to build an IvfPq index
 
 ## v0.3.1-RELEASE
 Download URL: [tenann-v0.3.1-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.1-RELEASE.tar.gz)
 
 ### API Changes
-- 删除`AnnSearcher::ResultOrder::Unordered`，仅支持`Ascending`和`Descending`
-- `AnnSearcher::ResultOrder::Asending`重命名为`Ascending`，用户需要迁移到新命名
+- Removed `AnnSearcher::ResultOrder::Unordered`; only `Ascending` and `Descending` are now supported
+- Renamed `AnnSearcher::ResultOrder::Asending` to `Ascending`; users need to migrate to the new naming
 
 ### New Features
 
-- HNSW索引新增范围查询支持
-- 新增`RangeSearchEvaluator`，用于范围查询的测试及Benchmark
-- 新增范围查询的暴力算法，用于内部测试
+- Added range search support for HNSW indexes
+- Added `RangeSearchEvaluator` for range search testing and benchmarking
+- Added brute-force range search algorithm for internal testing
 
 ## v0.3.0-RELEASE
 Download URL: [tenann-v0.3.0-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.0-RELEASE.tar.gz)
 
 ### New Features
 
-- 新增Python Wrapper
-- 新增index_file_tool.py检查索引文件信息
-- 新增混合查询支持：支持Search时通过IdFilter过滤无效数据
-- 新增IVF-PQ索引的范围查询支持
-- 新增只返回ID，不返回距离的范围查询接口
-- 范围查询接口新增IdFilter支持
+- Added Python wrapper
+- Added index_file_tool.py for inspecting index file information
+- Added hybrid search support: filtering invalid data via IdFilter during search
+- Added range search support for IVF-PQ indexes
+- Added range search interface that returns only IDs without distances
+- Added IdFilter support for range search interface
 
 ### Improvements
-- 清理了自研IndexIvfPq中的部分冗余代码
+- Cleaned up redundant code in the custom IndexIvfPq implementation
 
 ### Bug Fix
-- 修复IVF-PQ索引的参数`nlist`（之前的`nlists`为拼写错误）
+- Fixed IVF-PQ index parameter `nlist` (previously misspelled as `nlists`)
 
 ## v0.3.0-RC3
 Download URL: [tenann-v0.3.0-RC3.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.0-RC3.tar.gz)
 
 ### New Features
-- 范围查询接口新增IdFilter支持
-- 新增只返回ID，不返回距离的范围查询接口
+- Added IdFilter support for range search interface
+- Added range search interface that returns only IDs without distances
 
 ### Improvements
-- 清理了自研IndexIvfPq中的部分冗余代码
+- Cleaned up redundant code in the custom IndexIvfPq implementation
 
 ## v0.3.0-RC2
 Download URL: [tenann-v0.3.0-RC2.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.0-RC2.tar.gz)
 
 ###  New Features
-- 新增IVF-PQ索引的范围查询支持
+- Added range search support for IVF-PQ indexes
 
 ### Bug Fix
-- 修复IVF-PQ索引的参数`nlist`（之前的`nlists`为拼写错误）
+- Fixed IVF-PQ index parameter `nlist` (previously misspelled as `nlists`)
 
 ## v0.3.0-RC1
 Download URL: [tenann-v0.3.0-RC1.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.3.0-RC1.tar.gz)
 
 ###  New Features
-- 新增混合查询支持：支持Search时通过IdFilter过滤无效数据
-- 新增Python Wrapper
-- 新增index_file_tool.py检查索引文件信息
+- Added hybrid search support: filtering invalid data via IdFilter during search
+- Added Python wrapper
+- Added index_file_tool.py for inspecting index file information

@@ -78,7 +78,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_IsWork) {
   CreateAndWriteFaissIvfPqIndex(true);
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  printf("IVFPQ创建索引执行时间:  %d 毫秒\n", duration.count());
+  printf("IVFPQ index creation time: %d ms\n", duration.count());
 
   {
     // default search
@@ -125,7 +125,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Multi_Add_And_Search) {
   MultiAddCreateAndWriteFaissIvfPqIndex();
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  printf("IVFPQ创建索引执行时间:  %d 毫秒\n", duration.count());
+  printf("IVFPQ index creation time: %d ms\n", duration.count());
 
   {
     // default search
@@ -172,16 +172,16 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
   CreateAndWriteFaissIvfPqIndex(true, id_filter_count_);
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  printf("IVFPQ创建索引执行时间:  %d 毫秒\n", duration.count());
+  printf("IVFPQ index creation time: %d ms\n", duration.count());
   ReadIndexAndDefaultSearch();
 
   {
-    // IdFilter 判定全为不感兴趣的，返回值应全为 -1
+    // IdFilter rejects all IDs; search results should all be -1
     class DerivedIdFilter : public IdFilter {
      public:
       bool IsMember(idx_t id) const override { return false; }
       ~DerivedIdFilter() override = default;
-    } id_filter;  // 实例化匿名类的对象
+    } id_filter;
     // search index
     result_ids_.clear();
     for (int i = 0; i < nq_; i++) {
@@ -193,7 +193,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
 
   // test RangeIdFilter
   {
-    // ArrayIdFilter 只对前 id_filter_count_ 个 ids 感兴趣，应完全匹配
+    // RangeIdFilter only accepts the first id_filter_count_ IDs
     RangeIdFilter id_filter(0, id_filter_count_, false);
     result_ids_.clear();
     for (int i = 0; i < nq_; i++) {
@@ -204,7 +204,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
 
   // test ArrayIdFilter
   {
-    // ArrayIdFilter 只对前 id_filter_count_ 个 ids 感兴趣，应完全匹配
+    // ArrayIdFilter only accepts the first id_filter_count_ IDs
     ArrayIdFilter id_filter(ids_.data(), id_filter_count_);
     result_ids_.clear();
     for (int i = 0; i < nq_; i++) {
@@ -215,7 +215,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
 
   // test BatchIdFilter
   {
-    // BatchIdFilter 只对前 id_filter_count_ 个 ids 感兴趣，应完全匹配
+    // BatchIdFilter only accepts the first id_filter_count_ IDs
     BatchIdFilter id_filter(ids_.data(), id_filter_count_);
     result_ids_.clear();
     for (int i = 0; i < nq_; i++) {
@@ -226,7 +226,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_ID_Filter_IsWork) {
 
   // test BitmapIdFilter
   {
-    // BitmapIdFilter 只对前 id_filter_count_ 个 ids 感兴趣
+    // BitmapIdFilter only accepts the first id_filter_count_ IDs
     std::vector<uint8_t> bitmap((nb_ + 7) / 8, 0);
     for (int i = 0; i < id_filter_count_ && i < nb_; ++i) {
       uint64_t id = ids_[i];
@@ -252,7 +252,7 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_BlockCache_IsWork) 
   CreateAndWriteFaissIvfPqIndex(false);
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  printf("IVFPQ创建索引执行时间:  %d 毫秒\n", duration.count());
+  printf("IVFPQ index creation time: %d ms\n", duration.count());
 
   {
     std::string before_cache_status = IndexCache::GetGlobalInstance()->status().dump();
