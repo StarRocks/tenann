@@ -138,7 +138,7 @@ size_t Index::EstimateMemoryUsage() {
     // IndexIVF.DirectMap
     {
       mem_usage += index_ivf_pq->direct_map.array.capacity() * sizeof(faiss::idx_t);
-      // 估算 unordered_map 占用内存大小
+      // Estimate unordered_map memory usage
       auto& m = index_ivf_pq->direct_map.hashtable;
       mem_usage += (m.size() * (sizeof(faiss::idx_t) + sizeof(faiss::idx_t)) +
                     m.bucket_count() * (sizeof(void*) + sizeof(size_t))) *

@@ -101,7 +101,7 @@ class FaissTestBase : public ::testing::Test {
   size_t nq_ = 10;
   // top k
   uint32_t k_ = 10;
-  // used for testing IdFliter, ids 有效范围: [0, id_filter_count_)
+  // used for testing IdFilter, valid ID range: [0, id_filter_count_)
   int id_filter_count_;
   // index save path
   // TODO: don't share the same index_path for all indexes!!!

@@ -20,11 +20,12 @@
 #include "tenann/common/logging.h"
 
 /**
- * 正常的日志输出有三个级别：DEBUG、INFO、WARNING。
- * 每种日志都会向std::cerr打印一条信息。
+ * Normal log output has three levels: DEBUG, INFO, WARNING.
+ * Each log level prints a message to std::cerr.
  *
- * 目前的实现不支持日志级别开关，对于全部日志都会无条件输出，后期会补全相关功能。
- * 我们在前期开发中，先尽量少地使用日志，避免日志输出膨胀。
+ * The current implementation does not support log level filtering; all logs are
+ * output unconditionally. This functionality will be added in the future.
+ * During early development, minimize log usage to avoid log output bloat.
  */
 void LogExample() {
   T_LOG(DEBUG) << "my debug log";
@@ -33,31 +34,32 @@ void LogExample() {
 }
 
 /**
- * 对于错误处理，我们将错误分为两类：
- *    - 可恢复的，对应Error类
- *   - 不可恢复的，对应FatalError类
+ * For error handling, errors are divided into two categories:
+ *   - Recoverable errors, corresponding to the Error class
+ *   - Unrecoverable errors, corresponding to the FatalError class
  *
- * 对于可恢复错误，可以使用LOG(ERROR)以及内置的CHECK和DCHEK系列宏，来记录日志并抛出异常。
+ * For recoverable errors, use LOG(ERROR) and the built-in CHECK and DCHECK macro
+ * series to log and throw exceptions.
  */
 void RecoverableErrorExample() {
   int a = 1;
-  // 使用LOG(ERROR)会自动抛出Error类型的异常
+  // Using LOG(ERROR) automatically throws an Error exception
   try {
     T_LOG(ERROR) << "LOG(ERROR) example";
   } catch (tenann::Error& e) {
     std::cerr << "Recover from error 1\n";
   }
 
-  // 使用CHECK宏检查参数，条件不满足会自动抛出Error：
+  // Using CHECK macros to validate parameters; throws Error if condition is not met:
   try {
     T_CHECK_GT(a, 100) << "CHECK example";
   } catch (tenann::Error& e) {
     std::cerr << "Recover from error 2\n";
   }
 
-  // 使用DCHECK宏检查参数，条件不满足会自动抛出Error：
-  // 和assert类似，DCHECK系列宏仅在DEBUG模式有效，RELEASE模式中会被优化掉。
-  // 所以对于可能性比较低的错误，建议用DCHECK来检查，避免正式发布版本中进行检查的额外开销
+  // Using DCHECK macros to validate parameters; throws Error if condition is not met:
+  // Similar to assert, DCHECK macros are only active in DEBUG mode and optimized away in RELEASE.
+  // For low-probability errors, use DCHECK to avoid the overhead of checks in release builds.
   try {
     T_DCHECK(a > 100) << "DCHECK example";
   } catch (tenann::Error& e) {
@@ -66,8 +68,8 @@ void RecoverableErrorExample() {
 }
 
 /**
- * 对于我们自己内部逻辑导致的不可恢复错误，
- * 可以使用LOG(FATAL)，或者内置的ICHECK系列宏来记录日志并抛出异常。
+ * For unrecoverable errors caused by internal logic,
+ * use LOG(FATAL) or the built-in ICHECK macro series to log and throw exceptions.
  */
 void FatalErrorExample() {
   int a = 1;

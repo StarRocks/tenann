@@ -61,7 +61,7 @@ class TestIndexHNSW(unittest.TestCase):
     @classmethod
     def setUp(cls):
         cls.ann = tenann_py.TenANN()
-        # 创建 builder
+        # Create builder
         try:
             cls.ann = cls.ann.create_builder(cls.meta_json)
             print("Builder created successfully.")
@@ -77,13 +77,13 @@ class TestIndexHNSW(unittest.TestCase):
         cls.ann.set_index_cache_capacity(500 * 1024)  # 500KB
 
     def test_1_create_function(self):
-        # 新创建临时 ANN
+        # Create a new temporary ANN
         test_ann = tenann_py.TenANN()
-        # builder 为空
+        # builder is null
         with self.assertRaises(RuntimeError) as e:
             test_ann.open()
         print(e.exception)
-        # searcher 为空
+        # searcher is null
         with self.assertRaises(RuntimeError) as e:
             test_ann.read_index(self.index_path)
         print(e.exception)

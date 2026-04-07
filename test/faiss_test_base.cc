@@ -151,9 +151,9 @@ float FaissTestBase::EuclideanDistance(const float* v1, const float* v2) {
   return sum;
 }
 
-// 针对不同 testCase 初始化不同的accurate_query_result_ids_
-// use_custom_row_id为 true 时， null_flags_将生效
-// id_filter_count 限制那些 id 是被认为有效的: [0, id_filter_count)
+// Initialize different accurate_query_result_ids_ for different test cases.
+// When use_custom_row_id is true, null_flags_ will take effect.
+// id_filter_count limits which IDs are considered valid: [0, id_filter_count)
 void FaissTestBase::InitAccurateQueryResult(bool use_custom_row_id, int id_filter_count) {
   accurate_query_result_ids_.clear();
   // search index
@@ -171,7 +171,7 @@ void FaissTestBase::InitAccurateQueryResult(bool use_custom_row_id, int id_filte
     std::sort(distances.begin(), distances.end(),
               [](const auto& a, const auto& b) { return a.second < b.second; });
 
-    // 如果 distances 不足 k_个，扩容元素应初始化为<-1, />
+    // If distances has fewer than k_ elements, pad with <-1, 0>
     int original_size = distances.size();
     distances.resize(k_);
     for (int i = original_size; i < distances.size(); i++) {
@@ -184,7 +184,7 @@ void FaissTestBase::InitAccurateQueryResult(bool use_custom_row_id, int id_filte
   }
 }
 
-// 不同的Index创建方式，预期查询结果也是不同的
+// Different index creation methods produce different expected query results
 void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id, int id_filter_count) {
   InitAccurateQueryResult(use_custom_row_id, id_filter_count);
 
@@ -203,11 +203,11 @@ void FaissTestBase::CreateAndWriteFaissHnswIndex(bool use_custom_row_id, int id_
   meta_ = faiss_hnsw_meta_;
 }
 
-// 不同的Index创建方式，预期查询结果也是不同的
+// Different index creation methods produce different expected query results
 void FaissTestBase::CreateAndWriteFaissIvfPqIndex(bool use_custom_row_id, int id_filter_count) {
   InitAccurateQueryResult(use_custom_row_id, id_filter_count);
 
-  // use_custom_row_id还有一个作用是判断是否使用 null_flags
+  // use_custom_row_id also determines whether to use null_flags
   if (use_custom_row_id) {
     faiss_ivf_pq_index_builder_->EnableCustomRowId()
         .Open(index_with_primary_key_path_)

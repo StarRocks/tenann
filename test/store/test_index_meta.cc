@@ -23,37 +23,37 @@
 
 namespace tenann {
 TEST(IndexMetaTest, BasicTest) {
-  // 创建一个空的 IndexMeta 对象
+  // Create an empty IndexMeta object
   IndexMeta index_meta;
 
-  // 设置 meta_version
+  // Set meta_version
   EXPECT_THROW(index_meta.meta_version(), Error);
   index_meta.SetMetaVersion(1);
   EXPECT_EQ(index_meta.meta_version(), 1);
 
-  // 设置 index_family
+  // Set index_family
   EXPECT_THROW(index_meta.index_family(), Error);
   index_meta.SetIndexFamily(IndexFamily::kVectorIndex);
   EXPECT_EQ(index_meta.index_family(), static_cast<int>(IndexFamily::kVectorIndex));
 
-  // 设置 index_type
+  // Set index_type
   EXPECT_THROW(index_meta.index_type(), Error);
   index_meta.SetIndexType(IndexType::kFaissHnsw);
   EXPECT_EQ(index_meta.index_type(), static_cast<int>(IndexType::kFaissHnsw));
 
-  // 设置 common_params
+  // Set common_params
   index_meta.common_params()["dim"] = 128;
   EXPECT_EQ(index_meta.common_params()["dim"], 128);
 
-  // 设置 index_params
+  // Set index_params
   index_meta.index_params()["ntrees"] = 10;
   EXPECT_EQ(index_meta.index_params()["ntrees"], 10);
 
-  // 设置 search_params
+  // Set search_params
   index_meta.search_params()["nprobe"] = 32;
   EXPECT_EQ(index_meta.search_params()["nprobe"], 32);
 
-  // 设置 extra_params
+  // Set extra_params
   index_meta.extra_params()["key"] = "value";
   EXPECT_EQ(index_meta.extra_params()["key"], "value");
 }
@@ -74,30 +74,30 @@ TEST(IndexMetaTests, CheckIntegrity) {
 }
 
 TEST(IndexMetaTest, SerializeAndDeserialize) {
-  // 创建一个 IndexMeta 对象
+  // Create an IndexMeta object
   IndexMeta index_meta;
-  // 设置 meta_version
+  // Set meta_version
   index_meta.SetMetaVersion(1);
-  // 设置 index_family
+  // Set index_family
   index_meta.SetIndexFamily(IndexFamily::kVectorIndex);
-  // 设置 index_type
+  // Set index_type
   index_meta.SetIndexType(IndexType::kFaissHnsw);
-  // 设置 common_params
+  // Set common_params
   index_meta.common_params()["dim"] = 128;
-  // 设置 index_params
+  // Set index_params
   index_meta.index_params()["ntrees"] = 10;
-  // 设置 search_params
+  // Set search_params
   index_meta.search_params()["nprobe"] = 32;
-  // 设置 extra_params
+  // Set extra_params
   index_meta.extra_params()["key"] = "value";
 
-  // 序列化 IndexMeta 对象
+  // Serialize IndexMeta object
   std::vector<uint8_t> buffer = index_meta.Serialize();
 
-  // 反序列化 IndexMeta 对象
+  // Deserialize IndexMeta object
   IndexMeta deserialized_index_meta = IndexMeta::Deserialize(buffer);
 
-  // 检查反序列化后的 IndexMeta 对象与原对象是否相等
+  // Verify the deserialized IndexMeta object matches the original
   EXPECT_EQ(index_meta.meta_json(), deserialized_index_meta.meta_json());
   EXPECT_EQ(deserialized_index_meta.meta_version(), index_meta.meta_version());
   EXPECT_EQ(deserialized_index_meta.index_family(), index_meta.index_family());
@@ -109,30 +109,30 @@ TEST(IndexMetaTest, SerializeAndDeserialize) {
 }
 
 TEST(IndexMetaTest, StrigifyAndParse) {
-  // 创建一个 IndexMeta 对象
+  // Create an IndexMeta object
   IndexMeta index_meta;
-  // 设置 meta_version
+  // Set meta_version
   index_meta.SetMetaVersion(1);
-  // 设置 index_family
+  // Set index_family
   index_meta.SetIndexFamily(IndexFamily::kVectorIndex);
-  // 设置 index_type
+  // Set index_type
   index_meta.SetIndexType(IndexType::kFaissHnsw);
-  // 设置 common_params
+  // Set common_params
   index_meta.common_params()["dim"] = 128;
-  // 设置 index_params
+  // Set index_params
   index_meta.index_params()["ntrees"] = 10;
-  // 设置 search_params
+  // Set search_params
   index_meta.search_params()["nprobe"] = 32;
-  // 设置 extra_params
+  // Set extra_params
   index_meta.extra_params()["key"] = "value";
 
-  // 序列化 IndexMeta 对象
+  // Serialize IndexMeta object
   std::string buffer = index_meta.Stringify();
 
-  // 反序列化 IndexMeta 对象
+  // Deserialize IndexMeta object
   IndexMeta deserialized_index_meta = IndexMeta::Parse(buffer);
 
-  // 检查反序列化后的 IndexMeta 对象与原对象是否相等
+  // Verify the deserialized IndexMeta object matches the original
   EXPECT_EQ(index_meta.meta_json(), deserialized_index_meta.meta_json());
   EXPECT_EQ(deserialized_index_meta.meta_version(), index_meta.meta_version());
   EXPECT_EQ(deserialized_index_meta.index_family(), index_meta.index_family());
@@ -144,7 +144,7 @@ TEST(IndexMetaTest, StrigifyAndParse) {
 }
 
 TEST(IndexMetaTest, WriteAndRead) {
-  // 创建一个 IndexMeta 对象
+  // Create an IndexMeta object
   tenann::IndexMeta index_meta;
   index_meta.SetMetaVersion(1);
   index_meta.SetIndexFamily(tenann::IndexFamily::kTextIndex);
@@ -154,15 +154,15 @@ TEST(IndexMetaTest, WriteAndRead) {
   index_meta.search_params()["nprobe"] = 32;
   index_meta.extra_params()["metric_type"] = 1;
 
-  // 将 IndexMeta 对象写入文件
+  // Write IndexMeta object to file
   std::string file_path = "/tmp/test_index_meta.json";
   std::remove(file_path.c_str());
   EXPECT_TRUE(index_meta.Write(file_path));
 
-  // 从文件中读取 IndexMeta 对象
+  // Read IndexMeta object from file
   tenann::IndexMeta read_index_meta = IndexMeta::Read(file_path);
 
-  // 检查读取的 IndexMeta 对象是否与原始对象相同
+  // Verify the read IndexMeta object matches the original
   EXPECT_EQ(index_meta.meta_json(), read_index_meta.meta_json());
   EXPECT_EQ(read_index_meta.meta_version(), 1);
   EXPECT_EQ(read_index_meta.index_family(), tenann::IndexFamily::kTextIndex);

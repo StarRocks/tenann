@@ -57,7 +57,7 @@ struct StringSeqView {
 
 enum SeqViewType { kPrimitiveSeqView = 1, kArraySeqView, kVlArraySeqView, kStringSeqView };
 
-// SeqView是所有类型的组合
+// SeqView is a union of all view types
 struct SeqView {
   union {
     PrimitiveSeqView primitive_seq_view;

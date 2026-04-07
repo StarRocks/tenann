@@ -29,7 +29,7 @@ else
   BUILD_TYPE=${DIR_SUFFIX} sh build.sh --with-tests --with-avx2
 fi
 
-# TODO: 解决 python 环境问题后打开
+# TODO: enable after resolving Python environment issues
 # python3.6 -m unittest discover -s python_bindings -p "test_*.py"
 env CTEST_OUTPUT_ON_FAILURE=1 make -C ${LATEST_BUILD_DIR} test
 

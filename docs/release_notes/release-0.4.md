@@ -4,40 +4,40 @@
 Download URL: [tenann-v0.4.2-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.2-RELEASE.tar.gz)
 
 ### Improvements
-- 关闭了Faiss HNSW索引的并行查询
+- Disabled parallel search for Faiss HNSW indexes
 
 ## v0.4.1-RELEASE
 Download URL: [tenann-v0.4.1-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.1-RELEASE.tar.gz)
 
 ### Improvements
-- 将Faiss的并行归一化改为串行，解决HNSW(cos)索引与StarRocks线程池冲突造成的coredump
-- 增加了索引并发构建与搜索的压测工具：stress_tool.cc
-- 增量了若干单元测试
-  
+- Changed Faiss parallel normalization to sequential, resolving coredump caused by conflict between HNSW(cos) index and StarRocks thread pool
+- Added concurrent index building and search stress testing tool: stress_tool.cc
+- Added additional unit tests
+
 ### Bug Fix
-- 修复距离度量为Cosine Similarity时，HNSW范围查询结果错误的问题
-- 修复了BlockCache使用时CacheHandle的内存生命周期问题，解决了越界访问风险
-- 修复了多处TenANN对外接口中，未捕捉Faiss异常的问题
+- Fixed incorrect HNSW range search results when using Cosine Similarity distance metric
+- Fixed memory lifetime issue with CacheHandle when using BlockCache, resolving out-of-bounds access risk
+- Fixed multiple instances where Faiss exceptions were not caught in TenANN public interfaces
 
 ## v0.4.0-RELEASE
 Download URL: [tenann-v0.4.0-RELEASE.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.0-RELEASE.tar.gz)
 
 ### New Feature
-- 支持了距离度量为Cosine Similarity的IVFPQ索引的RangeSearch
+- Added RangeSearch support for IVFPQ indexes with Cosine Similarity distance metric
 
 ### Bug Fix
-- 修复距离度量为Cosine Similarity时，索引大小估计错误的问题
+- Fixed incorrect index size estimation when using Cosine Similarity distance metric
 
 ## v0.4.0-RC1
 Download URL: [tenann-v0.4.0-RC1.tar.gz](https://mirrors.tencent.com/repository/generic/doris_thirdparty/tenann-v0.4.0-RC1.tar.gz)
 
 ### API Changes
 
-- 创建Searcher和IndexBuilder时无需传入IndexReader和IndexWriter
-- AnnSearcher的k由int类型改为int64类型
-- 是否使用缓存现在由IndexMeta控制：
+- Creating Searcher and IndexBuilder no longer requires passing IndexReader and IndexWriter
+- AnnSearcher's k parameter changed from int to int64 type
+- Whether to use caching is now controlled by IndexMeta:
 
-一个完整的AnnSearcher例子：
+A complete AnnSearcher example:
 ```c++
     IndexMeta meta;
     meta.SetMetaVersion(0);
@@ -46,9 +46,9 @@ Download URL: [tenann-v0.4.0-RC1.tar.gz](https://mirrors.tencent.com/repository/
     meta.common_params()["metric_type"] = MetricType::kL2Distance;
     meta.common_params()["dim"] = 768;
     meta.common_params()["is_vector_normed"] = false;
-    // 使用BlockCache
+    // Use BlockCache
     meta.index_reader_options()[IndexReaderOptions::cache_index_block_key] = true;
-    // 或使用IndexFile Cache，注意两者不兼容，只能选其一
+    // Or use IndexFile Cache (note: the two are incompatible, choose only one)
     // meta.index_reader_options()[IndexReaderOptions::cache_index_file_key] = true;
 
     auto index_path = "new.vi";
@@ -57,7 +57,7 @@ Download URL: [tenann-v0.4.0-RC1.tar.gz](https://mirrors.tencent.com/repository/
     ann_searcher->AnnSearch(...);
 ```
 
-一个完整的IndexBuilder例子：
+A complete IndexBuilder example:
 ```c++
 
   // set meta values
@@ -81,8 +81,6 @@ Download URL: [tenann-v0.4.0-RC1.tar.gz](https://mirrors.tencent.com/repository/
 
 ### New Features
 
-- 新增IVFPQ的BlockCache支持
-- 新增IVFPQ的CosineSimilarity支持
-- 新增实验性质的InnerProduct支持（仅支持TopKSearcher，不支持RangeSearch）
-
-
+- Added BlockCache support for IVFPQ
+- Added CosineSimilarity support for IVFPQ
+- Added experimental InnerProduct support (TopKSearch only, RangeSearch not supported)
