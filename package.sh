@@ -132,7 +132,7 @@ fi
 rm -rf ${TENANN_OUTPUT}/tmp
 
 # Create final distribution package
-RELEASE_VERSION="tenann-v0.5.1-BETA"
+RELEASE_VERSION="tenann-v0.5.0-RELEASE"
 RELEASE_DIR="${TENANN_HOME}/${RELEASE_VERSION}"
 
 echo "Creating release package: ${RELEASE_VERSION}"
