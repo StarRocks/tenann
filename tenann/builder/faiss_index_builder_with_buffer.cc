@@ -202,7 +202,10 @@ void FaissIndexBuilderWithBuffer::AddWithRowIds(const TypedSliceIterator<float>&
 void FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(
     const TypedSliceIterator<float>& input_row_iterator, const idx_t* row_ids,
     const uint8_t* null_flags) {
-  auto faiss_index = GetFaissIndex();
+  // Buffer non-null rows uniformly. MaybeFlushBuffer() gates intermediate
+  // drains on is_trained, so pre-trained indexes (HNSWFlat) flush once the
+  // batch cap is reached to keep peak memory bounded, while trained-on-flush
+  // indexes (SQ/PQ) keep accumulating until Flush() runs the train+add phases.
   input_row_iterator.ForEach([=](idx_t i, const float* slice_data, idx_t slice_length) {
     if (null_flags[i] == 0) {
       data_buffer_.insert(data_buffer_.end(), slice_data, slice_data + slice_length);

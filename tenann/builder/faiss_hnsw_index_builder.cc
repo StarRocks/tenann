@@ -33,7 +33,25 @@
 
 namespace tenann {
 
+FaissHnswIndexBuilder::FaissHnswIndexBuilder(const IndexMeta& meta)
+    : FaissIndexBuilderWithBuffer(meta) {}
+
 FaissHnswIndexBuilder::~FaissHnswIndexBuilder() {}
+
+size_t FaissHnswIndexBuilder::GetMinTrainRows() const {
+  switch (static_cast<ScalarQuantizerType>(index_params_.quantizer)) {
+    case ScalarQuantizerType::kPQ:
+      // faiss' recommendation: at least 100 training rows per centroid; the
+      // PQ codebook has 2^nbits_pq centroids.
+      return (static_cast<size_t>(1) << index_params_.nbits_pq) * 100;
+    case ScalarQuantizerType::kSQ4:
+    case ScalarQuantizerType::kSQ8:
+      return 1;
+    case ScalarQuantizerType::kFlat:
+    default:
+      return 0;
+  }
+}
 
 IndexRef FaissHnswIndexBuilder::InitIndex() {
   try {
