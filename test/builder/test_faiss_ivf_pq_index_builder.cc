@@ -24,6 +24,7 @@
 #include <iostream>
 #include <random>
 
+#include "faiss/Index.h"
 #include "test/faiss_test_base.h"
 
 namespace tenann {
@@ -155,6 +156,104 @@ TEST_F(FaissIvfPqIndexBuilderTest, Add) {
                Error);
   // use_custom_row_id_(false), null_map(is null)
   std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta())->Open().Add({base_vl_view()});
+}
+
+// =============== SetFlushThresholdRows / partial flush ===============
+//
+// Threshold below uses small row counts so the test triggers partial flush
+// without needing a large dataset.
+
+namespace {
+// Read ntotal off the underlying faiss index (works for any Index subclass).
+int64_t FaissNtotal(const std::shared_ptr<Index>& ref) {
+  return static_cast<faiss::Index*>(ref->index_raw())->ntotal;
+}
+}  // namespace
+
+// SetFlushThresholdRows is a chainable setter on the IndexBuilder base class.
+TEST_F(FaissIvfPqIndexBuilderTest, SetFlushThresholdRowsIsChainable) {
+  auto builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
+  EXPECT_EQ(&builder->SetFlushThresholdRows(100'000), builder.get());
+  EXPECT_EQ(&builder->SetFlushThresholdRows(0), builder.get());
+}
+
+// MaybeFlushBuffer must be a no-op while the index is still untrained: the
+// buffer accumulates the full sample, Flush() trains on it, and only then
+// drains. Setting an aggressive 1-row threshold must NOT change the
+// untrained behaviour.
+TEST_F(FaissIvfPqIndexBuilderTest, FlushThresholdNoOpForUntrained) {
+  auto builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
+  builder->SetFlushThresholdRows(1)
+      .EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), null_flags().data());
+  // Nothing has been trained or added yet — partial flush did not fire.
+  EXPECT_EQ(FaissNtotal(builder->index_ref()), 0);
+  builder->Flush();
+  // After Flush the index is trained and contains the non-null rows.
+  EXPECT_GT(FaissNtotal(builder->index_ref()), 0);
+  builder->Close();
+}
+
+// Once the index is trained (via the first Flush), subsequent Add() calls
+// should hit MaybeFlushBuffer and drain on the spot when the buffer crosses
+// the threshold. With a 1-row threshold the very first non-null row drains.
+TEST_F(FaissIvfPqIndexBuilderTest, PartialFlushDrainsTrainedIndex) {
+  auto builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
+  builder->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), null_flags().data())
+      .Flush();
+  int64_t ntotal_after_train = FaissNtotal(builder->index_ref());
+  EXPECT_GT(ntotal_after_train, 0);
+
+  builder->SetFlushThresholdRows(1);
+  builder->Add({base_view()}, ids().data(), null_flags().data());
+  // MaybeFlushBuffer should have drained mid-Add — ntotal grew without a
+  // separate Flush() call.
+  int64_t ntotal_after_add = FaissNtotal(builder->index_ref());
+  EXPECT_GT(ntotal_after_add, ntotal_after_train);
+
+  // Final Flush is a no-op because the buffer is already drained.
+  builder->Flush();
+  EXPECT_EQ(FaissNtotal(builder->index_ref()), ntotal_after_add);
+  builder->Close();
+}
+
+// SetFlushThresholdRows(0) disables intermediate flushing even after the
+// index is trained — the buffer accumulates until the next explicit Flush().
+TEST_F(FaissIvfPqIndexBuilderTest, FlushThresholdZeroDisablesPartialFlush) {
+  auto builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
+  builder->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), null_flags().data())
+      .Flush();
+  int64_t ntotal_after_train = FaissNtotal(builder->index_ref());
+
+  builder->SetFlushThresholdRows(0);
+  builder->Add({base_view()}, ids().data(), null_flags().data());
+  // No partial flush — ntotal unchanged after Add.
+  EXPECT_EQ(FaissNtotal(builder->index_ref()), ntotal_after_train);
+
+  builder->Flush();
+  // The accumulated buffer is drained by the explicit Flush.
+  EXPECT_GT(FaissNtotal(builder->index_ref()), ntotal_after_train);
+  builder->Close();
+}
+
+// Flush now clears the row buffer at the end so a second call is a safe
+// no-op rather than re-adding the same rows.
+TEST_F(FaissIvfPqIndexBuilderTest, FlushIsIdempotent) {
+  auto builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
+  builder->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), null_flags().data())
+      .Flush();
+  int64_t ntotal_after_first = FaissNtotal(builder->index_ref());
+
+  EXPECT_NO_THROW(builder->Flush());
+  EXPECT_EQ(FaissNtotal(builder->index_ref()), ntotal_after_first);
+  builder->Close();
 }
 
 }  // namespace tenann

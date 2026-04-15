@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "tenann/builder/faiss_index_builder.h"
+#include "tenann/builder/faiss_index_builder_with_buffer.h"
 #include "tenann/index/parameters.h"
 
 namespace faiss {
@@ -28,9 +28,20 @@ class IndexHNSW;
 
 namespace tenann {
 
-class FaissHnswIndexBuilder final : public FaissIndexBuilder {
+/// Index builder for faiss HNSW. Inherits from FaissIndexBuilderWithBuffer so
+/// rows added via Add() are buffered and then dispatched to faiss in a single
+/// add(N, ...) call from Flush(). Batch-add lets faiss's hnsw_add_vertices
+/// engage its OpenMP parallel region (guarded by n > 100), giving multi-core
+/// speedup over per-row insertion. Peak buffer memory is bounded by
+/// SetFlushThresholdRows().
+///
+/// HNSWFlat is the only supported variant for now: the underlying faiss index
+/// reports `is_trained == true` at construction so the train phase in Flush()
+/// is a no-op. A future PR will plug quantized HNSW (SQ/PQ) into the train
+/// phase and the partial-flush path.
+class FaissHnswIndexBuilder final : public FaissIndexBuilderWithBuffer {
  public:
-  using FaissIndexBuilder::FaissIndexBuilder;
+  using FaissIndexBuilderWithBuffer::FaissIndexBuilderWithBuffer;
   virtual ~FaissHnswIndexBuilder();
 
   T_FORBID_COPY_AND_ASSIGN(FaissHnswIndexBuilder);
