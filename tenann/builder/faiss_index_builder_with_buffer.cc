@@ -47,27 +47,37 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush() {
     T_LOG_IF(ERROR, !is_opened_) << "index builder has not been opened";
     T_LOG_IF(ERROR, index_ref_ == nullptr) << "index has not been built";
 
-    if (GetFaissIndex()->is_trained == false) {
-      bool with_row_ids = row_id_ != nullptr || id_buffer_.size() > 0;
-      if (id_buffer_.size()) {
-        row_id_ = id_buffer_.data();
-      }
+    bool with_row_ids = row_id_ != nullptr || id_buffer_.size() > 0;
+    if (id_buffer_.size()) {
+      row_id_ = id_buffer_.data();
+    }
 
+    // Phase 1: Train if the index requires it (SQ/PQ). Flat indexes are
+    // already trained at construction time and skip this phase.
+    if (GetFaissIndex()->is_trained == false) {
       if (data_buffer_.size()) {
         GetFaissIndex()->train(data_buffer_.size() / common_params_.dim, data_buffer_.data());
-        if (with_row_ids) {
-          GetFaissIndex()->add_with_ids(data_buffer_.size() / common_params_.dim,
-                                        data_buffer_.data(), row_id_);
-        } else {
-          GetFaissIndex()->add(data_buffer_.size() / common_params_.dim, data_buffer_.data());
-        }
-      } else {
+      } else if (input_row_iterator_) {
         GetFaissIndex()->train(input_row_iterator_->size(), input_row_iterator_->data());
-        if (with_row_ids) {
-          GetFaissIndex()->add_with_ids(input_row_iterator_->size(), input_row_iterator_->data(), row_id_);
-        } else {
-          GetFaissIndex()->add(input_row_iterator_->size(), input_row_iterator_->data());
-        }
+      }
+    }
+
+    // Phase 2: Batch add. Applies to all index types (Flat/SQ/PQ/IVFPQ).
+    // Passing the full batch to faiss::Index::add{_with_ids} lets
+    // hnsw_add_vertices engage its OpenMP parallel region (activated when
+    // n > 100), yielding a large speedup over per-row insertion.
+    if (data_buffer_.size()) {
+      idx_t n = data_buffer_.size() / common_params_.dim;
+      if (with_row_ids) {
+        GetFaissIndex()->add_with_ids(n, data_buffer_.data(), row_id_);
+      } else {
+        GetFaissIndex()->add(n, data_buffer_.data());
+      }
+    } else if (input_row_iterator_) {
+      if (with_row_ids) {
+        GetFaissIndex()->add_with_ids(input_row_iterator_->size(), input_row_iterator_->data(), row_id_);
+      } else {
+        GetFaissIndex()->add(input_row_iterator_->size(), input_row_iterator_->data());
       }
     }
 
