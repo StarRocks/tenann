@@ -32,13 +32,18 @@ class FaissIndexBuilderWithBuffer : public FaissIndexBuilder {
 
   IndexBuilder& Flush() override;
 
-  /// Cap the in-memory row buffer (data_buffer_ + id_buffer_) at |rows|
-  /// vectors. When the cap is reached, already-trained indexes drain the
-  /// buffer to the underlying faiss index via a single batched add, keeping
-  /// peak memory bounded for long ingest streams. Indexes that still need
-  /// training keep the full payload until Flush() (training requires the
-  /// whole sample today; future work may extend this to also train on the
-  /// first |rows| sample). Passing 0 disables the intermediate flush.
+  /// Configure an inter-batch cap on the in-memory row buffer
+  /// (data_buffer_ + id_buffer_). After each Add() batch is merged, if the
+  /// index is already trained and the buffered row count has reached |rows|,
+  /// the buffer is drained into the underlying faiss index via a single
+  /// batched add. This is a between-batch threshold, not a hard cap: a single
+  /// Add() call that contributes more than |rows| rows will temporarily grow
+  /// the buffer to existing_buffer + incoming_batch before the drain fires,
+  /// and faiss's graph build step itself allocates memory proportional to the
+  /// batch passed to add(). Indexes that still need training keep the full
+  /// payload until Flush() (training requires the whole sample today; future
+  /// work may extend this to also train on the first |rows| sample). Passing
+  /// 0 disables the intermediate flush.
   IndexBuilder& SetFlushThresholdRows(size_t rows) override;
 
  protected:
@@ -48,9 +53,10 @@ class FaissIndexBuilderWithBuffer : public FaissIndexBuilder {
   void AddWithRowIdsAndNullFlags(const TypedSliceIterator<float>& input_row_iterator, const idx_t* row_ids,
                                  const uint8_t* null_flags) override;
 
-  // Drain data_buffer_ / id_buffer_ into the underlying index if the buffer
-  // has grown past flush_threshold_bytes_ and the index is already trained.
-  // No-op for untrained indexes — training in Flush() needs the whole sample.
+  // Drain data_buffer_ / id_buffer_ into the underlying index if the buffered
+  // row count has grown past flush_threshold_rows_ and the index is already
+  // trained. No-op for untrained indexes — training in Flush() needs the
+  // whole sample.
   void MaybeFlushBuffer();
 
  protected:

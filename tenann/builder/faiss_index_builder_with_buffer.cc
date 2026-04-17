@@ -90,10 +90,11 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush() {
     T_LOG_IF(ERROR, !is_opened_) << "index builder has not been opened";
     T_LOG_IF(ERROR, index_ref_ == nullptr) << "index has not been built";
 
-    bool with_row_ids = row_id_ != nullptr || id_buffer_.size() > 0;
-    if (id_buffer_.size()) {
-      row_id_ = id_buffer_.data();
-    }
+    // Resolve the id source without aliasing a member into id_buffer_.data(),
+    // which is about to be cleared below — storing that pointer into row_id_
+    // would leave it dangling for any later use.
+    const idx_t* ids = !id_buffer_.empty() ? id_buffer_.data() : row_id_;
+    bool with_row_ids = ids != nullptr;
 
     // Phase 1: train (only when the index requires it).
     //   - Flat / HNSWFlat: is_trained == true at construction -> skip.
@@ -114,24 +115,28 @@ IndexBuilder& FaissIndexBuilderWithBuffer::Flush() {
     if (data_buffer_.size()) {
       idx_t n = data_buffer_.size() / common_params_.dim;
       if (with_row_ids) {
-        GetFaissIndex()->add_with_ids(n, data_buffer_.data(), row_id_);
+        GetFaissIndex()->add_with_ids(n, data_buffer_.data(), ids);
       } else {
         GetFaissIndex()->add(n, data_buffer_.data());
       }
     } else if (input_row_iterator_) {
       if (with_row_ids) {
-        GetFaissIndex()->add_with_ids(input_row_iterator_->size(), input_row_iterator_->data(), row_id_);
+        GetFaissIndex()->add_with_ids(input_row_iterator_->size(), input_row_iterator_->data(), ids);
       } else {
         GetFaissIndex()->add(input_row_iterator_->size(), input_row_iterator_->data());
       }
     }
 
-    // Release the buffered rows once they have been added. This also makes
-    // Flush idempotent: a second call is a no-op rather than a double add.
+    // Release the consumed rows once they have been added. Resetting the
+    // zero-copy iterator and row_id_ here makes Flush idempotent in both the
+    // copy path and the inputs_live_longer_than_this_=true path — a second
+    // call becomes a no-op instead of re-adding the same rows.
     data_buffer_.clear();
     data_buffer_.shrink_to_fit();
     id_buffer_.clear();
     id_buffer_.shrink_to_fit();
+    input_row_iterator_.reset();
+    row_id_ = nullptr;
 
     index_writer_->WriteIndex(index_ref_, index_save_path_, memory_only_);
   }

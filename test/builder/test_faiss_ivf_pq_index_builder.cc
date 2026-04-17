@@ -256,4 +256,20 @@ TEST_F(FaissIvfPqIndexBuilderTest, FlushIsIdempotent) {
   builder->Close();
 }
 
+// Same idempotence contract for the zero-copy path
+// (inputs_live_longer_than_this=true), which goes through input_row_iterator_
+// instead of data_buffer_. A second Flush() must not re-add the same rows.
+TEST_F(FaissIvfPqIndexBuilderTest, FlushIsIdempotentForLiveInputs) {
+  auto builder = std::make_unique<FaissIvfPqIndexBuilder>(faiss_ivf_pq_meta());
+  builder->EnableCustomRowId()
+      .Open()
+      .Add({base_view()}, ids().data(), nullptr, /*inputs_live_longer_than_this=*/true)
+      .Flush();
+  int64_t ntotal_after_first = FaissNtotal(builder->index_ref());
+
+  EXPECT_NO_THROW(builder->Flush());
+  EXPECT_EQ(FaissNtotal(builder->index_ref()), ntotal_after_first);
+  builder->Close();
+}
+
 }  // namespace tenann
