@@ -24,7 +24,7 @@
 #include "tenann/common/json.h"
 #include "tenann/index/index.h"
 #include "tenann/index/parameters.h"
-#include "tenann/index/index_cache.h"
+#include "tenann/index/index_cache_interface.h"
 #include "tenann/store/index_file_reader.h"
 
 namespace tenann {
@@ -45,13 +45,13 @@ class IndexReader {
   virtual IndexRef ReadIndexFile(const std::string& path) = 0;
 
   /** Setters */
-  IndexReader& SetIndexCache(IndexCache* cache);
+  IndexReader& SetIndexCache(IndexCacheInterface* cache);
   IndexReader& SetFileReader(IndexFileReaderPtr reader);
 
   /** Getters */
   const IndexMeta& index_meta() const;
-  IndexCache* index_cache();
-  const IndexCache* index_cache() const;
+  IndexCacheInterface* index_cache();
+  const IndexCacheInterface* index_cache() const;
   IndexFileReaderPtr file_reader() const;
 
  protected:
@@ -60,7 +60,7 @@ class IndexReader {
   /// @brief read options
   IndexReaderOptions index_reader_options_;
   /// @brief cache
-  IndexCache* index_cache_ = nullptr;
+  IndexCacheInterface* index_cache_ = nullptr;
   /**
    * @brief Use this handle to maintain a reference to the cache entry.
    *        Otherwise the cache entry may be cleaned when the reference count decreases to 1.

@@ -22,6 +22,7 @@
 #include <cassert>
 
 #include "tenann/common/macros.h"
+#include "tenann/index/index_cache_interface.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/store/index_file_reader.h"
 #include "tenann/store/index_meta.h"
@@ -39,7 +40,7 @@ class Searcher {
  public:
   explicit Searcher(const IndexMeta& meta) : index_meta_(meta) {
     index_reader_ = IndexFactory::CreateReaderFromMeta(meta);
-    index_reader_->SetIndexCache(IndexCache::GetGlobalInstance());
+    index_reader_->SetIndexCache(GetGlobalIndexCache());
   }
   virtual ~Searcher() = default;
 

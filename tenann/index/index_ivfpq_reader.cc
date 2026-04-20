@@ -131,7 +131,7 @@ static void read_ArrayInvertedLists_sizes(IOReader* f, std::vector<size_t>& size
 }
 
 InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags,
-                                                   tenann::IndexCache* index_cache,
+                                                   tenann::IndexCacheInterface* index_cache,
                                                    tenann::IndexFileReaderPtr file_reader = nullptr) {
   uint32_t h;
   READ1(h);
@@ -158,7 +158,7 @@ InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags,
 }
 
 static void read_InvertedLists(IndexIVF* ivf, IOReader* f, int io_flags, bool cache_index_block,
-                               tenann::IndexCache* index_cache,
+                               tenann::IndexCacheInterface* index_cache,
                                tenann::IndexFileReaderPtr file_reader = nullptr) {
   InvertedLists* ils = nullptr;
   if (cache_index_block) {
@@ -188,7 +188,7 @@ static void read_ProductQuantizer(ProductQuantizer* pq, IOReader* f) {
  **************************************************************/
 
 static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags,
-                       bool cache_index_block, tenann::IndexCache* index_cache,
+                       bool cache_index_block, tenann::IndexCacheInterface* index_cache,
                        tenann::IndexFileReaderPtr file_reader = nullptr) {
   bool legacy = h == fourcc("IvQR") || h == fourcc("IvPQ");
 
@@ -221,7 +221,7 @@ static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags,
 
 BlockCacheInvertedLists::BlockCacheInvertedLists(size_t nlist, size_t code_size,
                                                  const char* filename,
-                                                 tenann::IndexCache* index_cache)
+                                                 tenann::IndexCacheInterface* index_cache)
     : InvertedLists(nlist, code_size),
       lists(nlist),
       cache_keys(nlist),
@@ -234,7 +234,7 @@ BlockCacheInvertedLists::BlockCacheInvertedLists(size_t nlist, size_t code_size,
   // slots starts empty
 }
 
-BlockCacheInvertedLists::BlockCacheInvertedLists(tenann::IndexCache* index_cache)
+BlockCacheInvertedLists::BlockCacheInvertedLists(tenann::IndexCacheInterface* index_cache)
     : BlockCacheInvertedLists(0, 0, "", index_cache) {}
 
 BlockCacheInvertedLists::~BlockCacheInvertedLists() {
@@ -247,15 +247,16 @@ BlockCacheInvertedLists::~BlockCacheInvertedLists() {
 size_t BlockCacheInvertedLists::list_size(size_t list_no) const { return lists[list_no].size; }
 
 const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
+  T_CHECK(index_cache != nullptr)
+      << "IndexCacheInterface not injected. "
+      << "BE must call tenann::SetGlobalIndexCache() at init.";
   T_CHECK(list_no < nlist);
   {
     std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
     tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
     auto found = index_cache->Lookup(cache_keys[list_no], cache_handle);
     if (found) {
-      VLOG(VERBOSE_DEBUG) << "   hit cache, cache_key: " << cache_keys[list_no].c_str()
-                          << ", hit_rate: "
-                          << index_cache->hit_count() * 1.0 / index_cache->lookup_count();
+      VLOG(VERBOSE_DEBUG) << "   hit cache, cache_key: " << cache_keys[list_no].c_str();
       auto start_ptr = static_cast<uint8_t*>(cache_handle->index_ref()->index_raw());
       return start_ptr + offset_difference[list_no];
     }
@@ -318,11 +319,9 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   {
     std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
     tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
-    index_cache->Insert(cache_keys[list_no], index_ref, cache_handle,
-                        [read_bytes]() { return read_bytes; });
+    index_cache->Insert(cache_keys[list_no], index_ref, cache_handle);
 
-    VLOG(VERBOSE_DEBUG) << "insert cache, cache_key: " << cache_keys[list_no].c_str()
-                        << ", usage: " << index_cache->memory_usage();
+    VLOG(VERBOSE_DEBUG) << "insert cache, cache_key: " << cache_keys[list_no].c_str();
   }
 
   return static_cast<uint8_t*>(buffer) + offset_difference[list_no];
@@ -346,7 +345,7 @@ const idx_t* BlockCacheInvertedLists::get_ids(size_t list_no) const {
   return ret;
 }
 
-BlockCacheInvertedListsIOHook::BlockCacheInvertedListsIOHook(tenann::IndexCache* index_cache)
+BlockCacheInvertedListsIOHook::BlockCacheInvertedListsIOHook(tenann::IndexCacheInterface* index_cache)
     : InvertedListsIOHook("ilbc", typeid(BlockCacheInvertedLists).name()),
       index_cache(index_cache) {}
 
@@ -449,7 +448,7 @@ namespace tenann {
 using faiss::fourcc;
 using faiss::fourcc_inv_printable;
 
-// TODO: ignore this flag and use IndexCache
+// TODO: ignore this flag and use IndexCacheInterface
 static constexpr const int IO_FLAG = faiss::IO_FLAG_READ_ONLY;
 
 IndexIvfPqReader::~IndexIvfPqReader() = default;

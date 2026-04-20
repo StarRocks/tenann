@@ -23,7 +23,7 @@
 
 #include "tenann/common/json.h"
 #include "tenann/index/index.h"
-#include "tenann/index/index_cache.h"
+#include "tenann/index/index_cache_interface.h"
 #include "tenann/index/parameters.h"
 #include "tenann/store/index_file_writer.h"
 
@@ -45,13 +45,13 @@ class IndexWriter {
   virtual void WriteIndexFile(IndexRef index, const std::string& path) = 0;
 
   /** Setters */
-  IndexWriter& SetIndexCache(IndexCache* cache);
+  IndexWriter& SetIndexCache(IndexCacheInterface* cache);
   IndexWriter& SetFileWriter(IndexFileWriterPtr writer);
 
   /** Getters */
   const IndexMeta& index_meta() const;
-  IndexCache* index_cache();
-  const IndexCache* index_cache() const;
+  IndexCacheInterface* index_cache();
+  const IndexCacheInterface* index_cache() const;
 
  protected:
   // @TODO: consider using a shared_ptr to save index meta,
@@ -61,7 +61,7 @@ class IndexWriter {
   /* write options */
   IndexWriterOptions index_writer_options_;
   /* cache */
-  IndexCache* index_cache_ = nullptr;
+  IndexCacheInterface* index_cache_ = nullptr;
   /* optional external file writer for remote file systems */
   IndexFileWriterPtr file_writer_;
 };
