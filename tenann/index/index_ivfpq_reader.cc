@@ -311,9 +311,9 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   }
 
   auto index_ref = std::make_shared<tenann::Index>(
-      buffer, tenann::IndexType::kFaissIvfPqOneInvertedList, [](void* index) {
-        free(index);
-      });
+      buffer, tenann::IndexType::kFaissIvfPqOneInvertedList,
+      [](void* index) { free(index); },
+      /*explicit_bytes=*/static_cast<size_t>(read_bytes));
 
   {
     std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
