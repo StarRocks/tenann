@@ -187,10 +187,8 @@ TEST_F(FaissIvfPqFileReaderSearchTest, ReadIndex_ViaFileReader_BlockCache) {
       std::make_shared<TestLocalIndexFileReader>(index_with_primary_key_path());
 
   auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta_);
-  // index_cache() returns IndexCache*, which doesn't expose SetCapacity.
-  // Drive the global DefaultIndexCache singleton directly (searchers resolve it
-  // via GetGlobalIndexCache()).
-  DefaultIndexCache::GetGlobalInstance()->SetCapacity(500 * 1024);  // limit 500KB
+  // SetCapacity lives on DefaultIndexCache, not the IndexCache interface.
+  DefaultIndexCache::GetGlobalInstance()->SetCapacity(500 * 1024);  // limit 500 KiB
   ann_searcher->ReadIndex(file_reader);
 
   EXPECT_TRUE(ann_searcher->is_index_loaded());

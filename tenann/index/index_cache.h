@@ -71,7 +71,8 @@ class IndexCacheHandle {
   std::shared_ptr<void> releaser_;  // destructor triggers the impl's Release hook
 };
 
-// Global injection — calls SetGlobalIndexCache() exactly to replace index cache instance.
+// Global injection point. Last writer wins; intended to be called once during
+// process init before any reader/searcher construction.
 void SetGlobalIndexCache(IndexCache* cache);
 IndexCache* GetGlobalIndexCache();
 }  // namespace tenann

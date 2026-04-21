@@ -160,8 +160,6 @@ int main(int argc, char const* argv[]) {
   tenann::SetVLogLevel(VERBOSE_DEBUG);
 
   auto cache = std::make_shared<tenann::DefaultIndexCache>(10);
-  // Register the per-run cache as the tenann global so Build/Search paths can
-  // resolve it via GetGlobalIndexCache().
   tenann::SetGlobalIndexCache(cache.get());
   auto base = RandomVectors(nb, dim, 0);
   auto query = RandomVectors(nq, dim, 1);

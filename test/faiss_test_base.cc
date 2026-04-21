@@ -241,8 +241,7 @@ void FaissTestBase::MultiAddCreateAndWriteFaissIvfPqIndex() {
 void FaissTestBase::ReadIndexAndDefaultSearch(size_t limit_cache_capacity) {
   ann_searcher_ = AnnSearcherFactory::CreateSearcherFromMeta(meta_);
   if (limit_cache_capacity) {
-    // IndexCache does not expose SetCapacity; drive the concrete
-    // DefaultIndexCache singleton (searchers resolve it via GetGlobalIndexCache()).
+    // SetCapacity lives on DefaultIndexCache, not the IndexCache interface.
     DefaultIndexCache::GetGlobalInstance()->SetCapacity(limit_cache_capacity);
   }
 

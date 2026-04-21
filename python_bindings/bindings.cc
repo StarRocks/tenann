@@ -167,8 +167,6 @@ class TenANN {
 };
 
 PYBIND11_MODULE(tenann_py, m) {
-  // Register tenann's singleton DefaultIndexCache as the global IndexCache so
-  // internal builder/searcher paths resolve it via GetGlobalIndexCache().
   tenann::SetGlobalIndexCache(tenann::DefaultIndexCache::GetGlobalInstance());
   py::class_<TenANN>(m, "TenANN")
       .def(py::init<>())

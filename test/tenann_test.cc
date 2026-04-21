@@ -24,8 +24,6 @@
 
 int main(int argc, char* argv[]) {
   tenann::OmpSetNumThreads(8);
-  // Register the DefaultIndexCache singleton so builder/searcher paths resolving
-  // the cache via GetGlobalIndexCache() have a non-null target during tests.
   tenann::SetGlobalIndexCache(tenann::DefaultIndexCache::GetGlobalInstance());
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();

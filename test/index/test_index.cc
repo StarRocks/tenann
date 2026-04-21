@@ -19,22 +19,19 @@
 namespace tenann {
 
 TEST(IndexExplicitBytes, ReturnsExplicitBytesWhenSet) {
-    void* buf = std::malloc(128);
-    Index idx(buf, IndexType::kFaissIvfPq,
-              [](void* v) { std::free(v); },
-              /*explicit_bytes=*/128);
-    EXPECT_EQ(128u, idx.EstimateMemoryUsage());
+  void* buf = std::malloc(128);
+  Index idx(buf, IndexType::kFaissIvfPq,
+            [](void* v) { std::free(v); },
+            /*explicit_bytes=*/128);
+  EXPECT_EQ(128u, idx.EstimateMemoryUsage());
 }
 
 TEST(IndexExplicitBytes, UnsupportedTypeReturnsOne) {
-    // Use an IndexType that the type-based heuristic does NOT handle
-    // (kFaissHnsw / kFaissIvfPq are the only handled cases), so we
-    // exercise only the fallback path without constructing a real
-    // faiss::Index and without triggering a static_cast on garbage
-    // memory.
-    Index idx(nullptr, IndexType::kFaissIvfPqOneInvertedList,
-              [](void*) {});
-    EXPECT_EQ(1u, idx.EstimateMemoryUsage());
+  // Use an IndexType the heuristic does NOT handle (kFaissHnsw/kFaissIvfPq are
+  // the only handled cases) so we exercise the fallback without constructing a
+  // real faiss::Index or triggering a static_cast on garbage memory.
+  Index idx(nullptr, IndexType::kFaissIvfPqOneInvertedList, [](void*) {});
+  EXPECT_EQ(1u, idx.EstimateMemoryUsage());
 }
 
 }  // namespace tenann
