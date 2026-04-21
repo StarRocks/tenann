@@ -18,10 +18,15 @@
  */
 
 #include "gtest/gtest.h"
+#include "tenann/index/index_cache.h"
+#include "tenann/index/index_cache_interface.h"
 #include "tenann/util/threads.h"
 
 int main(int argc, char* argv[]) {
   tenann::OmpSetNumThreads(8);
+  // Register the IndexCache singleton so builder/searcher paths resolving the
+  // cache via GetGlobalIndexCache() have a non-null target during tests.
+  tenann::SetGlobalIndexCache(tenann::IndexCache::GetGlobalInstance());
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();
   return ret;

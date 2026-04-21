@@ -29,6 +29,8 @@
 #include "tenann/common/json.h"
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/factory/index_factory.h"
+#include "tenann/index/index_cache.h"
+#include "tenann/index/index_cache_interface.h"
 #include "tenann/store/index_meta.h"
 
 namespace py = pybind11;
@@ -165,6 +167,9 @@ class TenANN {
 };
 
 PYBIND11_MODULE(tenann_py, m) {
+  // Register tenann's singleton IndexCache as the global IndexCacheInterface so
+  // internal builder/searcher paths resolve it via GetGlobalIndexCache().
+  tenann::SetGlobalIndexCache(tenann::IndexCache::GetGlobalInstance());
   py::class_<TenANN>(m, "TenANN")
       .def(py::init<>())
       .def("create_builder", &TenANN::CreateBuilderFromMeta)

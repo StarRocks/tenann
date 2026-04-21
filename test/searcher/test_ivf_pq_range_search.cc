@@ -24,6 +24,7 @@
 #include <iostream>
 #include <random>
 
+#include "tenann/index/index_cache.h"
 #include "tenann/index/parameters.h"
 #include "tenann/searcher/internal/id_filter_adapter.h"
 #include "test/faiss_test_base.h"

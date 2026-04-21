@@ -5,6 +5,7 @@
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/factory/index_factory.h"
 #include "tenann/index/index_cache.h"
+#include "tenann/index/index_cache_interface.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/util/pretty_printer.h"
 #include "tenann/util/random.h"
@@ -159,6 +160,9 @@ int main(int argc, char const* argv[]) {
   tenann::SetVLogLevel(VERBOSE_DEBUG);
 
   auto cache = std::make_shared<tenann::IndexCache>(10);
+  // Register the per-run cache as the tenann global so Build/Search paths can
+  // resolve it via GetGlobalIndexCache().
+  tenann::SetGlobalIndexCache(cache.get());
   auto base = RandomVectors(nb, dim, 0);
   auto query = RandomVectors(nq, dim, 1);
 

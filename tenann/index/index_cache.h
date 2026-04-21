@@ -19,26 +19,34 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
 
 #include "tenann/common/macros.h"
 #include "tenann/index/index.h"
+#include "tenann/index/index_cache_interface.h"
 #include "tenann/store/lru_cache.h"
 
 namespace tenann {
-
-class IndexCacheHandle;
 
 /**
  * @brief  Wrapper around Cache, and used for cache indexes.
  *
  * The actual memory of indexes are hold by the underlying index raw pointers.
  * This class caches these pointers and trigger the deletion action when a cache entry is evicted.
+ *
+ * This class is the default production implementation of IndexCacheInterface. SR
+ * overrides the global cache via SetGlobalIndexCache() to inject its own
+ * VectorIndexCache; standalone tools (stress_tool, python_bindings) continue to
+ * register IndexCache::GetGlobalInstance() via SetGlobalIndexCache() at init.
  */
-class IndexCache {
+class IndexCache : public IndexCacheInterface {
  public:
   explicit IndexCache(size_t capacity);
-  ~IndexCache();
+  ~IndexCache() override;
 
   static IndexCache* GetGlobalInstance();
 
@@ -52,22 +60,30 @@ class IndexCache {
    * @return true if index found
    * @return false if index not found
    */
-  bool Lookup(const CacheKey& key, IndexCacheHandle* handle);
+  [[nodiscard]] bool Lookup(const CacheKey& key, IndexCacheHandle* handle) override;
 
   /**
    * @brief Insert an index with key into this cache.
-   *
    *
    * Given handle will be set to valid reference.
    * This function is thread-safe, and when two clients insert two same key
    * concurrently, this function can assure that only one value is cached.
    *
-   * @param key cache key
-   * @param index index to cache
-   * @param handle will be set to a valid reference to the cache entry
+   * The cache charge is derived from `ref->EstimateMemoryUsage()`.
    */
-  void Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle,
-              const std::function<size_t()>& estimate_memory_usage = nullptr);
+  void Insert(const CacheKey& key, IndexRef ref, IndexCacheHandle* handle) override;
+
+  /**
+   * @brief Atomic get-or-create with per-key single-flight loader.
+   *
+   * Fast-path: Lookup; on hit return true without running loader. On miss,
+   * acquire a per-key lock, recheck, and call loader exactly once across
+   * concurrent callers. On loader exception the entry is NOT cached and the
+   * exception propagates; subsequent callers waiting on the per-key lock will
+   * retry.
+   */
+  [[nodiscard]] bool GetOrCreate(const CacheKey& key, const IndexLoader& loader,
+                                 IndexCacheHandle* handle) override;
 
   void SetCapacity(size_t capacity);
 
@@ -84,33 +100,15 @@ class IndexCache {
   uint64_t hit_count();
 
  private:
+  std::shared_ptr<std::mutex> get_or_create_load_lock(const std::string& key);
+
   std::unique_ptr<Cache> cache_ = nullptr;
-};
 
-/**
- * @brief A handle for index cache entry.
- *
- * This class make it easy to handle cache entry.
- * Users don't need to release the obtained cache entry.
- * This class will release the cache entry when it is destroyed.
- */
-class IndexCacheHandle {
- public:
-  IndexCacheHandle();
-  IndexCacheHandle(Cache* cache, Cache::Handle* handle);
-  ~IndexCacheHandle();
-  T_FORBID_COPY_AND_ASSIGN(IndexCacheHandle);
-
-  IndexCacheHandle(IndexCacheHandle&& other) noexcept;
-  IndexCacheHandle& operator=(IndexCacheHandle&& other) noexcept;
-
-  uint32_t cache_entry_ref_count();
-  Cache* cache() const;
-  IndexRef index_ref() const;
-
- private:
-  Cache* cache_ = nullptr;
-  Cache::Handle* handle_ = nullptr;
+  // Per-key load locks used by GetOrCreate to enforce single-flight. Entries
+  // are weak_ptrs; the live shared_ptr is held on the calling thread's stack
+  // while the loader runs. Expired entries are reaped opportunistically.
+  std::mutex load_locks_mu_;
+  std::unordered_map<std::string, std::weak_ptr<std::mutex>> load_locks_;
 };
 
 }  // namespace tenann
