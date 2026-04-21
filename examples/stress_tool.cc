@@ -4,8 +4,8 @@
 #include "sstream"
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/factory/index_factory.h"
+#include "tenann/index/default_index_cache.h"
 #include "tenann/index/index_cache.h"
-#include "tenann/index/index_cache_interface.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/util/pretty_printer.h"
 #include "tenann/util/random.h"
@@ -126,7 +126,7 @@ IndexMeta PrepareHnswMeta(MetricType metric_type, int dim, int M, int efConstruc
   return meta;
 }
 
-void Build(IndexCache* cache, const tenann::IndexMeta& meta, const std::string& index_path,
+void Build(DefaultIndexCache* cache, const tenann::IndexMeta& meta, const std::string& index_path,
            tenann::ArraySeqView base_col) {
   tenann::OmpSetNumThreads(4);
   cache->SetCapacity(1);
@@ -136,7 +136,7 @@ void Build(IndexCache* cache, const tenann::IndexMeta& meta, const std::string& 
   index_builder->Open(index_path).Add({base_col}).Flush().Close();
 }
 
-void Search(IndexCache* cache, const tenann::IndexMeta& meta, const std::string& index_path,
+void Search(DefaultIndexCache* cache, const tenann::IndexMeta& meta, const std::string& index_path,
             tenann::PrimitiveSeqView query_view) {
   tenann::OmpSetNumThreads(4);
   cache->SetCapacity(1);
@@ -159,7 +159,7 @@ int main(int argc, char const* argv[]) {
   tenann::SetLogLevel(T_LOG_LEVEL_DEBUG);
   tenann::SetVLogLevel(VERBOSE_DEBUG);
 
-  auto cache = std::make_shared<tenann::IndexCache>(10);
+  auto cache = std::make_shared<tenann::DefaultIndexCache>(10);
   // Register the per-run cache as the tenann global so Build/Search paths can
   // resolve it via GetGlobalIndexCache().
   tenann::SetGlobalIndexCache(cache.get());

@@ -28,7 +28,7 @@
 #include <mutex>
 
 #include "tenann/common/json.h"
-#include "tenann/index/index_cache_interface.h"
+#include "tenann/index/index_cache.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/store/index_file_reader.h"
 
@@ -56,13 +56,13 @@ struct BlockCacheInvertedLists : InvertedLists {
   size_t block_size = 4096;  // block size
   bool read_only;            /// are inverted lists mapped read-only
   int fd = -1;
-  tenann::IndexCacheInterface* index_cache = nullptr;
+  tenann::IndexCache* index_cache = nullptr;
   /// Optional external file reader for remote file systems.
   /// When set, reads go through this reader instead of POSIX fd.
   tenann::IndexFileReaderPtr file_reader;
 
   BlockCacheInvertedLists(size_t nlist, size_t code_size, const char* filename,
-                          tenann::IndexCacheInterface* index_cache);
+                          tenann::IndexCache* index_cache);
 
   size_t list_size(size_t list_no) const override;
   const uint8_t* get_ptr(size_t list_no) const;
@@ -86,11 +86,11 @@ struct BlockCacheInvertedLists : InvertedLists {
   // private
 
   // empty constructor for the I/O functions
-  BlockCacheInvertedLists(tenann::IndexCacheInterface* index_cache);
+  BlockCacheInvertedLists(tenann::IndexCache* index_cache);
 };
 
 struct BlockCacheInvertedListsIOHook : InvertedListsIOHook {
-  BlockCacheInvertedListsIOHook(tenann::IndexCacheInterface* index_cache);
+  BlockCacheInvertedListsIOHook(tenann::IndexCache* index_cache);
   void write(const InvertedLists* ils, IOWriter* f) const {}
   InvertedLists* read(IOReader* f, int io_flags) const { return nullptr; }
   InvertedLists* read_ArrayInvertedLists(IOReader* f, int io_flags, size_t nlist, size_t code_size,
@@ -100,7 +100,7 @@ struct BlockCacheInvertedListsIOHook : InvertedListsIOHook {
                                          const std::vector<size_t>& sizes,
                                          tenann::IndexFileReaderPtr file_reader) const;
 
-  tenann::IndexCacheInterface* index_cache = nullptr;
+  tenann::IndexCache* index_cache = nullptr;
 };
 
 }  // namespace faiss

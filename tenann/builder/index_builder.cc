@@ -22,7 +22,7 @@
 
 #include "index_builder.h"
 #include "tenann/common/logging.h"
-#include "tenann/index/index_cache_interface.h"
+#include "tenann/index/index_cache.h"
 #include "tenann/util/runtime_profile_macros.h"
 
 namespace tenann {

@@ -24,7 +24,7 @@
 #include <iostream>
 #include <random>
 
-#include "tenann/index/index_cache.h"
+#include "tenann/index/default_index_cache.h"
 #include "tenann/index/parameters.h"
 #include "tenann/searcher/internal/id_filter_adapter.h"
 #include "test/faiss_test_base.h"
@@ -40,7 +40,7 @@ class IvfPqRangeSearchTest : public FaissTestBase {
   }
 
   void BuildInMemoryIvfPq() {
-    auto* cache = IndexCache::GetGlobalInstance();
+    auto* cache = DefaultIndexCache::GetGlobalInstance();
     IndexCacheHandle handle;
     if (!cache->Lookup(kCacheKey, &handle)) {
       faiss_ivf_pq_index_builder_

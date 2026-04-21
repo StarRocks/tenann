@@ -36,7 +36,7 @@ IndexRef IndexReader::ReadIndex(const std::string& path) {
   if (index_reader_options_.cache_index_file) {
     auto cache_key = !index_reader_options_.custom_cache_key.empty() ? index_reader_options_.custom_cache_key : path;
     T_CHECK(index_cache_ != nullptr)
-        << "IndexCacheInterface not injected. "
+        << "IndexCache not injected. "
         << "BE must call tenann::SetGlobalIndexCache() at init.";
     if (index_reader_options_.force_read_and_overwrite_cache) {
       return ForceReadIndexAndOverwriteCache(path, cache_key);
@@ -59,7 +59,7 @@ IndexRef IndexReader::ForceReadIndexAndOverwriteCache(const std::string& path, c
   return index_ref;
 }
 
-IndexReader& IndexReader::SetIndexCache(IndexCacheInterface* cache) {
+IndexReader& IndexReader::SetIndexCache(IndexCache* cache) {
   T_CHECK_NOTNULL(cache);
   index_cache_ = cache;
   return *this;
@@ -70,9 +70,9 @@ IndexReader& IndexReader::SetFileReader(IndexFileReaderPtr reader) {
   return *this;
 }
 
-IndexCacheInterface* IndexReader::index_cache() { return index_cache_; }
+IndexCache* IndexReader::index_cache() { return index_cache_; }
 
-const IndexCacheInterface* IndexReader::index_cache() const { return index_cache_; }
+const IndexCache* IndexReader::index_cache() const { return index_cache_; }
 
 IndexFileReaderPtr IndexReader::file_reader() const { return file_reader_; }
 

@@ -32,8 +32,8 @@ set(TENANN_SRC
     index/index_ivfpq_writer.cc
     index/index_ivfpq_reader.cc
     index/index.cc
+    index/default_index_cache.cc
     index/index_cache.cc
-    index/index_cache_interface.cc
     index/index_reader.cc
     index/faiss_index_reader.cc
     index/index_writer.cc

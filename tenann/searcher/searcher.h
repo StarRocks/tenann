@@ -22,7 +22,7 @@
 #include <cassert>
 
 #include "tenann/common/macros.h"
-#include "tenann/index/index_cache_interface.h"
+#include "tenann/index/index_cache.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/store/index_file_reader.h"
 #include "tenann/store/index_meta.h"
