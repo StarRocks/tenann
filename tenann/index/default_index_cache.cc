@@ -25,10 +25,9 @@ namespace tenann {
 
 namespace {
 
-// Precondition: `cache` must outlive every IndexCacheHandle produced from it,
-// because the returned releaser calls back into the cache on handle destruction.
-// Function-local statics (the singleton) satisfy this; on-stack instances must
-// ensure all handles are released before the cache leaves scope.
+// Build a shared_ptr<void> that calls Cache::release when destroyed, so
+// IndexCacheHandle unpins its entry via RAII. Precondition: `cache` outlives
+// every handle produced from it.
 std::shared_ptr<void> MakeReleaser(Cache* cache, Cache::Handle* handle) {
   return std::shared_ptr<void>(
       reinterpret_cast<void*>(handle),
@@ -68,24 +67,13 @@ void DefaultIndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheHa
   auto deleter = [](const CacheKey& key, void* value) {
     delete reinterpret_cast<IndexRef*>(value);
   };
-
-  CachePriority priority = CachePriority::NORMAL;
-
-  auto* lru_handle = cache_->insert(key, leaked_index, index_size, deleter, priority);
+  auto* lru_handle = cache_->insert(key, leaked_index, index_size, deleter, CachePriority::NORMAL);
   *handle = IndexCacheHandle(index, MakeReleaser(cache_.get(), lru_handle));
 }
 
 bool DefaultIndexCache::GetOrCreate(const CacheKey& key, const IndexLoader& loader,
-                             IndexCacheHandle* handle) {
+                                    IndexCacheHandle* handle) {
   if (Lookup(key, handle)) return true;
-
-  auto load_lock = get_or_create_load_lock(key.to_string());
-  std::lock_guard<std::mutex> l(*load_lock);
-
-  // Re-check under the lock: a concurrent caller may have populated the entry
-  // while we were waiting.
-  if (Lookup(key, handle)) return true;
-
   IndexRef ref = loader();
   if (ref == nullptr) {
     T_LOG(ERROR) << "IndexLoader returned null IndexRef for key " << key.to_string();
@@ -93,29 +81,6 @@ bool DefaultIndexCache::GetOrCreate(const CacheKey& key, const IndexLoader& load
   }
   Insert(key, std::move(ref), handle);
   return false;
-}
-
-std::shared_ptr<std::mutex> DefaultIndexCache::get_or_create_load_lock(const std::string& key) {
-  std::lock_guard<std::mutex> l(load_locks_mu_);
-  auto it = load_locks_.find(key);
-  if (it != load_locks_.end()) {
-    if (auto sp = it->second.lock()) return sp;
-  }
-  auto sp = std::make_shared<std::mutex>();
-  load_locks_[key] = sp;
-  // Amortize expired-entry reap to every kReapInterval inserts so a cold-start
-  // miss burst stays O(1) amortized per miss instead of O(N) per miss.
-  if (++reap_counter_ >= kReapInterval) {
-    reap_counter_ = 0;
-    for (auto mit = load_locks_.begin(); mit != load_locks_.end();) {
-      if (mit->second.expired()) {
-        mit = load_locks_.erase(mit);
-      } else {
-        ++mit;
-      }
-    }
-  }
-  return sp;
 }
 
 void DefaultIndexCache::SetCapacity(size_t capacity) { cache_->set_capacity(capacity); }
