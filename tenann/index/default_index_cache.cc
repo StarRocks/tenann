@@ -25,15 +25,10 @@ namespace tenann {
 
 namespace {
 
-// Precondition: `cache` must outlive every IndexCacheHandle produced from it.
-// The singleton `DefaultIndexCache::GetGlobalInstance()` satisfies this trivially
-// (function-local static lives until process exit). For tests and examples
-// that construct on-stack DefaultIndexCache instances, ensure all handles are
-// released before the owning DefaultIndexCache leaves scope.
-//
-// Build a releaser that calls Cache::release when the IndexCacheHandle is
-// destroyed. The shared_ptr<void>'s deleter owns the Cache::Handle* and
-// drops the pinning reference acquired by Cache::lookup / Cache::insert.
+// Precondition: `cache` must outlive every IndexCacheHandle produced from it,
+// because the returned releaser calls back into the cache on handle destruction.
+// Function-local statics (the singleton) satisfy this; on-stack instances must
+// ensure all handles are released before the cache leaves scope.
 std::shared_ptr<void> MakeReleaser(Cache* cache, Cache::Handle* handle) {
   return std::shared_ptr<void>(
       reinterpret_cast<void*>(handle),
@@ -51,8 +46,7 @@ DefaultIndexCache::DefaultIndexCache(size_t capacity) : cache_(new_lru_cache(cap
 DefaultIndexCache::~DefaultIndexCache() = default;
 
 DefaultIndexCache* DefaultIndexCache::GetGlobalInstance() {
-  // The default cache capacity is 1GB
-  static DefaultIndexCache instance(1024 * 1024 * 1024);
+  static DefaultIndexCache instance(1024 * 1024 * 1024);  // 1 GiB
   return &instance;
 }
 
@@ -61,8 +55,6 @@ bool DefaultIndexCache::Lookup(const CacheKey& key, IndexCacheHandle* handle) {
   if (lru_handle == nullptr) {
     return false;
   }
-  // The cache stores a heap-allocated IndexRef* (see Insert). Dereference to
-  // share ownership of the underlying tenann::Index with the caller.
   auto* stored_ref = reinterpret_cast<IndexRef*>(cache_->value(lru_handle));
   *handle = IndexCacheHandle(*stored_ref, MakeReleaser(cache_.get(), lru_handle));
   return true;
@@ -70,13 +62,11 @@ bool DefaultIndexCache::Lookup(const CacheKey& key, IndexCacheHandle* handle) {
 
 void DefaultIndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle) {
   size_t index_size = index->EstimateMemoryUsage();
-  // create a new reference to the index and intentionally leak the reference
+  // Cache stores a heap-allocated IndexRef so ownership survives lookup;
+  // the custom deleter drops the last reference on eviction.
   void* leaked_index = reinterpret_cast<void*>(new IndexRef(index));
-
-  // the reference will not be destroyed until we manually delete it through a custom deleter
   auto deleter = [](const CacheKey& key, void* value) {
-    auto leaked_index = reinterpret_cast<IndexRef*>(value);
-    delete leaked_index;
+    delete reinterpret_cast<IndexRef*>(value);
   };
 
   CachePriority priority = CachePriority::NORMAL;
@@ -87,14 +77,13 @@ void DefaultIndexCache::Insert(const CacheKey& key, IndexRef index, IndexCacheHa
 
 bool DefaultIndexCache::GetOrCreate(const CacheKey& key, const IndexLoader& loader,
                              IndexCacheHandle* handle) {
-  // Fast-path: already cached.
   if (Lookup(key, handle)) return true;
 
-  // Serialize concurrent misses on the same key.
   auto load_lock = get_or_create_load_lock(key.to_string());
   std::lock_guard<std::mutex> l(*load_lock);
 
-  // Another caller may have populated the entry while we were waiting.
+  // Re-check under the lock: a concurrent caller may have populated the entry
+  // while we were waiting.
   if (Lookup(key, handle)) return true;
 
   IndexRef ref = loader();
@@ -114,12 +103,16 @@ std::shared_ptr<std::mutex> DefaultIndexCache::get_or_create_load_lock(const std
   }
   auto sp = std::make_shared<std::mutex>();
   load_locks_[key] = sp;
-  // Opportunistically reap expired entries so the map doesn't grow unbounded.
-  for (auto mit = load_locks_.begin(); mit != load_locks_.end();) {
-    if (mit->second.expired()) {
-      mit = load_locks_.erase(mit);
-    } else {
-      ++mit;
+  // Amortize expired-entry reap to every kReapInterval inserts so a cold-start
+  // miss burst stays O(1) amortized per miss instead of O(N) per miss.
+  if (++reap_counter_ >= kReapInterval) {
+    reap_counter_ = 0;
+    for (auto mit = load_locks_.begin(); mit != load_locks_.end();) {
+      if (mit->second.expired()) {
+        mit = load_locks_.erase(mit);
+      } else {
+        ++mit;
+      }
     }
   }
   return sp;

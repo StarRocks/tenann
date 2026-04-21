@@ -33,15 +33,10 @@
 namespace tenann {
 
 /**
- * @brief  Wrapper around Cache, and used for cache indexes.
+ * @brief Default LRU-backed implementation of IndexCache.
  *
- * The actual memory of indexes are hold by the underlying index raw pointers.
- * This class caches these pointers and trigger the deletion action when a cache entry is evicted.
- *
- * This class is the default production implementation of IndexCache. SR
- * overrides the global cache via SetGlobalIndexCache() to inject its own
- * VectorIndexCache; standalone tools (stress_tool, python_bindings) continue to
- * register DefaultIndexCache::GetGlobalInstance() via SetGlobalIndexCache() at init.
+ * Index memory is owned by the cached IndexRef; eviction drops the last
+ * reference and runs the deleter registered on Index construction.
  */
 class DefaultIndexCache : public IndexCache {
  public:
@@ -106,9 +101,12 @@ class DefaultIndexCache : public IndexCache {
 
   // Per-key load locks used by GetOrCreate to enforce single-flight. Entries
   // are weak_ptrs; the live shared_ptr is held on the calling thread's stack
-  // while the loader runs. Expired entries are reaped opportunistically.
+  // while the loader runs. Expired entries are reaped every kReapInterval
+  // inserts to keep per-miss cost amortized O(1) under cold-start bursts.
+  static constexpr uint32_t kReapInterval = 1024;
   std::mutex load_locks_mu_;
   std::unordered_map<std::string, std::weak_ptr<std::mutex>> load_locks_;
+  uint32_t reap_counter_ = 0;
 };
 
 }  // namespace tenann

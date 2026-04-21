@@ -33,24 +33,25 @@ IndexReader::~IndexReader() = default;
 const IndexMeta& IndexReader::index_meta() const { return index_meta_; }
 
 IndexRef IndexReader::ReadIndex(const std::string& path) {
-  if (index_reader_options_.cache_index_file) {
-    auto cache_key = !index_reader_options_.custom_cache_key.empty() ? index_reader_options_.custom_cache_key : path;
-    T_CHECK(index_cache_ != nullptr)
-        << "IndexCache not injected. "
-        << "BE must call tenann::SetGlobalIndexCache() at init.";
-    if (index_reader_options_.force_read_and_overwrite_cache) {
-      return ForceReadIndexAndOverwriteCache(path, cache_key);
-    } else {
-      auto found = index_cache_->Lookup(cache_key, &cache_handle_);
-      if (found) {
-        return cache_handle_.index_ref();
-      } else {
-        return ForceReadIndexAndOverwriteCache(path, cache_key);
-      }
-    }
-  } else {
+  if (!index_reader_options_.cache_index_file) {
     return ReadIndexFile(path);
   }
+  const auto& cache_key = !index_reader_options_.custom_cache_key.empty()
+                              ? index_reader_options_.custom_cache_key
+                              : path;
+  T_CHECK(index_cache_ != nullptr)
+      << "IndexCache not injected. "
+      << "BE must call tenann::SetGlobalIndexCache() at init.";
+  if (index_reader_options_.force_read_and_overwrite_cache) {
+    return ForceReadIndexAndOverwriteCache(path, cache_key);
+  }
+  // GetOrCreate dedups concurrent cold misses: only one caller runs
+  // ReadIndexFile and does the Insert; others wait on the per-key lock.
+  (void)index_cache_->GetOrCreate(
+      cache_key,
+      [this, &path]() -> IndexRef { return ReadIndexFile(path); },
+      &cache_handle_);
+  return cache_handle_.index_ref();
 }
 
 IndexRef IndexReader::ForceReadIndexAndOverwriteCache(const std::string& path, const std::string& cache_key) {
