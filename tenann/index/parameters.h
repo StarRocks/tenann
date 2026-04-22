@@ -102,7 +102,7 @@ enum class ScalarQuantizerType : int {
   kPQ = 3,
 };
 
-/** Parameters for faiss HSNW */
+/** Parameters for faiss HNSW */
 struct FaissHnswIndexParams {
   DEFINE_OPTIONAL_PARAM(int, M, 16);
   DEFINE_OPTIONAL_PARAM(int, efConstruction, 40);

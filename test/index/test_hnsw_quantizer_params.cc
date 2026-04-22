@@ -21,6 +21,7 @@
 #include "tenann/index/parameter_serde.h"
 #include "tenann/index/parameters.h"
 #include "tenann/store/index_meta.h"
+#include "tenann/store/index_type.h"
 
 namespace tenann {
 
@@ -66,7 +67,7 @@ TEST(HnswQuantizerParamsTest, FetchParamsRoundtrip) {
   meta.index_params()["m_pq"] = 8;
   meta.index_params()["nbits_pq"] = 8;
   meta.common_params()["dim"] = 128;
-  meta.common_params()["metric_type"] = 0;
+  meta.common_params()["metric_type"] = MetricType::kL2Distance;
 
   FaissHnswIndexParams p;
   FetchParameters(meta, &p);
@@ -85,7 +86,7 @@ TEST(HnswQuantizerParamsTest, FetchParamsDefaultsForOldIndex) {
   meta.index_params()["M"] = 16;
   meta.index_params()["efConstruction"] = 40;
   meta.common_params()["dim"] = 128;
-  meta.common_params()["metric_type"] = 0;
+  meta.common_params()["metric_type"] = MetricType::kL2Distance;
 
   FaissHnswIndexParams p;
   FetchParameters(meta, &p);

@@ -90,8 +90,9 @@ inline std::string GetHnswRepr(const VectorIndexCommonParams& common_params,
       }
       break;
     case ScalarQuantizerType::kFlat:
-    default:
       break;
+    default:
+      T_CHECK(false) << "invalid HNSW quantizer value: " << index_params.quantizer;
   }
 
   return oss.str();

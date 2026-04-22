@@ -76,25 +76,24 @@ std::string MakeIndexPath(const std::string& tag) {
 
 // ---------- GetMinTrainRows ----------
 
+// GetMinTrainRows must work pre-Open() — callers (e.g. StarRocks async build)
+// use it to decide whether to build or fall back to brute-force before any
+// training work begins.
 TEST(FaissHnswQuantizedBuilderTest, MinTrainRowsFlat) {
   auto meta = MakeHnswMeta(ScalarQuantizerType::kFlat);
   FaissHnswIndexBuilder b(meta);
-  // InitIndex pulls the params out of meta, so trigger Open() once.
-  b.Open();
   EXPECT_EQ(b.GetMinTrainRows(), 0u);
 }
 
 TEST(FaissHnswQuantizedBuilderTest, MinTrainRowsSq4) {
   auto meta = MakeHnswMeta(ScalarQuantizerType::kSQ4);
   FaissHnswIndexBuilder b(meta);
-  b.Open();
   EXPECT_EQ(b.GetMinTrainRows(), 1u);
 }
 
 TEST(FaissHnswQuantizedBuilderTest, MinTrainRowsSq8) {
   auto meta = MakeHnswMeta(ScalarQuantizerType::kSQ8);
   FaissHnswIndexBuilder b(meta);
-  b.Open();
   EXPECT_EQ(b.GetMinTrainRows(), 1u);
 }
 
@@ -102,7 +101,6 @@ TEST(FaissHnswQuantizedBuilderTest, MinTrainRowsPqDefaultNbits) {
   // nbits_pq=8 -> 256 centroids -> 25600 rows
   auto meta = MakeHnswMeta(ScalarQuantizerType::kPQ, /*m_pq=*/8, /*nbits_pq=*/8);
   FaissHnswIndexBuilder b(meta);
-  b.Open();
   EXPECT_EQ(b.GetMinTrainRows(), (1u << 8) * 100u);
 }
 
@@ -110,7 +108,6 @@ TEST(FaissHnswQuantizedBuilderTest, MinTrainRowsPqSmallNbits) {
   // nbits_pq=4 -> 16 centroids -> 1600 rows
   auto meta = MakeHnswMeta(ScalarQuantizerType::kPQ, /*m_pq=*/8, /*nbits_pq=*/4);
   FaissHnswIndexBuilder b(meta);
-  b.Open();
   EXPECT_EQ(b.GetMinTrainRows(), (1u << 4) * 100u);
 }
 
