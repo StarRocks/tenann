@@ -45,6 +45,11 @@ FaissHnswIndexBuilder::FaissHnswIndexBuilder(const IndexMeta& meta)
           q == static_cast<int>(ScalarQuantizerType::kPQ))
       << "invalid HNSW quantizer value: " << q;
 
+  if (q != static_cast<int>(ScalarQuantizerType::kFlat)) {
+    T_CHECK_EQ(common_params_.metric_type, MetricType::kL2Distance)
+        << "HNSW quantized variants (SQ/PQ) currently only support L2 metric";
+  }
+
   if (q == static_cast<int>(ScalarQuantizerType::kPQ)) {
     T_CHECK_GE(index_params_.nbits_pq, 4);
     T_CHECK_LE(index_params_.nbits_pq, 16);
