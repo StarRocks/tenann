@@ -91,6 +91,12 @@ class IndexBuilder {
   IndexBuilder& EnableProfile();
   IndexBuilder& DisableProfile();
 
+  /// Maximum in-memory row buffer (number of vectors) before an intermediate
+  /// flush into the underlying index. Builders that do not buffer, or builders
+  /// that still need training, treat this as a no-op. Default behaviour is
+  /// implementation-defined; passing 0 disables intermediate flushing entirely.
+  virtual IndexBuilder& SetFlushThresholdRows(size_t /*rows*/) { return *this; }
+
   /** Getters */
   const IndexMeta& index_meta() const;
 
