@@ -66,6 +66,18 @@ class Searcher {
     return static_cast<ChildSearcher&>(*this);
   };
 
+  /// Attach an already-loaded IndexRef without consulting the cache.
+  /// The caller is responsible for keeping `ref` alive (typically via
+  /// an IndexCacheHandle that pins the cache entry). This skips the
+  /// second cache lookup that `ReadIndex()` would otherwise do.
+  ChildSearcher& AttachIndexRef(IndexRef ref) {
+    index_ref_ = std::move(ref);
+    is_index_loaded_ = true;
+
+    OnIndexLoaded();
+    return static_cast<ChildSearcher&>(*this);
+  };
+
   /// Set single search parameter.
   ChildSearcher& SetSearchParamItem(const std::string& key, const json& value) {
     this->OnSearchParamItemChange(key, value);
