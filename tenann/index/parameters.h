@@ -86,14 +86,42 @@ struct FaissIvfPqSearchParams {
   }
 };
 
-/** Parameters for faiss HSNW */
+/**
+ * Scalar/Product quantizer type for HNSW index.
+ * Used by FaissHnswIndexParams::quantizer.
+ *
+ * - kFlat: no quantization, store raw float32 vectors (default, equivalent to HNSWFlat).
+ * - kSQ4:  4-bit scalar quantization (ScalarQuantizer::QT_4bit).
+ * - kSQ8:  8-bit scalar quantization (ScalarQuantizer::QT_8bit).
+ * - kPQ:   Product quantization with m_pq sub-quantizers and nbits_pq bits each.
+ */
+enum class ScalarQuantizerType : int {
+  kFlat = 0,
+  kSQ4 = 1,
+  kSQ8 = 2,
+  kPQ = 3,
+};
+
+/** Parameters for faiss HNSW */
 struct FaissHnswIndexParams {
   DEFINE_OPTIONAL_PARAM(int, M, 16);
   DEFINE_OPTIONAL_PARAM(int, efConstruction, 40);
+  // Quantizer type (see ScalarQuantizerType). 0 (Flat) means no quantization.
+  DEFINE_OPTIONAL_PARAM(int, quantizer, 0);
+  // PQ parameters, only used when quantizer == kPQ.
+  // m_pq: number of PQ sub-quantizers. Must divide `dim`.
+  DEFINE_OPTIONAL_PARAM(int, m_pq, 0);
+  // nbits_pq: number of bits per PQ sub-quantizer code, in [4, 16].
+  DEFINE_OPTIONAL_PARAM(int, nbits_pq, 8);
 
   void Validate() {
     ASSERT_PARAM_IN_RANGE(M, 1, 65536);
     ASSERT_PARAM_IN_RANGE(efConstruction, 1, 65536);
+    ASSERT_PARAM_IN_RANGE(quantizer, 0, 3);
+    if (quantizer == static_cast<int>(ScalarQuantizerType::kPQ)) {
+      ASSERT_PARAM_IN_RANGE(m_pq, 1, 1024);
+      ASSERT_PARAM_IN_RANGE(nbits_pq, 4, 16);
+    }
   }
 };
 

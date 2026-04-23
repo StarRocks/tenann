@@ -87,6 +87,9 @@ inline void FetchParameters(const IndexMeta& meta, VectorIndexExtraParams* out_p
 inline void FetchParameters(const IndexMeta& meta, FaissHnswIndexParams* out_params) {
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, M);
   GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, efConstruction);
+  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, quantizer);
+  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, m_pq);
+  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nbits_pq);
 
   out_params->Validate();
 }

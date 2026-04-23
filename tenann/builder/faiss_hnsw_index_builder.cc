@@ -33,14 +33,52 @@
 
 namespace tenann {
 
+FaissHnswIndexBuilder::FaissHnswIndexBuilder(const IndexMeta& meta)
+    : FaissIndexBuilderWithBuffer(meta) {
+  FetchParameters(meta, &index_params_);
+  FetchParameters(meta, &search_params_);
+
+  auto q = index_params_.quantizer;
+  T_CHECK(q == static_cast<int>(ScalarQuantizerType::kFlat) ||
+          q == static_cast<int>(ScalarQuantizerType::kSQ4) ||
+          q == static_cast<int>(ScalarQuantizerType::kSQ8) ||
+          q == static_cast<int>(ScalarQuantizerType::kPQ))
+      << "invalid HNSW quantizer value: " << q;
+
+  if (q != static_cast<int>(ScalarQuantizerType::kFlat)) {
+    T_CHECK_EQ(common_params_.metric_type, MetricType::kL2Distance)
+        << "HNSW quantized variants (SQ/PQ) currently only support L2 metric";
+  }
+
+  if (q == static_cast<int>(ScalarQuantizerType::kPQ)) {
+    T_CHECK_GE(index_params_.nbits_pq, 4);
+    T_CHECK_LE(index_params_.nbits_pq, 16);
+    T_CHECK_GT(index_params_.m_pq, 0);
+    T_CHECK_EQ(common_params_.dim % index_params_.m_pq, 0)
+        << "HNSW+PQ requires dim (" << common_params_.dim
+        << ") to be divisible by m_pq (" << index_params_.m_pq << ")";
+  }
+}
+
 FaissHnswIndexBuilder::~FaissHnswIndexBuilder() {}
+
+size_t FaissHnswIndexBuilder::GetMinTrainRows() const {
+  switch (static_cast<ScalarQuantizerType>(index_params_.quantizer)) {
+    case ScalarQuantizerType::kPQ:
+      // faiss' recommendation: at least 100 training rows per centroid; the
+      // PQ codebook has 2^nbits_pq centroids.
+      return (static_cast<size_t>(1) << index_params_.nbits_pq) * 100;
+    case ScalarQuantizerType::kSQ4:
+    case ScalarQuantizerType::kSQ8:
+      return 1;
+    case ScalarQuantizerType::kFlat:
+    default:
+      return 0;
+  }
+}
 
 IndexRef FaissHnswIndexBuilder::InitIndex() {
   try {
-    // init index/search parameters from meta
-    FetchParameters(index_meta_, &index_params_);
-    FetchParameters(index_meta_, &search_params_);
-
     // create faiss index factory string
     auto factory_string =
         faiss_util::GetHnswRepr(common_params_, index_params_, use_custom_row_id_);

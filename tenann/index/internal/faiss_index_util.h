@@ -69,8 +69,32 @@ inline std::string GetHnswRepr(const VectorIndexCommonParams& common_params,
     oss << "L2Norm,";
   }
 
-  oss << "HNSW";
-  oss << index_params.M;
+  oss << "HNSW" << index_params.M;
+
+  // Append quantizer suffix. faiss' index_factory accepts both "," and "_"
+  // as the separator between the HNSW prefix and the storage quantizer; we
+  // use "," for consistency with other factory strings in this file (e.g. IVFPQ).
+  switch (static_cast<ScalarQuantizerType>(index_params.quantizer)) {
+    case ScalarQuantizerType::kSQ4:
+      oss << ",SQ4";
+      break;
+    case ScalarQuantizerType::kSQ8:
+      oss << ",SQ8";
+      break;
+    case ScalarQuantizerType::kPQ:
+      oss << ",PQ" << index_params.m_pq;
+      // faiss' PQ pattern is "PQ<m>(x<nbits>)?"; the nbits suffix is only
+      // required when it differs from the default of 8.
+      if (index_params.nbits_pq != 8) {
+        oss << "x" << index_params.nbits_pq;
+      }
+      break;
+    case ScalarQuantizerType::kFlat:
+      break;
+    default:
+      T_CHECK(false) << "invalid HNSW quantizer value: " << index_params.quantizer;
+  }
+
   return oss.str();
 }
 
