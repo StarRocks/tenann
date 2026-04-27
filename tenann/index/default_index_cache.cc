@@ -77,6 +77,7 @@ bool DefaultIndexCache::GetOrCreate(const CacheKey& key, const IndexLoader& load
   IndexRef ref = loader();
   if (ref == nullptr) {
     T_LOG(ERROR) << "IndexLoader returned null IndexRef for key " << key.to_string();
+    *handle = IndexCacheHandle();
     return false;
   }
   Insert(key, std::move(ref), handle);

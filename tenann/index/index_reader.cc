@@ -59,6 +59,10 @@ IndexRef IndexReader::ReadIndex(const std::string& path) {
 
 IndexRef IndexReader::ForceReadIndexAndOverwriteCache(const std::string& path, const std::string& cache_key) {
   IndexRef index_ref = ReadIndexFile(path);
+  if (index_ref == nullptr) {
+    cache_handle_ = IndexCacheHandle();
+    return nullptr;
+  }
   index_cache_->Insert(cache_key, index_ref, &cache_handle_);
   return index_ref;
 }

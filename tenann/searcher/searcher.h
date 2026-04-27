@@ -67,8 +67,11 @@ class Searcher {
   };
 
   /// Attach an already-loaded IndexRef without consulting the cache.
-  /// The caller is responsible for keeping `ref` alive (typically via
-  /// an IndexCacheHandle that pins the cache entry). This skips the
+  /// The supplied `ref` is stored in this Searcher (`index_ref_`), so the
+  /// underlying Index object's lifetime is already extended for the duration
+  /// of the Searcher. If the caller also needs the cache entry to remain
+  /// resident (e.g. to keep subsequent lookups by the same key cache-hit),
+  /// it should hold an IndexCacheHandle that pins the entry. This skips the
   /// second cache lookup that `ReadIndex()` would otherwise do.
   ChildSearcher& AttachIndexRef(IndexRef ref) {
     index_ref_ = std::move(ref);

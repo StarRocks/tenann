@@ -52,6 +52,11 @@ class IndexCache {
   //
   // On loader exception, the exception propagates to the caller. The entry is
   // NOT cached. `handle` is unmodified on exception; return value is undefined.
+  //
+  // On loader returning nullptr (load failure), GetOrCreate returns false AND
+  // *handle is reset to an invalid state (handle->valid() returns false).
+  // Callers reusing the same handle must rely on this reset rather than
+  // pre-call state, otherwise they will observe a stale IndexRef.
   [[nodiscard]] virtual bool GetOrCreate(const CacheKey& key, const IndexLoader& loader,
                                          IndexCacheHandle* handle) = 0;
 };
