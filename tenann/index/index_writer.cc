@@ -37,7 +37,8 @@ void IndexWriter::WriteIndex(IndexRef index, const std::string& path, bool memor
   if (index_writer_options_.write_index_cache) {
     T_CHECK(index_cache_ != nullptr)
         << "IndexCache not injected. "
-        << "BE must call tenann::SetGlobalIndexCache() at init.";
+        << "Call tenann::SetGlobalIndexCache() during process initialization "
+        << "before constructing writers/builders.";
     const std::string& cache_key = !index_writer_options_.custom_cache_key.empty() ? index_writer_options_.custom_cache_key : path;
     IndexCacheHandle handle;
     index_cache_->Insert(cache_key, index, &handle);

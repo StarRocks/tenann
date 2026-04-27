@@ -249,7 +249,8 @@ size_t BlockCacheInvertedLists::list_size(size_t list_no) const { return lists[l
 const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   T_CHECK(index_cache != nullptr)
       << "IndexCache not injected. "
-      << "BE must call tenann::SetGlobalIndexCache() at init.";
+      << "Call tenann::SetGlobalIndexCache() during process initialization "
+      << "before constructing readers/searchers.";
   T_CHECK(list_no < nlist);
   {
     std::lock_guard<std::mutex> guard(invlist_locks[list_no]);

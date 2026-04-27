@@ -41,7 +41,8 @@ IndexRef IndexReader::ReadIndex(const std::string& path) {
                               : path;
   T_CHECK(index_cache_ != nullptr)
       << "IndexCache not injected. "
-      << "BE must call tenann::SetGlobalIndexCache() at init.";
+      << "Call tenann::SetGlobalIndexCache() during process initialization "
+      << "before constructing readers/searchers.";
   if (index_reader_options_.force_read_and_overwrite_cache) {
     return ForceReadIndexAndOverwriteCache(path, cache_key);
   }
