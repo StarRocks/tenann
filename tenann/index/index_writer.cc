@@ -51,7 +51,8 @@ void IndexWriter::WriteIndex(IndexRef index, const std::string& path, bool memor
 }
 
 IndexWriter& IndexWriter::SetIndexCache(IndexCache* cache) {
-  T_CHECK_NOTNULL(cache);
+  // nullptr is allowed: caching is opt-in via index_writer_options_. WriteIndex
+  // T_CHECKs at use-time when write_index_cache is enabled.
   index_cache_ = cache;
   return *this;
 }

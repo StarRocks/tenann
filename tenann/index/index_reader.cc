@@ -46,8 +46,10 @@ IndexRef IndexReader::ReadIndex(const std::string& path) {
   if (index_reader_options_.force_read_and_overwrite_cache) {
     return ForceReadIndexAndOverwriteCache(path, cache_key);
   }
-  // GetOrCreate dedups concurrent cold misses: only one caller runs
-  // ReadIndexFile and does the Insert; others wait on the per-key lock.
+  // GetOrCreate may or may not deduplicate concurrent cold misses depending
+  // on the IndexCache implementation (SR's cache single-flights; the default
+  // does not). Either way, the loader returns a valid IndexRef and Insert
+  // makes it visible — duplicate loads waste I/O but stay correct.
   (void)index_cache_->GetOrCreate(
       cache_key,
       [this, &path]() -> IndexRef { return ReadIndexFile(path); },
@@ -62,7 +64,8 @@ IndexRef IndexReader::ForceReadIndexAndOverwriteCache(const std::string& path, c
 }
 
 IndexReader& IndexReader::SetIndexCache(IndexCache* cache) {
-  T_CHECK_NOTNULL(cache);
+  // nullptr is allowed: caching is opt-in via index_reader_options_. ReadIndex
+  // T_CHECKs at use-time when cache_index_file is enabled.
   index_cache_ = cache;
   return *this;
 }

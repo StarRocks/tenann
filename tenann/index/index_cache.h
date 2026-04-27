@@ -42,15 +42,16 @@ class IndexCache {
   // Insert ref. Implementation calls ref->EstimateMemoryUsage() to determine charge.
   virtual void Insert(const CacheKey& key, IndexRef ref, IndexCacheHandle* handle) = 0;
 
-  // Atomic get-or-create. Concurrent callers for the same key run loader at most
-  // once. Returns true if fast-path hit (cache had the entry or a concurrent
-  // caller finished loading before this caller acquired the per-key lock);
-  // returns false if this caller ran loader itself.
+  // Lookup-or-load. Returns true if the cache already had the entry; returns
+  // false if this caller ran loader and inserted the result.
   //
-  // On loader exception, the exception propagates to the caller currently
-  // executing loader. The entry is NOT cached. Other callers blocked on the
-  // per-key lock will retry and re-run loader. `handle` is unmodified on
-  // exception; return value is undefined.
+  // Single-flight (deduplicating concurrent cold misses on the same key) is
+  // OPTIONAL — implementations MAY provide it for stronger guarantees, but
+  // callers must not rely on it. DefaultIndexCache does not single-flight;
+  // SR's VectorIndexCache does.
+  //
+  // On loader exception, the exception propagates to the caller. The entry is
+  // NOT cached. `handle` is unmodified on exception; return value is undefined.
   [[nodiscard]] virtual bool GetOrCreate(const CacheKey& key, const IndexLoader& loader,
                                          IndexCacheHandle* handle) = 0;
 };
