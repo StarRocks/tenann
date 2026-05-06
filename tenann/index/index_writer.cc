@@ -35,7 +35,10 @@ const IndexMeta& IndexWriter::index_meta() const { return index_meta_; }
 
 void IndexWriter::WriteIndex(IndexRef index, const std::string& path, bool memory_only) {
   if (index_writer_options_.write_index_cache) {
-    T_LOG_IF(ERROR, index_cache_ == nullptr) << "index cache not set";
+    T_CHECK(index_cache_ != nullptr)
+        << "IndexCache not injected. "
+        << "Call tenann::SetGlobalIndexCache() during process initialization "
+        << "before constructing writers/builders.";
     const std::string& cache_key = !index_writer_options_.custom_cache_key.empty() ? index_writer_options_.custom_cache_key : path;
     IndexCacheHandle handle;
     index_cache_->Insert(cache_key, index, &handle);
@@ -48,7 +51,8 @@ void IndexWriter::WriteIndex(IndexRef index, const std::string& path, bool memor
 }
 
 IndexWriter& IndexWriter::SetIndexCache(IndexCache* cache) {
-  T_CHECK_NOTNULL(cache);
+  // nullptr is allowed: caching is opt-in via index_writer_options_. WriteIndex
+  // T_CHECKs at use-time when write_index_cache is enabled.
   index_cache_ = cache;
   return *this;
 }

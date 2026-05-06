@@ -22,13 +22,14 @@
 
 #include "index_builder.h"
 #include "tenann/common/logging.h"
+#include "tenann/index/index_cache.h"
 #include "tenann/util/runtime_profile_macros.h"
 
 namespace tenann {
 
 IndexBuilder::IndexBuilder(const IndexMeta& meta) : index_meta_(meta) {
   index_writer_ = IndexFactory::CreateWriterFromMeta(meta);
-  index_writer_->SetIndexCache(IndexCache::GetGlobalInstance());
+  index_writer_->SetIndexCache(GetGlobalIndexCache());
 }
 
 IndexBuilder::~IndexBuilder() {}

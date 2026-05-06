@@ -19,6 +19,8 @@
 
 #include "test/faiss_test_base.h"
 
+#include "tenann/index/default_index_cache.h"
+
 #include "faiss_test_base.h"
 
 namespace tenann {
@@ -239,7 +241,8 @@ void FaissTestBase::MultiAddCreateAndWriteFaissIvfPqIndex() {
 void FaissTestBase::ReadIndexAndDefaultSearch(size_t limit_cache_capacity) {
   ann_searcher_ = AnnSearcherFactory::CreateSearcherFromMeta(meta_);
   if (limit_cache_capacity) {
-    ann_searcher_->index_reader()->index_cache()->SetCapacity(limit_cache_capacity);
+    // SetCapacity lives on DefaultIndexCache, not the IndexCache interface.
+    DefaultIndexCache::GetGlobalInstance()->SetCapacity(limit_cache_capacity);
   }
 
   // load index from disk file

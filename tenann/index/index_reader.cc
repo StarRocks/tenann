@@ -33,32 +33,43 @@ IndexReader::~IndexReader() = default;
 const IndexMeta& IndexReader::index_meta() const { return index_meta_; }
 
 IndexRef IndexReader::ReadIndex(const std::string& path) {
-  if (index_reader_options_.cache_index_file) {
-    auto cache_key = !index_reader_options_.custom_cache_key.empty() ? index_reader_options_.custom_cache_key : path;
-    T_LOG_IF(ERROR, index_cache_ == nullptr) << "index cache not set";
-    if (index_reader_options_.force_read_and_overwrite_cache) {
-      return ForceReadIndexAndOverwriteCache(path, cache_key);
-    } else {
-      auto found = index_cache_->Lookup(cache_key, &cache_handle_);
-      if (found) {
-        return cache_handle_.index_ref();
-      } else {
-        return ForceReadIndexAndOverwriteCache(path, cache_key);
-      }
-    }
-  } else {
+  if (!index_reader_options_.cache_index_file) {
     return ReadIndexFile(path);
   }
+  const auto& cache_key = !index_reader_options_.custom_cache_key.empty()
+                              ? index_reader_options_.custom_cache_key
+                              : path;
+  T_CHECK(index_cache_ != nullptr)
+      << "IndexCache not injected. "
+      << "Call tenann::SetGlobalIndexCache() during process initialization "
+      << "before constructing readers/searchers.";
+  if (index_reader_options_.force_read_and_overwrite_cache) {
+    return ForceReadIndexAndOverwriteCache(path, cache_key);
+  }
+  // GetOrCreate may or may not deduplicate concurrent cold misses depending
+  // on the IndexCache implementation (SR's cache single-flights; the default
+  // does not). Either way, the loader returns a valid IndexRef and Insert
+  // makes it visible — duplicate loads waste I/O but stay correct.
+  (void)index_cache_->GetOrCreate(
+      cache_key,
+      [this, &path]() -> IndexRef { return ReadIndexFile(path); },
+      &cache_handle_);
+  return cache_handle_.index_ref();
 }
 
 IndexRef IndexReader::ForceReadIndexAndOverwriteCache(const std::string& path, const std::string& cache_key) {
   IndexRef index_ref = ReadIndexFile(path);
+  if (index_ref == nullptr) {
+    cache_handle_ = IndexCacheHandle();
+    return nullptr;
+  }
   index_cache_->Insert(cache_key, index_ref, &cache_handle_);
   return index_ref;
 }
 
 IndexReader& IndexReader::SetIndexCache(IndexCache* cache) {
-  T_CHECK_NOTNULL(cache);
+  // nullptr is allowed: caching is opt-in via index_reader_options_. ReadIndex
+  // T_CHECKs at use-time when cache_index_file is enabled.
   index_cache_ = cache;
   return *this;
 }

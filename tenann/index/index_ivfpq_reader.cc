@@ -247,15 +247,17 @@ BlockCacheInvertedLists::~BlockCacheInvertedLists() {
 size_t BlockCacheInvertedLists::list_size(size_t list_no) const { return lists[list_no].size; }
 
 const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
+  T_CHECK(index_cache != nullptr)
+      << "IndexCache not injected. "
+      << "Call tenann::SetGlobalIndexCache() during process initialization "
+      << "before constructing readers/searchers.";
   T_CHECK(list_no < nlist);
   {
     std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
     tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
     auto found = index_cache->Lookup(cache_keys[list_no], cache_handle);
     if (found) {
-      VLOG(VERBOSE_DEBUG) << "   hit cache, cache_key: " << cache_keys[list_no].c_str()
-                          << ", hit_rate: "
-                          << index_cache->hit_count() * 1.0 / index_cache->lookup_count();
+      VLOG(VERBOSE_DEBUG) << "   hit cache, cache_key: " << cache_keys[list_no].c_str();
       auto start_ptr = static_cast<uint8_t*>(cache_handle->index_ref()->index_raw());
       return start_ptr + offset_difference[list_no];
     }
@@ -311,18 +313,16 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   }
 
   auto index_ref = std::make_shared<tenann::Index>(
-      buffer, tenann::IndexType::kFaissIvfPqOneInvertedList, [](void* index) {
-        free(index);
-      });
+      buffer, tenann::IndexType::kFaissIvfPqOneInvertedList,
+      [](void* index) { free(index); },
+      /*explicit_bytes=*/static_cast<size_t>(read_bytes));
 
   {
     std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
     tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
-    index_cache->Insert(cache_keys[list_no], index_ref, cache_handle,
-                        [read_bytes]() { return read_bytes; });
+    index_cache->Insert(cache_keys[list_no], index_ref, cache_handle);
 
-    VLOG(VERBOSE_DEBUG) << "insert cache, cache_key: " << cache_keys[list_no].c_str()
-                        << ", usage: " << index_cache->memory_usage();
+    VLOG(VERBOSE_DEBUG) << "insert cache, cache_key: " << cache_keys[list_no].c_str();
   }
 
   return static_cast<uint8_t*>(buffer) + offset_difference[list_no];
