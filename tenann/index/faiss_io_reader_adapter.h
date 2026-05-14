@@ -56,13 +56,13 @@ class FaissIOReaderAdapter : public faiss::IOReader {
   size_t bytes_read() const { return bytes_read_; }
 
   /// Returns cumulative I/O time in nanoseconds.
-  int64_t io_time_ns() const { return io_time_ns_; }
+  uint64_t io_time_ns() const { return io_time_ns_; }
 
   IndexFileReaderPtr reader_;
 
  private:
   size_t bytes_read_;
-  int64_t io_time_ns_;
+  uint64_t io_time_ns_;
 };
 
 }  // namespace tenann

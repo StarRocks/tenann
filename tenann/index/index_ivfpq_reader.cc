@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 
@@ -514,8 +515,11 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
       }
 
       total_sw.stop();
-      read_timing_stats_.init_index_ns += precompute_ns;
-      read_timing_stats_.read_file_ns += total_sw.elapsed_time() - precompute_ns;
+      {
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        read_timing_stats_.init_index_ns += precompute_ns;
+        read_timing_stats_.read_file_ns += std::max<int64_t>(0, total_ns - precompute_ns);
+      }
 
       return std::make_shared<Index>(index_ivfpq.release(),   //
                                      IndexType::kFaissIvfPq,  //
@@ -547,8 +551,11 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
       index_pt->index = index_ivfpq.release();
 
       total_sw.stop();
-      read_timing_stats_.init_index_ns += precompute_ns;
-      read_timing_stats_.read_file_ns += total_sw.elapsed_time() - precompute_ns;
+      {
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        read_timing_stats_.init_index_ns += precompute_ns;
+        read_timing_stats_.read_file_ns += std::max<int64_t>(0, total_ns - precompute_ns);
+      }
 
       return std::make_shared<Index>(
           index_pt.release(),      //
@@ -558,7 +565,7 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
       T_LOG(INFO) << "Unknow index to tenann::reader. using faiss::reader";
 
       total_sw.stop();
-      read_timing_stats_.read_file_ns += total_sw.elapsed_time();
+      read_timing_stats_.read_file_ns += static_cast<int64_t>(total_sw.elapsed_time());
 
       return std::make_shared<Index>(faiss::read_index(f, IO_FLAG),  //
                                      IndexType::kFaissIvfPq,         //
@@ -600,9 +607,15 @@ IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
       }
 
       total_sw.stop();
-      // I/O time from adapter captures actual remote read time
-      read_timing_stats_.read_file_ns += reader.io_time_ns();
-      read_timing_stats_.init_index_ns += total_sw.elapsed_time() - reader.io_time_ns();
+      {
+        // I/O time from adapter captures actual remote read time.
+        // Subtract in signed int64_t and clamp at 0: per-call stopwatch overhead
+        // can push io_time_ns slightly above total_sw.elapsed_time().
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        const int64_t io_ns = static_cast<int64_t>(reader.io_time_ns());
+        read_timing_stats_.read_file_ns += io_ns;
+        read_timing_stats_.init_index_ns += std::max<int64_t>(0, total_ns - io_ns);
+      }
 
       return std::make_shared<Index>(index_ivfpq.release(),   //
                                      IndexType::kFaissIvfPq,  //
@@ -631,8 +644,12 @@ IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
       index_pt->index = index_ivfpq.release();
 
       total_sw.stop();
-      read_timing_stats_.read_file_ns += reader.io_time_ns();
-      read_timing_stats_.init_index_ns += total_sw.elapsed_time() - reader.io_time_ns();
+      {
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        const int64_t io_ns = static_cast<int64_t>(reader.io_time_ns());
+        read_timing_stats_.read_file_ns += io_ns;
+        read_timing_stats_.init_index_ns += std::max<int64_t>(0, total_ns - io_ns);
+      }
 
       return std::make_shared<Index>(
           index_pt.release(),      //
@@ -642,8 +659,12 @@ IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
       T_LOG(INFO) << "Unknow index to tenann::reader. using faiss::reader";
 
       total_sw.stop();
-      read_timing_stats_.read_file_ns += reader.io_time_ns();
-      read_timing_stats_.init_index_ns += total_sw.elapsed_time() - reader.io_time_ns();
+      {
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        const int64_t io_ns = static_cast<int64_t>(reader.io_time_ns());
+        read_timing_stats_.read_file_ns += io_ns;
+        read_timing_stats_.init_index_ns += std::max<int64_t>(0, total_ns - io_ns);
+      }
 
       return std::make_shared<Index>(faiss::read_index(f, IO_FLAG),  //
                                      IndexType::kFaissIvfPq,         //
