@@ -24,7 +24,6 @@
 #include <iostream>
 #include <random>
 
-#include "tenann/index/default_index_cache.h"
 #include "tenann/index/parameters.h"
 #include "test/faiss_test_base.h"
 
@@ -256,10 +255,10 @@ TEST_F(FaissIvfPqAnnSearcherTest, AnnSearch_Check_IndexIvfPq_BlockCache_IsWork) 
   printf("IVFPQ index creation time: %d ms\n", duration.count());
 
   {
-    std::string before_cache_status = DefaultIndexCache::GetGlobalInstance()->status().dump();
+    std::string before_cache_status = IndexCache::GetGlobalInstance()->status().dump();
     ReadIndexAndDefaultSearch(500 * 1024);  // limit 500KB
     EXPECT_TRUE(RecallCheckResult_80Percent());
-    T_LOG(INFO) << "before: " << before_cache_status << "\nafter: "<< DefaultIndexCache::GetGlobalInstance()->status().dump();
+    T_LOG(INFO) << "before: " << before_cache_status << "\nafter: "<< IndexCache::GetGlobalInstance()->status().dump();
   }
 
   {

@@ -31,8 +31,7 @@ namespace tenann {
 class Index {
  public:
   Index(void* index_raw, IndexType index_type,
-        const std::function<void(void* index)>& deleter,
-        size_t explicit_bytes = 0) noexcept;
+        const std::function<void(void* index)>& deleter) noexcept;
 
   ~Index() noexcept;
 
@@ -55,12 +54,9 @@ class Index {
    *
    * @return size_t
    *
-   * @note If an explicit byte count was supplied at construction time
-   *       (e.g. for IVF-PQ per-list block entries where the caller knows
-   *       the malloc'd buffer size), that value is returned directly.
-   *       Otherwise falls back to the type-based heuristic.
+   * @note Currently this function always return 1.
    *
-   * @TODO(petri): finalize type-based heuristic
+   * @TODO(petri): implement it
    */
   size_t EstimateMemoryUsage();
 
@@ -68,7 +64,6 @@ class Index {
   void* index_raw_;
   IndexType index_type_;
   std::function<void(void* index_raw)> deleter_;
-  size_t explicit_bytes_ = 0;
 };
 
 using IndexRef = std::shared_ptr<Index>;

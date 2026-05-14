@@ -20,7 +20,7 @@
 #include <iostream>
 
 #include "tenann/common/logging.h"
-#include "tenann/index/default_index_cache.h"
+#include "tenann/index/index_cache.h"
 
 using namespace tenann;
 
@@ -48,7 +48,7 @@ void ReadWriteExample() {
 
   // write index to cache
   IndexCacheHandle write_handle;
-  auto* cache = DefaultIndexCache::GetGlobalInstance();
+  auto* cache = IndexCache::GetGlobalInstance();
   cache->Insert("index1", index_ref, &write_handle);
 
   // read index from cache
@@ -72,7 +72,7 @@ void ReadWriteExample() {
 }
 
 void EvictExample() {
-  auto cache = DefaultIndexCache::GetGlobalInstance();
+  auto cache = IndexCache::GetGlobalInstance();
   cache->SetCapacity(2);
 
   auto index1 = CreateIndex("index1");
