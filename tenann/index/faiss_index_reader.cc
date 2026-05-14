@@ -24,6 +24,7 @@
 #include "faiss/index_io.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/faiss_io_reader_adapter.h"
+#include "tenann/util/stop_watch.h"
 
 namespace tenann {
 
@@ -33,14 +34,23 @@ IndexRef FaissIndexReader::ReadIndexFile(const std::string& path) {
   try {
     faiss::Index* raw_index = nullptr;
 
+    MonotonicStopWatch total_sw;
+    total_sw.start();
     if (file_reader_) {
       // Use external file reader (for remote file systems).
       // Cannot use MMAP with remote FS, use IO_FLAG_READ_ONLY instead.
       FaissIOReaderAdapter io_reader(file_reader_);
       raw_index = faiss::read_index(&io_reader, faiss::IO_FLAG_READ_ONLY);
+      total_sw.stop();
+      // io_reader tracks cumulative I/O time inside Read() calls
+      read_timing_stats_.read_file_ns += io_reader.io_time_ns();
+      read_timing_stats_.init_index_ns += total_sw.elapsed_time() - io_reader.io_time_ns();
     } else {
       // Local file path: use MMAP for best performance.
+      // MMAP makes disk I/O lazy (page faults), so we report total time as read_file_ns.
       raw_index = faiss::read_index(path.c_str(), faiss::IO_FLAG_MMAP);
+      total_sw.stop();
+      read_timing_stats_.read_file_ns += total_sw.elapsed_time();
     }
 
     return std::make_shared<Index>(raw_index,  //
