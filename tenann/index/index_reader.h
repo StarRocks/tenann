@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 
 #include "tenann/common/json.h"
@@ -28,6 +29,12 @@
 #include "tenann/store/index_file_reader.h"
 
 namespace tenann {
+
+struct IndexReadTimingStats {
+  int64_t cache_lookup_ns = 0;
+  int64_t read_file_ns = 0;
+  int64_t init_index_ns = 0;
+};
 
 class IndexReader {
  public:
@@ -53,6 +60,7 @@ class IndexReader {
   IndexCache* index_cache();
   const IndexCache* index_cache() const;
   IndexFileReaderPtr file_reader() const;
+  const IndexReadTimingStats& read_timing_stats() const { return read_timing_stats_; }
 
  protected:
   /// @brief index meta
@@ -69,6 +77,8 @@ class IndexReader {
   IndexCacheHandle cache_handle_;
   /// @brief optional external file reader for remote file systems
   IndexFileReaderPtr file_reader_;
+  /// @brief timing stats for the last ReadIndex call
+  IndexReadTimingStats read_timing_stats_;
 
   IndexRef ForceReadIndexAndOverwriteCache(const std::string& path, const std::string& cache_key);
 };

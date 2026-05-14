@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 
@@ -42,6 +43,7 @@
 #include "tenann/index/faiss_io_reader_adapter.h"
 #include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/util/defer.h"
+#include "tenann/util/stop_watch.h"
 
 namespace faiss {
 
@@ -189,7 +191,8 @@ static void read_ProductQuantizer(ProductQuantizer* pq, IOReader* f) {
 
 static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags,
                        bool cache_index_block, tenann::IndexCache* index_cache,
-                       tenann::IndexFileReaderPtr file_reader = nullptr) {
+                       tenann::IndexFileReaderPtr file_reader = nullptr,
+                       int64_t* precompute_table_ns = nullptr) {
   bool legacy = h == fourcc("IvQR") || h == fourcc("IvPQ");
 
   std::vector<std::vector<idx_t>> ids;
@@ -211,7 +214,13 @@ static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags,
     ivpq->use_precomputed_table = 0;
     if (ivpq->by_residual) {
       if ((io_flags & IO_FLAG_SKIP_PRECOMPUTE_TABLE) == 0) {
+        tenann::MonotonicStopWatch sw;
+        sw.start();
         ivpq->precompute_table();
+        sw.stop();
+        if (precompute_table_ns) {
+          *precompute_table_ns = sw.elapsed_time();
+        }
       }
     }
   }
@@ -461,6 +470,9 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
   }
 
   // ---- Local file system path: original fopen logic ----
+  MonotonicStopWatch total_sw;
+  total_sw.start();
+
   auto file = fopen(path.c_str(), "rb");
   Defer defer([file]() {
     if (file != nullptr) fclose(file);
@@ -477,6 +489,8 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
     // the name `f` is needed for faiss IO macros
     auto* f = &reader;
 
+    int64_t precompute_ns = 0;
+
     // read header
     uint32_t h;
     READ1(h);
@@ -488,7 +502,7 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
       // read faiss IndexIVFPQ
       VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
       faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block,
-                        index_cache());
+                        index_cache(), nullptr, &precompute_ns);
       /* read custom fields */
       // read range_search_confidence
       READ1(index_ivfpq->range_search_confidence);
@@ -498,6 +512,13 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
       index_ivfpq->reconstruction_errors.resize(num_invlists);
       for (size_t i = 0; i < num_invlists; i++) {
         READVECTOR(index_ivfpq->reconstruction_errors[i]);
+      }
+
+      total_sw.stop();
+      {
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        read_timing_stats_.init_index_ns += precompute_ns;
+        read_timing_stats_.read_file_ns += std::max<int64_t>(0, total_ns - precompute_ns);
       }
 
       return std::make_shared<Index>(index_ivfpq.release(),   //
@@ -516,7 +537,7 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
       READ1(h);
       VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
       faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block,
-                        index_cache());
+                        index_cache(), nullptr, &precompute_ns);
       /* read custom fields */
       // read range_search_confidence
       READ1(index_ivfpq->range_search_confidence);
@@ -528,12 +549,24 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
         READVECTOR(index_ivfpq->reconstruction_errors[i]);
       }
       index_pt->index = index_ivfpq.release();
+
+      total_sw.stop();
+      {
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        read_timing_stats_.init_index_ns += precompute_ns;
+        read_timing_stats_.read_file_ns += std::max<int64_t>(0, total_ns - precompute_ns);
+      }
+
       return std::make_shared<Index>(
           index_pt.release(),      //
           IndexType::kFaissIvfPq,  //
           [](void* index) { delete static_cast<faiss::IndexPreTransform*>(index); });
     } else {
       T_LOG(INFO) << "Unknow index to tenann::reader. using faiss::reader";
+
+      total_sw.stop();
+      read_timing_stats_.read_file_ns += static_cast<int64_t>(total_sw.elapsed_time());
+
       return std::make_shared<Index>(faiss::read_index(f, IO_FLAG),  //
                                      IndexType::kFaissIvfPq,         //
                                      [](void* index) { delete static_cast<faiss::Index*>(index); });
@@ -546,9 +579,14 @@ IndexRef IndexIvfPqReader::ReadIndexFile(const std::string& path) {
 }
 
 IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
+  MonotonicStopWatch total_sw;
+  total_sw.start();
+
   try {
     FaissIOReaderAdapter reader(file_reader_);
     auto* f = &reader;
+
+    int64_t precompute_ns = 0;
 
     uint32_t h;
     READ1(h);
@@ -559,7 +597,7 @@ IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
       auto index_ivfpq = std::make_unique<IndexIvfPq>();
       VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
       faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block,
-                        index_cache(), file_reader_);
+                        index_cache(), file_reader_, &precompute_ns);
       READ1(index_ivfpq->range_search_confidence);
       size_t num_invlists;
       READ1(num_invlists);
@@ -567,6 +605,18 @@ IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
       for (size_t i = 0; i < num_invlists; i++) {
         READVECTOR(index_ivfpq->reconstruction_errors[i]);
       }
+
+      total_sw.stop();
+      {
+        // I/O time from adapter captures actual remote read time.
+        // Subtract in signed int64_t and clamp at 0: per-call stopwatch overhead
+        // can push io_time_ns slightly above total_sw.elapsed_time().
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        const int64_t io_ns = static_cast<int64_t>(reader.io_time_ns());
+        read_timing_stats_.read_file_ns += io_ns;
+        read_timing_stats_.init_index_ns += std::max<int64_t>(0, total_ns - io_ns);
+      }
+
       return std::make_shared<Index>(index_ivfpq.release(),   //
                                      IndexType::kFaissIvfPq,  //
                                      [](void* index) { delete static_cast<faiss::Index*>(index); });
@@ -583,7 +633,7 @@ IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
       READ1(h);
       VLOG(VERBOSE_DEBUG) << "cache_index_block: " << index_reader_options_.cache_index_block;
       faiss::read_ivfpq(index_ivfpq.get(), f, h, IO_FLAG, index_reader_options_.cache_index_block,
-                        index_cache(), file_reader_);
+                        index_cache(), file_reader_, &precompute_ns);
       READ1(index_ivfpq->range_search_confidence);
       size_t num_invlists;
       READ1(num_invlists);
@@ -592,12 +642,30 @@ IndexRef IndexIvfPqReader::ReadIndexFileFromReader(const std::string& path) {
         READVECTOR(index_ivfpq->reconstruction_errors[i]);
       }
       index_pt->index = index_ivfpq.release();
+
+      total_sw.stop();
+      {
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        const int64_t io_ns = static_cast<int64_t>(reader.io_time_ns());
+        read_timing_stats_.read_file_ns += io_ns;
+        read_timing_stats_.init_index_ns += std::max<int64_t>(0, total_ns - io_ns);
+      }
+
       return std::make_shared<Index>(
           index_pt.release(),      //
           IndexType::kFaissIvfPq,  //
           [](void* index) { delete static_cast<faiss::IndexPreTransform*>(index); });
     } else {
       T_LOG(INFO) << "Unknow index to tenann::reader. using faiss::reader";
+
+      total_sw.stop();
+      {
+        const int64_t total_ns = static_cast<int64_t>(total_sw.elapsed_time());
+        const int64_t io_ns = static_cast<int64_t>(reader.io_time_ns());
+        read_timing_stats_.read_file_ns += io_ns;
+        read_timing_stats_.init_index_ns += std::max<int64_t>(0, total_ns - io_ns);
+      }
+
       return std::make_shared<Index>(faiss::read_index(f, IO_FLAG),  //
                                      IndexType::kFaissIvfPq,         //
                                      [](void* index) { delete static_cast<faiss::Index*>(index); });
