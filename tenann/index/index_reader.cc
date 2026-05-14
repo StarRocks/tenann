@@ -19,8 +19,6 @@
 
 #include "tenann/index/index_reader.h"
 #include "tenann/index/parameter_serde.h"
-#include "tenann/util/runtime_profile.h"
-#include "tenann/util/stop_watch.h"
 
 #include "index_reader.h"
 
@@ -35,7 +33,6 @@ IndexReader::~IndexReader() = default;
 const IndexMeta& IndexReader::index_meta() const { return index_meta_; }
 
 IndexRef IndexReader::ReadIndex(const std::string& path) {
-  read_timing_stats_ = {};
   if (!index_reader_options_.cache_index_file) {
     return ReadIndexFile(path);
   }
@@ -53,16 +50,10 @@ IndexRef IndexReader::ReadIndex(const std::string& path) {
   // on the IndexCache implementation (SR's cache single-flights; the default
   // does not). Either way, the loader returns a valid IndexRef and Insert
   // makes it visible — duplicate loads waste I/O but stay correct.
-  //
-  // cache_lookup_ns covers the whole GetOrCreate window, so on a miss it
-  // also includes the loader's read_file_ns / init_index_ns phases.
-  {
-    ScopedRawTimer<MonotonicStopWatch> timer(&read_timing_stats_.cache_lookup_ns);
-    (void)index_cache_->GetOrCreate(
-        cache_key,
-        [this, &path]() -> IndexRef { return ReadIndexFile(path); },
-        &cache_handle_);
-  }
+  (void)index_cache_->GetOrCreate(
+      cache_key,
+      [this, &path]() -> IndexRef { return ReadIndexFile(path); },
+      &cache_handle_);
   return cache_handle_.index_ref();
 }
 
