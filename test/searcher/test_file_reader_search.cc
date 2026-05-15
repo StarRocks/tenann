@@ -22,7 +22,6 @@
 #include <string>
 
 #include "tenann/factory/ann_searcher_factory.h"
-#include "tenann/index/default_index_cache.h"
 #include "tenann/index/parameters.h"
 #include "tenann/store/index_file_reader.h"
 #include "test/faiss_test_base.h"
@@ -187,8 +186,7 @@ TEST_F(FaissIvfPqFileReaderSearchTest, ReadIndex_ViaFileReader_BlockCache) {
       std::make_shared<TestLocalIndexFileReader>(index_with_primary_key_path());
 
   auto ann_searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta_);
-  // SetCapacity lives on DefaultIndexCache, not the IndexCache interface.
-  DefaultIndexCache::GetGlobalInstance()->SetCapacity(500 * 1024);  // limit 500 KiB
+  ann_searcher->index_reader()->index_cache()->SetCapacity(500 * 1024);  // limit 500KB
   ann_searcher->ReadIndex(file_reader);
 
   EXPECT_TRUE(ann_searcher->is_index_loaded());

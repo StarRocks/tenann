@@ -36,12 +36,8 @@ Index::~Index() noexcept {
 
 Index::Index(Index&& rhs) noexcept { std::swap(*this, rhs); }
 
-Index::Index(void* index, IndexType index_type, const std::function<void(void*)>& deleter,
-             size_t explicit_bytes) noexcept
-    : index_raw_(index),
-      index_type_(index_type),
-      deleter_(deleter),
-      explicit_bytes_(explicit_bytes) {}
+Index::Index(void* index, IndexType index_type, const std::function<void(void*)>& deleter) noexcept
+    : index_raw_(index), index_type_(index_type), deleter_(deleter) {}
 
 Index& Index::operator=(Index&& rhs) noexcept {
   std::swap(*this, rhs);
@@ -58,13 +54,6 @@ IndexType Index::index_type() const { return index_type_; }
 
 // @TODO(petri): implement it with a seperate class
 size_t Index::EstimateMemoryUsage() {
-  // Caller-supplied byte count (e.g. IVF-PQ per-list block buffer).
-  // When set, it reflects the actual malloc'd size and is the source
-  // of truth for cache-charge accounting.
-  if (explicit_bytes_ > 0) {
-    return explicit_bytes_;
-  }
-
   size_t mem_usage = 0;
   // IndexType::kFaissHnsw
   if (index_type_ == IndexType::kFaissHnsw) {

@@ -18,13 +18,10 @@
  */
 
 #include "gtest/gtest.h"
-#include "tenann/index/default_index_cache.h"
-#include "tenann/index/index_cache.h"
 #include "tenann/util/threads.h"
 
 int main(int argc, char* argv[]) {
   tenann::OmpSetNumThreads(8);
-  tenann::SetGlobalIndexCache(tenann::DefaultIndexCache::GetGlobalInstance());
   ::testing::InitGoogleTest(&argc, argv);
   auto ret = RUN_ALL_TESTS();
   return ret;

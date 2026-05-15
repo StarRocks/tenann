@@ -24,7 +24,6 @@
 
 #include "faiss/impl/io.h"
 #include "tenann/store/index_file_reader.h"
-#include "tenann/util/stop_watch.h"
 
 namespace tenann {
 
@@ -32,8 +31,7 @@ namespace tenann {
 /// IndexFileReader, allowing FAISS to read from remote file systems.
 class FaissIOReaderAdapter : public faiss::IOReader {
  public:
-  explicit FaissIOReaderAdapter(IndexFileReaderPtr reader)
-      : reader_(std::move(reader)), bytes_read_(0), io_time_ns_(0) {
+  explicit FaissIOReaderAdapter(IndexFileReaderPtr reader) : reader_(std::move(reader)), bytes_read_(0) {
     name = reader_->filename();
   }
 
@@ -41,11 +39,7 @@ class FaissIOReaderAdapter : public faiss::IOReader {
   /// Semantics match fread(): returns number of complete items read.
   size_t operator()(void* ptr, size_t size, size_t nitems) override {
     int64_t total = static_cast<int64_t>(size) * static_cast<int64_t>(nitems);
-    MonotonicStopWatch sw;
-    sw.start();
     int64_t n = reader_->Read(ptr, total);
-    sw.stop();
-    io_time_ns_ += sw.elapsed_time();
     if (n <= 0) return 0;
     bytes_read_ += static_cast<size_t>(n);
     return static_cast<size_t>(n) / size;
@@ -55,14 +49,10 @@ class FaissIOReaderAdapter : public faiss::IOReader {
   /// Used to determine the file offset at which inverted lists data starts.
   size_t bytes_read() const { return bytes_read_; }
 
-  /// Returns cumulative I/O time in nanoseconds.
-  uint64_t io_time_ns() const { return io_time_ns_; }
-
   IndexFileReaderPtr reader_;
 
  private:
   size_t bytes_read_;
-  uint64_t io_time_ns_;
 };
 
 }  // namespace tenann

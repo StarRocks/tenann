@@ -19,73 +19,98 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
 
 #include "tenann/common/macros.h"
 #include "tenann/index/index.h"
-#include "tenann/store/lru_cache.h"  // CacheKey
+#include "tenann/store/lru_cache.h"
 
 namespace tenann {
 
 class IndexCacheHandle;
 
+/**
+ * @brief  Wrapper around Cache, and used for cache indexes.
+ *
+ * The actual memory of indexes are hold by the underlying index raw pointers.
+ * This class caches these pointers and trigger the deletion action when a cache entry is evicted.
+ */
 class IndexCache {
  public:
-  using IndexLoader = std::function<IndexRef()>;
+  explicit IndexCache(size_t capacity);
+  ~IndexCache();
 
-  virtual ~IndexCache() = default;
+  static IndexCache* GetGlobalInstance();
 
-  // Lookup a key. On hit, fills handle with a pinned reference. Returns true on hit.
-  [[nodiscard]] virtual bool Lookup(const CacheKey& key, IndexCacheHandle* handle) = 0;
+  /**
+   * @brief Lookup an index in the cache by CacheKey.
+   *
+   * If the index is found, the cache entry will be written into [[handle]].
+   *
+   * @param key cache key
+   * @param handle handle to write
+   * @return true if index found
+   * @return false if index not found
+   */
+  bool Lookup(const CacheKey& key, IndexCacheHandle* handle);
 
-  // Insert ref. Implementation calls ref->EstimateMemoryUsage() to determine charge.
-  virtual void Insert(const CacheKey& key, IndexRef ref, IndexCacheHandle* handle) = 0;
+  /**
+   * @brief Insert an index with key into this cache.
+   *
+   *
+   * Given handle will be set to valid reference.
+   * This function is thread-safe, and when two clients insert two same key
+   * concurrently, this function can assure that only one value is cached.
+   *
+   * @param key cache key
+   * @param index index to cache
+   * @param handle will be set to a valid reference to the cache entry
+   */
+  void Insert(const CacheKey& key, IndexRef index, IndexCacheHandle* handle,
+              const std::function<size_t()>& estimate_memory_usage = nullptr);
 
-  // Lookup-or-load. Returns true if the cache already had the entry; returns
-  // false if this caller ran loader and inserted the result.
-  //
-  // Single-flight (deduplicating concurrent cold misses on the same key) is
-  // OPTIONAL — implementations MAY provide it for stronger guarantees, but
-  // callers must not rely on it. DefaultIndexCache does not single-flight;
-  // SR's VectorIndexCache does.
-  //
-  // On loader exception, the exception propagates to the caller. The entry is
-  // NOT cached. `handle` is unmodified on exception; return value is undefined.
-  //
-  // On loader returning nullptr (load failure), GetOrCreate returns false AND
-  // *handle is reset to an invalid state (handle->valid() returns false).
-  // Callers reusing the same handle must rely on this reset rather than
-  // pre-call state, otherwise they will observe a stale IndexRef.
-  [[nodiscard]] virtual bool GetOrCreate(const CacheKey& key, const IndexLoader& loader,
-                                         IndexCacheHandle* handle) = 0;
-};
+  void SetCapacity(size_t capacity);
 
-// Lifetime: IndexCacheHandle must be destroyed before the IndexCache
-// it was obtained from. The releaser_ destructor may call back into the cache
-// (e.g. SR's VectorIndexCache calls Cache::release), which would be a
-// use-after-free if the cache is gone.
-class IndexCacheHandle {
- public:
-  IndexCacheHandle() = default;
-  IndexCacheHandle(IndexRef ref, std::shared_ptr<void> releaser)
-      : ref_(std::move(ref)), releaser_(std::move(releaser)) {}
+  bool AdjustCapacity(int64_t delta, size_t min_capacity = 0);
 
-  T_FORBID_COPY_AND_ASSIGN(IndexCacheHandle);
+  json status() const;
 
-  IndexCacheHandle(IndexCacheHandle&&) noexcept = default;
-  IndexCacheHandle& operator=(IndexCacheHandle&&) noexcept = default;
+  size_t memory_usage() const;
 
-  IndexRef index_ref() const { return ref_; }
-  bool valid() const { return ref_ != nullptr; }
+  size_t capacity();
+
+  uint64_t lookup_count();
+
+  uint64_t hit_count();
 
  private:
-  IndexRef ref_;
-  std::shared_ptr<void> releaser_;  // destructor triggers the impl's Release hook
+  std::unique_ptr<Cache> cache_ = nullptr;
 };
 
-// Global injection point. Last writer wins; intended to be called once during
-// process init before any reader/searcher construction.
-void SetGlobalIndexCache(IndexCache* cache);
-IndexCache* GetGlobalIndexCache();
+/**
+ * @brief A handle for index cache entry.
+ *
+ * This class make it easy to handle cache entry.
+ * Users don't need to release the obtained cache entry.
+ * This class will release the cache entry when it is destroyed.
+ */
+class IndexCacheHandle {
+ public:
+  IndexCacheHandle();
+  IndexCacheHandle(Cache* cache, Cache::Handle* handle);
+  ~IndexCacheHandle();
+  T_FORBID_COPY_AND_ASSIGN(IndexCacheHandle);
+
+  IndexCacheHandle(IndexCacheHandle&& other) noexcept;
+  IndexCacheHandle& operator=(IndexCacheHandle&& other) noexcept;
+
+  uint32_t cache_entry_ref_count();
+  Cache* cache() const;
+  IndexRef index_ref() const;
+
+ private:
+  Cache* cache_ = nullptr;
+  Cache::Handle* handle_ = nullptr;
+};
+
 }  // namespace tenann

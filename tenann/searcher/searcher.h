@@ -22,7 +22,6 @@
 #include <cassert>
 
 #include "tenann/common/macros.h"
-#include "tenann/index/index_cache.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/store/index_file_reader.h"
 #include "tenann/store/index_meta.h"
@@ -40,7 +39,7 @@ class Searcher {
  public:
   explicit Searcher(const IndexMeta& meta) : index_meta_(meta) {
     index_reader_ = IndexFactory::CreateReaderFromMeta(meta);
-    index_reader_->SetIndexCache(GetGlobalIndexCache());
+    index_reader_->SetIndexCache(IndexCache::GetGlobalInstance());
   }
   virtual ~Searcher() = default;
 
@@ -60,21 +59,6 @@ class Searcher {
   ChildSearcher& ReadIndex(IndexFileReaderPtr file_reader) {
     index_reader_->SetFileReader(file_reader);
     index_ref_ = index_reader_->ReadIndex(file_reader->filename());
-    is_index_loaded_ = true;
-
-    OnIndexLoaded();
-    return static_cast<ChildSearcher&>(*this);
-  };
-
-  /// Attach an already-loaded IndexRef without consulting the cache.
-  /// The supplied `ref` is stored in this Searcher (`index_ref_`), so the
-  /// underlying Index object's lifetime is already extended for the duration
-  /// of the Searcher. If the caller also needs the cache entry to remain
-  /// resident (e.g. to keep subsequent lookups by the same key cache-hit),
-  /// it should hold an IndexCacheHandle that pins the entry. This skips the
-  /// second cache lookup that `ReadIndex()` would otherwise do.
-  ChildSearcher& AttachIndexRef(IndexRef ref) {
-    index_ref_ = std::move(ref);
     is_index_loaded_ = true;
 
     OnIndexLoaded();
