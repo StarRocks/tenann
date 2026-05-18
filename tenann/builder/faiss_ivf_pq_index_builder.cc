@@ -55,8 +55,13 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
 
     // use bruteforce coarse quantizer by default
     auto quantizer = std::make_unique<faiss::IndexFlat>(common_params_.dim, metric_type);
+    // Pass common_params_.dim (not quantizer->d) as the dim argument. Reading
+    // quantizer->d in the same call expression as quantizer.release() is
+    // unsequenced ([basic.exec]/10) and undefined behavior: if release() is
+    // evaluated first the unique_ptr's stored pointer becomes nullptr, making
+    // quantizer->d a nullptr dereference at offset 8 (faiss::Index::d).
     auto index_ivfpq =
-        std::make_unique<IndexIvfPq>(quantizer.release(), quantizer->d, index_params_.nlist,
+        std::make_unique<IndexIvfPq>(quantizer.release(), common_params_.dim, index_params_.nlist,
                                      index_params_.M, index_params_.nbits, metric_type);
     index_ivfpq->own_fields = true;
 
