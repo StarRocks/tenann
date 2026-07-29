@@ -20,9 +20,11 @@
 #include "tenann/index/index.h"
 
 #include "faiss/Index.h"
+#include "faiss/IndexFlatCodes.h"
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
 #include "faiss/IndexIVFPQ.h"
+#include "faiss/IndexPQ.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/internal/faiss_index_util.h"
 
@@ -100,8 +102,23 @@ size_t Index::EstimateMemoryUsage() {
                  hnsw.levels.capacity() * sizeof(int) + hnsw.offsets.capacity() * sizeof(size_t) +
                  hnsw.neighbors.size() * sizeof(faiss::HNSW::storage_idx_t);
 
-    // vectors
-    mem_usage += index_hnsw->storage->ntotal * index_hnsw->storage->d * sizeof(float);
+    // vectors: charge the storage index' real code size. It is fp32 only for a flat
+    // storage; the quantized HNSW variants keep compressed codes (SQ8: 1 byte per
+    // dimension, SQ4: 0.5, PQ: m_pq bytes per vector), and charging fp32 for those
+    // inflates the cache charge 4x to 32x.
+    const auto* storage = index_hnsw->storage;
+    size_t code_size = static_cast<size_t>(storage->d) * sizeof(float);
+    if (const auto* flat_codes = dynamic_cast<const faiss::IndexFlatCodes*>(storage)) {
+      code_size = flat_codes->code_size;
+    }
+    mem_usage += static_cast<size_t>(storage->ntotal) * code_size;
+
+    // The PQ codebook is shared by all vectors, so it is not covered by the per-vector
+    // code size above. It is fixed-size (2^nbits * dim floats), which makes it the
+    // dominant term for a small segment at high dim.
+    if (const auto* pq_storage = dynamic_cast<const faiss::IndexPQ*>(storage)) {
+      mem_usage += pq_storage->pq.centroids.capacity() * sizeof(float);
+    }
 
     return mem_usage;
   }
