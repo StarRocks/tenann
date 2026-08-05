@@ -39,7 +39,8 @@ class IndexFileReader {
   virtual int64_t Read(void* data, int64_t count) = 0;
 
   /// Random read: read up to |count| bytes starting at |offset|.
-  /// The current position is not affected.
+  /// The current position is not affected. Concurrent calls to ReadAt must be
+  /// safe and must not interfere with each other's offsets.
   /// Returns the number of bytes actually read, or -1 on error.
   virtual int64_t ReadAt(int64_t offset, void* data, int64_t count) = 0;
 

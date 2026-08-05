@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 
 #include "faiss/Index.h"
 #include "faiss/IndexIVFPQR.h"
@@ -255,21 +256,35 @@ BlockCacheInvertedLists::~BlockCacheInvertedLists() {
 
 size_t BlockCacheInvertedLists::list_size(size_t list_no) const { return lists[list_no].size; }
 
+size_t BlockCacheInvertedLists::EstimateMemoryUsage() const {
+  size_t mem_usage = sizeof(*this);
+  mem_usage += lists.capacity() * sizeof(List);
+  mem_usage += cache_keys.capacity() * sizeof(std::string);
+  for (const auto& cache_key : cache_keys) {
+    mem_usage += cache_key.capacity();
+  }
+  mem_usage += offset_difference.capacity() * sizeof(size_t);
+  mem_usage += cache_handles.capacity() * sizeof(tenann::IndexCacheHandle);
+  mem_usage += invlist_locks.capacity() * sizeof(std::mutex);
+  mem_usage += filename.capacity();
+  return mem_usage;
+}
+
 const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   T_CHECK(index_cache != nullptr)
       << "IndexCache not injected. "
       << "Call tenann::SetGlobalIndexCache() during process initialization "
       << "before constructing readers/searchers.";
   T_CHECK(list_no < nlist);
-  {
-    std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
-    tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
-    auto found = index_cache->Lookup(cache_keys[list_no], cache_handle);
-    if (found) {
-      VLOG(VERBOSE_DEBUG) << "   hit cache, cache_key: " << cache_keys[list_no].c_str();
-      auto start_ptr = static_cast<uint8_t*>(cache_handle->index_ref()->index_raw());
-      return start_ptr + offset_difference[list_no];
-    }
+  // Keep lookup, load, and insert in one per-list critical section. IndexCache
+  // implementations are not required to single-flight concurrent misses.
+  std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
+  tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
+  auto found = index_cache->Lookup(cache_keys[list_no], cache_handle);
+  if (found) {
+    VLOG(VERBOSE_DEBUG) << "   hit cache, cache_key: " << cache_keys[list_no].c_str();
+    auto start_ptr = static_cast<uint8_t*>(cache_handle->index_ref()->index_raw());
+    return start_ptr + offset_difference[list_no];
   }
 
   // read file and insert
@@ -279,15 +294,17 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   size_t size = lists[list_no].size * one_entry_size;
 
   ssize_t read_bytes = 0;
-  void* buffer = nullptr;
+  size_t allocated_bytes = 0;
+  std::unique_ptr<void, decltype(&free)> buffer(nullptr, &free);
 
   if (file_reader) {
     // ---- Remote file system path: use IndexFileReader::ReadAt ----
     // No O_DIRECT / alignment needed for remote FS.
-    buffer = malloc(size);
+    buffer.reset(malloc(size));
     FAISS_THROW_IF_NOT_FMT(buffer != nullptr, "malloc(%zu) failed", size);
+    allocated_bytes = size;
 
-    read_bytes = file_reader->ReadAt(offset, buffer, size);
+    read_bytes = file_reader->ReadAt(offset, buffer.get(), size);
     FAISS_THROW_IF_NOT_FMT(read_bytes == static_cast<ssize_t>(size),
                            "ReadAt: read_bytes: %zd, expected: %zu", read_bytes, size);
 
@@ -302,39 +319,35 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
     // Adjust the size to read to include the data from the aligned offset
     size_t aligned_size =
         ((offset_difference[list_no] + size + block_size - 1) / block_size) * block_size;
+    allocated_bytes = aligned_size;
 
     // Allocate aligned memory
-    int err = posix_memalign(&buffer, block_size, aligned_size);
+    void* aligned_buffer = nullptr;
+    int err = posix_memalign(&aligned_buffer, block_size, aligned_size);
     FAISS_THROW_IF_NOT_FMT(err == 0, "posix_memalign error: %d", err);
-
-    // Seek to the aligned offset
-    off_t seek_result = lseek(fd, aligned_offset, SEEK_SET);
-    FAISS_THROW_IF_NOT_FMT(seek_result != -1, "lseek to aligned_offset %zu failed: %s",
-                           aligned_offset, strerror(errno));
+    buffer.reset(aligned_buffer);
 
     size_t remaining_size = totsize - aligned_offset;
     size_t expected_read_size = std::min(remaining_size, aligned_size);
-    // Perform the read operation
-    read_bytes = read(fd, buffer, aligned_size);
+    do {
+      read_bytes = pread(fd, buffer.get(), aligned_size, aligned_offset);
+    } while (read_bytes == -1 && errno == EINTR);
     FAISS_THROW_IF_NOT_FMT(read_bytes == expected_read_size,
-                           "read_bytes: %zd, expected_read_size: %zu", read_bytes,
-                           expected_read_size);
+                           "pread: read_bytes: %zd, expected_read_size: %zu, error: %s", read_bytes,
+                           expected_read_size, strerror(errno));
   }
 
   auto index_ref = std::make_shared<tenann::Index>(
-      buffer, tenann::IndexType::kFaissIvfPqOneInvertedList,
-      [](void* index) { free(index); },
-      /*explicit_bytes=*/static_cast<size_t>(read_bytes));
+      buffer.get(), tenann::IndexType::kFaissIvfPqOneInvertedList, [](void* index) { free(index); },
+      /*explicit_bytes=*/allocated_bytes);
+  buffer.release();
 
-  {
-    std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
-    tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
-    index_cache->Insert(cache_keys[list_no], index_ref, cache_handle);
+  index_cache->Insert(cache_keys[list_no], index_ref, cache_handle);
 
-    VLOG(VERBOSE_DEBUG) << "insert cache, cache_key: " << cache_keys[list_no].c_str();
-  }
+  VLOG(VERBOSE_DEBUG) << "insert cache, cache_key: " << cache_keys[list_no].c_str();
 
-  return static_cast<uint8_t*>(buffer) + offset_difference[list_no];
+  auto start_ptr = static_cast<uint8_t*>(cache_handle->index_ref()->index_raw());
+  return start_ptr + offset_difference[list_no];
 }
 
 const uint8_t* BlockCacheInvertedLists::get_codes(size_t list_no) const {
