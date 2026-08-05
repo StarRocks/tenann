@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstring>
@@ -186,9 +187,13 @@ TEST(IndexIvfPqTest, block_cache_single_flights_same_list_miss) {
 TEST(IndexIvfPqTest, block_cache_keeps_different_remote_list_reads_concurrent) {
   constexpr int kThreads = 4;
   constexpr size_t kListSize = 64;
+  std::string payload(kThreads * kListSize, '\0');
+  for (int i = 0; i < kThreads; ++i) {
+    std::fill_n(payload.begin() + i * kListSize, kListSize, static_cast<char>('a' + i));
+  }
+
   tenann::DefaultIndexCache cache(1024 * 1024);
-  auto reader = std::make_shared<ConcurrentIndexFileReader>(std::string(kThreads * kListSize, 'b'),
-                                                            std::chrono::milliseconds(50));
+  auto reader = std::make_shared<ConcurrentIndexFileReader>(payload, std::chrono::milliseconds(50));
   faiss::BlockCacheInvertedLists lists(kThreads, 1, "remote-index", &cache);
   lists.file_reader = reader;
   lists.one_entry_size = 1;
@@ -200,6 +205,7 @@ TEST(IndexIvfPqTest, block_cache_keeps_different_remote_list_reads_concurrent) {
 
   std::atomic<int> ready{0};
   std::atomic<bool> start{false};
+  std::vector<int> content_matches(kThreads);
   std::vector<std::thread> threads;
   for (int i = 0; i < kThreads; ++i) {
     threads.emplace_back([&, i] {
@@ -207,12 +213,64 @@ TEST(IndexIvfPqTest, block_cache_keeps_different_remote_list_reads_concurrent) {
       while (!start.load(std::memory_order_acquire)) {
         std::this_thread::yield();
       }
-      EXPECT_EQ(lists.get_ptr(i)[0], 'b');
+      const uint8_t* data = lists.get_ptr(i);
+      content_matches[i] = memcmp(data, payload.data() + i * kListSize, kListSize) == 0;
     });
   }
   WaitAndStartThreads(&threads, &ready, &start, kThreads);
 
+  EXPECT_EQ(reader->read_count(), kThreads);
   EXPECT_GT(reader->max_active_reads(), 1);
+  for (int content_match : content_matches) {
+    EXPECT_TRUE(content_match);
+  }
+}
+
+TEST(IndexIvfPqTest, block_cache_reads_different_local_lists_by_position) {
+  constexpr int kThreads = 8;
+  constexpr size_t kListSize = 4096;
+  char path[] = "/tmp/tenann-block-cache-concurrent-XXXXXX";
+  int fd = mkstemp(path);
+  ASSERT_NE(fd, -1);
+  unlink(path);
+
+  std::string payload(kThreads * kListSize, '\0');
+  for (int i = 0; i < kThreads; ++i) {
+    std::fill_n(payload.begin() + i * kListSize, kListSize, static_cast<char>('a' + i));
+  }
+  ASSERT_EQ(pwrite(fd, payload.data(), payload.size(), 0), static_cast<ssize_t>(payload.size()));
+
+  tenann::DefaultIndexCache cache(2 * payload.size());
+  faiss::BlockCacheInvertedLists lists(kThreads, 1, path, &cache);
+  lists.fd = fd;
+  lists.block_size = kListSize;
+  lists.totsize = payload.size();
+  lists.one_entry_size = 1;
+  for (int i = 0; i < kThreads; ++i) {
+    lists.lists[i].offset = i * kListSize;
+    lists.lists[i].size = kListSize;
+    lists.cache_keys[i] = "local-list-" + std::to_string(i);
+  }
+
+  std::atomic<int> ready{0};
+  std::atomic<bool> start{false};
+  std::vector<int> content_matches(kThreads);
+  std::vector<std::thread> threads;
+  for (int i = 0; i < kThreads; ++i) {
+    threads.emplace_back([&, i] {
+      ready.fetch_add(1, std::memory_order_release);
+      while (!start.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      const uint8_t* data = lists.get_ptr(i);
+      content_matches[i] = memcmp(data, payload.data() + i * kListSize, kListSize) == 0;
+    });
+  }
+  WaitAndStartThreads(&threads, &ready, &start, kThreads);
+
+  for (int content_match : content_matches) {
+    EXPECT_TRUE(content_match);
+  }
 }
 
 TEST(IndexIvfPqTest, block_cache_releases_remote_buffer_after_read_failure) {
