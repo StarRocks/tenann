@@ -26,6 +26,7 @@
 #include "faiss/IndexIVFPQ.h"
 #include "faiss/IndexPQ.h"
 #include "tenann/common/logging.h"
+#include "tenann/index/index_ivfpq_reader.h"
 #include "tenann/index/internal/faiss_index_util.h"
 
 namespace tenann {
@@ -146,7 +147,7 @@ size_t Index::EstimateMemoryUsage() {
     // IndexIvfPq
     mem_usage += sizeof(*index_ivf_pq);
     // IndexIvfPq.reconstruction_errors
-    for (auto reconstruction_error : index_ivf_pq->reconstruction_errors) {
+    for (const auto& reconstruction_error : index_ivf_pq->reconstruction_errors) {
       mem_usage += sizeof(reconstruction_error);
       mem_usage += reconstruction_error.capacity() * sizeof(float);
     }
@@ -158,9 +159,14 @@ size_t Index::EstimateMemoryUsage() {
 
     // IndexIVF.InvertedLists
     if (index_ivf_pq->invlists != nullptr) {
-      mem_usage += sizeof(*index_ivf_pq->invlists);
-      mem_usage += index_ivf_pq->invlists->compute_ntotal() *
-                   (index_ivf_pq->code_size + sizeof(faiss::idx_t));
+      if (const auto* block_cache_invlists =
+              dynamic_cast<const faiss::BlockCacheInvertedLists*>(index_ivf_pq->invlists)) {
+        mem_usage += block_cache_invlists->EstimateMemoryUsage();
+      } else {
+        mem_usage += sizeof(*index_ivf_pq->invlists);
+        mem_usage += index_ivf_pq->invlists->compute_ntotal() *
+                     (index_ivf_pq->code_size + sizeof(faiss::idx_t));
+      }
     }
 
     // IndexIVF.DirectMap

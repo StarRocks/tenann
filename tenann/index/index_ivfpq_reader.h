@@ -65,6 +65,9 @@ struct BlockCacheInvertedLists : InvertedLists {
                           tenann::IndexCache* index_cache);
 
   size_t list_size(size_t list_no) const override;
+  /// Estimate resident metadata only. Per-list buffers are owned and charged
+  /// by their individual cache entries.
+  size_t EstimateMemoryUsage() const;
   const uint8_t* get_ptr(size_t list_no) const;
   const uint8_t* get_codes(size_t list_no) const override;
   const idx_t* get_ids(size_t list_no) const override;
