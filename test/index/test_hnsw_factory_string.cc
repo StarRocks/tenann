@@ -17,13 +17,17 @@
  * under the License.
  */
 
+#include <limits>
 #include <memory>
 
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/IndexPQ.h"
+#include "faiss/IndexPreTransform.h"
 #include "faiss/index_factory.h"
 #include "gtest/gtest.h"
 #include "tenann/index/internal/faiss_index_util.h"
+#include "tenann/index/internal/metric_util.h"
 #include "tenann/index/parameters.h"
 #include "tenann/store/index_type.h"
 
@@ -91,13 +95,13 @@ TEST(HnswFactoryStringTest, PqDefaultNbits) {
   auto common = MakeCommon();
   // m_pq=8, nbits_pq=8 (default) -> nbits suffix omitted
   auto params = MakeParams(ScalarQuantizerType::kPQ, /*M=*/16, /*m_pq=*/8, /*nbits_pq=*/8);
-  EXPECT_EQ(faiss_util::GetHnswRepr(common, params), "HNSW16,PQ8");
+  EXPECT_EQ(faiss_util::GetHnswRepr(common, params), "HNSW16,PQ8np");
 }
 
 TEST(HnswFactoryStringTest, PqExplicitNbits) {
   auto common = MakeCommon();
   auto params = MakeParams(ScalarQuantizerType::kPQ, /*M=*/16, /*m_pq=*/16, /*nbits_pq=*/6);
-  EXPECT_EQ(faiss_util::GetHnswRepr(common, params), "HNSW16,PQ16x6");
+  EXPECT_EQ(faiss_util::GetHnswRepr(common, params), "HNSW16,PQ16x6np");
 }
 
 // ---------- faiss::index_factory round-trip ----------
@@ -143,20 +147,21 @@ TEST(HnswFactoryStringTest, FaissFactoryBuildsHnswPq) {
   auto common = MakeCommon(MetricType::kL2Distance, /*dim=*/64);
   auto params = MakeParams(ScalarQuantizerType::kPQ, /*M=*/16, /*m_pq=*/8, /*nbits_pq=*/8);
   auto repr = faiss_util::GetHnswRepr(common, params);
-  EXPECT_EQ(repr, "HNSW16,PQ8");
+  EXPECT_EQ(repr, "HNSW16,PQ8np");
 
   std::unique_ptr<faiss::Index> idx(
       faiss::index_factory(common.dim, repr.c_str(), faiss::METRIC_L2));
   ASSERT_NE(idx, nullptr);
   auto* hnsw = dynamic_cast<faiss::IndexHNSWPQ*>(idx.get());
   EXPECT_NE(hnsw, nullptr);
+  EXPECT_FALSE(dynamic_cast<faiss::IndexPQ*>(hnsw->storage)->do_polysemous_training);
 }
 
 TEST(HnswFactoryStringTest, FaissFactoryBuildsHnswPqCustomNbits) {
   auto common = MakeCommon(MetricType::kL2Distance, /*dim=*/64);
   auto params = MakeParams(ScalarQuantizerType::kPQ, /*M=*/16, /*m_pq=*/8, /*nbits_pq=*/6);
   auto repr = faiss_util::GetHnswRepr(common, params);
-  EXPECT_EQ(repr, "HNSW16,PQ8x6");
+  EXPECT_EQ(repr, "HNSW16,PQ8x6np");
 
   std::unique_ptr<faiss::Index> idx(
       faiss::index_factory(common.dim, repr.c_str(), faiss::METRIC_L2));
@@ -177,6 +182,81 @@ TEST(HnswFactoryStringTest, FaissFactoryBuildsIDMapHnswSq8) {
   auto* id_map = dynamic_cast<faiss::IndexIDMap*>(idx.get());
   ASSERT_NE(id_map, nullptr);
   EXPECT_NE(dynamic_cast<faiss::IndexHNSWSQ*>(id_map->index), nullptr);
+}
+
+// ---------- Logical/physical metric resolution ----------
+
+TEST(VectorMetricResolverTest, ResolvesBuildMetric) {
+  EXPECT_EQ(ResolveBuildMetric(MetricType::kL2Distance, CosineBackend::kInnerProduct),
+            faiss::METRIC_L2);
+  EXPECT_EQ(ResolveBuildMetric(MetricType::kInnerProduct, CosineBackend::kL2),
+            faiss::METRIC_INNER_PRODUCT);
+  EXPECT_EQ(ResolveBuildMetric(MetricType::kCosineSimilarity, CosineBackend::kL2),
+            faiss::METRIC_L2);
+  EXPECT_EQ(ResolveBuildMetric(MetricType::kCosineSimilarity, CosineBackend::kInnerProduct),
+            faiss::METRIC_INNER_PRODUCT);
+}
+
+TEST(VectorMetricResolverTest, ValidatesLoadedMetric) {
+  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kL2Distance, faiss::METRIC_L2));
+  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kInnerProduct, faiss::METRIC_INNER_PRODUCT));
+  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kCosineSimilarity, faiss::METRIC_L2));
+  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kCosineSimilarity, faiss::METRIC_INNER_PRODUCT));
+  EXPECT_THROW(ValidateLoadedMetric(MetricType::kL2Distance, faiss::METRIC_INNER_PRODUCT), Error);
+  EXPECT_THROW(ValidateLoadedMetric(MetricType::kInnerProduct, faiss::METRIC_L2), Error);
+}
+
+TEST(VectorMetricResolverTest, RejectsInvalidCosineBackend) {
+  EXPECT_EQ(ParseCosineBackend("l2"), CosineBackend::kL2);
+  EXPECT_EQ(ParseCosineBackend("inner_product"), CosineBackend::kInnerProduct);
+  EXPECT_THROW(ParseCosineBackend("auto"), Error);
+}
+
+TEST(HnswPqMemoryTest, EstimatesSdcWithoutProductPolicy) {
+  EXPECT_EQ(faiss_util::EstimateHnswPqSdcBytes(96, 4), 96u * 16 * 16 * sizeof(float));
+  EXPECT_EQ(faiss_util::EstimateHnswPqSdcBytes(96, 8), 96u * 256 * 256 * sizeof(float));
+  EXPECT_EQ(faiss_util::EstimateHnswPqSdcBytes(96, 12), 6442450944ULL);
+  EXPECT_EQ(faiss_util::EstimateHnswPqSdcBytes(96, 16), 1649267441664ULL);
+  EXPECT_THROW(faiss_util::EstimateHnswPqSdcBytes(
+                   2, static_cast<int>(std::numeric_limits<size_t>::digits - 1)),
+               Error);
+}
+
+// The normalizing pre-transform is emitted for cosine regardless of which metric backs it: the
+// inner product form still needs unit-norm vectors for the dot product to BE the cosine.
+TEST(HnswCosineMetricTest, QuantizedCosineStillNormalizes) {
+  auto common = MakeCommon(MetricType::kCosineSimilarity);
+  EXPECT_EQ(faiss_util::GetHnswRepr(common, MakeParams(ScalarQuantizerType::kSQ8)),
+            "L2Norm,HNSW16,SQ8");
+}
+
+// End to end through faiss: the factory string a quantized cosine index produces, combined with
+// METRIC_INNER_PRODUCT, must yield a normalizing pre-transform wrapping an IP-scored HNSW+SQ.
+TEST(HnswCosineMetricTest, FaissBuildsNormalizedIpBackedCosineIndex) {
+  auto common = MakeCommon(MetricType::kCosineSimilarity, /*dim=*/64);
+  auto params = MakeParams(ScalarQuantizerType::kSQ8, /*M=*/16);
+
+  std::unique_ptr<faiss::Index> idx(faiss::index_factory(
+      common.dim, faiss_util::GetHnswRepr(common, params).c_str(), faiss::METRIC_INNER_PRODUCT));
+  ASSERT_NE(idx, nullptr);
+
+  auto* pre = dynamic_cast<faiss::IndexPreTransform*>(idx.get());
+  ASSERT_NE(pre, nullptr) << "cosine must keep its normalizing pre-transform";
+  auto* hnsw = dynamic_cast<faiss::IndexHNSWSQ*>(pre->index);
+  ASSERT_NE(hnsw, nullptr);
+  EXPECT_EQ(hnsw->metric_type, faiss::METRIC_INNER_PRODUCT);
+  EXPECT_EQ(hnsw->storage->metric_type, faiss::METRIC_INNER_PRODUCT);
+}
+
+TEST(HnswFactoryStringTest, FaissFactoryPropagatesMetricToHnswPq) {
+  auto common = MakeCommon(MetricType::kInnerProduct, /*dim=*/64);
+  auto params = MakeParams(ScalarQuantizerType::kPQ, /*M=*/16, /*m_pq=*/8, /*nbits_pq=*/4);
+  std::unique_ptr<faiss::Index> idx(faiss::index_factory(
+      common.dim, faiss_util::GetHnswRepr(common, params).c_str(), faiss::METRIC_INNER_PRODUCT));
+  auto* hnsw = dynamic_cast<faiss::IndexHNSWPQ*>(idx.get());
+  ASSERT_NE(hnsw, nullptr);
+  EXPECT_EQ(hnsw->metric_type, faiss::METRIC_INNER_PRODUCT);
+  EXPECT_EQ(hnsw->storage->metric_type, faiss::METRIC_INNER_PRODUCT);
 }
 
 }  // namespace tenann

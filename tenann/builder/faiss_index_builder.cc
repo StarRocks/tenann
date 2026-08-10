@@ -31,6 +31,7 @@
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
 #include "tenann/index/internal/faiss_index_util.h"
+#include "tenann/index/internal/metric_util.h"
 #include "tenann/index/parameter_serde.h"
 #include "tenann/util/runtime_profile.h"
 #include "tenann/util/runtime_profile_macros.h"
@@ -40,11 +41,15 @@ namespace tenann {
 FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta) : IndexBuilder(meta) {
   FetchParameters(meta, &common_params_);
   FetchParameters(meta, &extra_params_);
+  FetchParameters(meta, &index_writer_options_);
 
   T_CHECK(common_params_.metric_type == MetricType::kL2Distance ||
           common_params_.metric_type == MetricType::kCosineSimilarity ||
           common_params_.metric_type == MetricType::kInnerProduct)
-      << "only l2_distance and cosine_similarity are supported";
+      << "only l2_distance, cosine_similarity and inner_product are supported";
+
+  physical_metric_ = ResolveBuildMetric(static_cast<MetricType>(common_params_.metric_type),
+                                        ParseCosineBackend(index_writer_options_.cosine_backend));
 }
 
 FaissIndexBuilder::~FaissIndexBuilder(){};

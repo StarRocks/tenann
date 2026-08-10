@@ -18,7 +18,12 @@
  * under the License.
  */
 
+#include <algorithm>
+
+#include "faiss/utils/distances.h"
+#include "tenann/index/internal/metric_util.h"
 #include "tenann/index/parameter_serde.h"
+#include "tenann/util/distance_util.h"
 
 namespace tenann {
 
@@ -39,6 +44,37 @@ void AnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float range, int64_
                               const IdFilter* id_filter) {
   std::vector<float> distanes;
   RangeSearch(query_vector, range, limit, result_order, result_ids, &distanes);
+}
+
+const float* AnnSearcher::PrepareCosineQuery(const float* query, size_t dim,
+                                             std::vector<float>* scratch) const {
+  // is_vector_normed=false means the index carries a normalizing pre-transform, which is applied
+  // to the query as well -- there is nothing left to do here. For any other metric the query's
+  // length is meaningful and must be left alone.
+  if (common_params_.metric_type != MetricType::kCosineSimilarity ||
+      !common_params_.is_vector_normed) {
+    return query;
+  }
+  scratch->assign(query, query + dim);
+  // Same routine faiss' NormalizationTransform uses, including its zero-norm guard.
+  faiss::fvec_renorm_L2(dim, /*nx=*/1, scratch->data());
+  return scratch->data();
+}
+
+void AnnSearcher::FinalizeScores(const int64_t* ids, float* scores, size_t n,
+                                 faiss::MetricType physical_metric) const {
+  if (common_params_.metric_type != MetricType::kCosineSimilarity) {
+    return;
+  }
+  for (size_t i = 0; i < n; ++i) {
+    if (ids != nullptr && ids[i] == -1) {
+      continue;
+    }
+    if (NeedsL2ToCosine(static_cast<MetricType>(common_params_.metric_type), physical_metric)) {
+      scores[i] = 1.0f - scores[i] * 0.5f;
+    }
+    scores[i] = std::clamp(scores[i], -1.0f, 1.0f);
+  }
 }
 
 }  // namespace tenann

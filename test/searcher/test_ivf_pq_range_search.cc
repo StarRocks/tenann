@@ -19,6 +19,7 @@
 
 #include <sys/time.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <iostream>
@@ -92,6 +93,32 @@ TEST_F(IvfPqRangeSearchTest, test_range_search_asending) {
   // check asending order
   for (int i = 0; i < result_distances.size() - 1; i++) {
     EXPECT_LE(result_distances[i], result_distances[i + 1]);
+  }
+}
+
+TEST_F(IvfPqRangeSearchTest, test_range_search_includes_equal_radius) {
+  BuildInMemoryIvfPq();
+  auto searcher = GetAnnSearcher();
+
+  std::vector<int64_t> all_ids;
+  std::vector<float> all_distances;
+  searcher->RangeSearch(query_view()[0], INFINITY, -1, AnnSearcher::ResultOrder::kAscending,
+                        &all_ids, &all_distances);
+  ASSERT_FALSE(all_ids.empty());
+  ASSERT_EQ(all_ids.size(), all_distances.size());
+
+  const size_t boundary_pos = all_ids.size() / 2;
+  const int64_t boundary_id = all_ids[boundary_pos];
+  const float radius = all_distances[boundary_pos];
+
+  std::vector<int64_t> boundary_ids;
+  std::vector<float> boundary_distances;
+  searcher->RangeSearch(query_view()[0], radius, -1, AnnSearcher::ResultOrder::kAscending,
+                        &boundary_ids, &boundary_distances);
+
+  EXPECT_NE(std::find(boundary_ids.begin(), boundary_ids.end(), boundary_id), boundary_ids.end());
+  for (float distance : boundary_distances) {
+    EXPECT_LE(distance, radius);
   }
 }
 

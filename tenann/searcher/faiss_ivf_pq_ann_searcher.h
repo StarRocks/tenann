@@ -48,9 +48,11 @@ class FaissIvfPqAnnSearcher : public AnnSearcher {
  protected:
   void OnSearchParamItemChange(const std::string& key, const json& value) override;
   void OnSearchParamsChange(const json& value) override;
+  void OnIndexLoaded() override;
 
  private:
   FaissIvfPqSearchParams search_params_;
+  faiss::MetricType physical_metric_ = faiss::METRIC_L2;
 };
 
 }  // namespace tenann

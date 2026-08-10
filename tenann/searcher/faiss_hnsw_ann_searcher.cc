@@ -20,14 +20,18 @@
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 
 #include <algorithm>
+#include <vector>
 
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/MetricType.h"
+#include "faiss/impl/DistanceComputer.h"
 #include "faiss/impl/FaissException.h"
 #include "faiss/impl/HNSW.h"
 #include "faiss_hnsw_ann_searcher.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/internal/faiss_index_util.h"
+#include "tenann/index/internal/metric_util.h"
 #include "tenann/index/parameter_serde.h"
 #include "tenann/searcher/internal/id_filter_adapter.h"
 #include "tenann/store/index_meta.h"
@@ -41,10 +45,14 @@ using MinimaxHeap = HNSW::MinimaxHeap;
 using storage_idx_t = HNSW::storage_idx_t;
 
 /** Copied from faiss/IndexHNSW.cpp */
+// HNSW graph traversal assumes "smaller is closer". A similarity metric (inner product)
+// is the other way round, so faiss wraps its distance computer in a NegativeDistanceComputer
+// and flips the sign back once the search is done. Callers that hand a radius to this
+// computer must negate it too, and must negate the distances it produces back before
+// returning them -- see IndexHnswRangeSearch below.
 DistanceComputer* storage_distance_computer(const faiss::Index* storage) {
-  if (storage->metric_type == METRIC_INNER_PRODUCT) {
-    T_LOG(ERROR) << "inner product is not supported now";
-    return nullptr;
+  if (is_similarity_metric(storage->metric_type)) {
+    return new NegativeDistanceComputer(storage->get_distance_computer());
   } else {
     return storage->get_distance_computer();
   }
@@ -166,17 +174,30 @@ void IndexHnswRangeSearch(const IndexHNSW& index, idx_t n, const float* x, float
     return;
   }
 
+  // For a similarity metric (inner product) `radius` is a LOWER bound on the score and the
+  // results come back in descending order; for a distance metric it is an upper bound and
+  // they come back ascending. The two branches below reach that convention differently, so
+  // each has to be adjusted separately.
+  const bool is_similarity = is_similarity_metric(index.storage->metric_type);
+
   VisitedTable vt(index.ntotal);
 
   if (limit > 0) {  // search top-ef nearest neighbors first, then perform post filtering based on
                     // the returned distances
     result_ids->resize(ef);
     result_distances->resize(ef);
+    // index.search() already flips the sign back for a similarity metric, so the values here
+    // are true inner products sorted descending -- keep the prefix that clears the threshold.
     index.search(n, x, ef, result_distances->data(), result_ids->data(), params);
 
     idx_t n = 0;
     for (idx_t i = 0; i < ef; i++) {
-      if ((*result_distances)[i] <= radius) {
+      if ((*result_ids)[i] < 0) {
+        break;
+      }
+      const bool qualifies =
+          is_similarity ? ((*result_distances)[i] >= radius) : ((*result_distances)[i] <= radius);
+      if (qualifies) {
         n += 1;
       } else {
         break;
@@ -203,9 +224,11 @@ void IndexHnswRangeSearch(const IndexHNSW& index, idx_t n, const float* x, float
     MinimaxHeap candidates(ef);
     candidates.push(nearest, d_nearest);
 
+    // `dis` is the NegativeDistanceComputer for a similarity metric, so it yields -ip. The
+    // threshold has to be negated to match: -ip <= -radius is exactly ip >= radius.
     std::priority_queue<HNSW::Node> result_queue;
-    HnswRangeSearchFromCandidates(index.hnsw, dis, radius, &result_queue, candidates, vt, 0,
-                                  params);
+    HnswRangeSearchFromCandidates(index.hnsw, dis, is_similarity ? -radius : radius, &result_queue,
+                                  candidates, vt, 0, params);
     result_ids->resize(result_queue.size());
     result_distances->resize(result_queue.size());
 
@@ -213,7 +236,10 @@ void IndexHnswRangeSearch(const IndexHNSW& index, idx_t n, const float* x, float
     while (!result_queue.empty()) {
       auto [d, id] = result_queue.top();
       result_queue.pop();
-      (*result_distances)[i] = d;
+      // Flip the sign back so this branch reports true inner products, matching both the
+      // limit>0 branch above and faiss' own IndexHNSW::range_search. Skipping this leaves the
+      // ordering intact while every reported score comes out negated -- a silent failure.
+      (*result_distances)[i] = is_similarity ? -d : d;
       (*result_ids)[i] = id;
       i -= 1;
     }
@@ -264,7 +290,9 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int64_t k, i
                         << faiss_search_parameters.check_relative_distance;
 
     // transform the query vector first if a pre-transform is set
-    const float* x = reinterpret_cast<const float*>(query_vector.data);
+    std::vector<float> query_scratch;
+    const float* x = PrepareCosineQuery(reinterpret_cast<const float*>(query_vector.data),
+                                        query_vector.size, &query_scratch);
     if (faiss_transform_ != nullptr) {
       const float* xt = reinterpret_cast<const faiss::IndexPreTransform*>(faiss_transform_)
                             ->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
@@ -288,10 +316,7 @@ void FaissHnswAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int64_t k, i
       }
     }
 
-    if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-      auto distances = reinterpret_cast<float*>(result_distances);
-      L2DistanceToCosineSimilarity(distances, distances, k);
-    }
+    FinalizeScores(result_ids, reinterpret_cast<float*>(result_distances), k, physical_metric_);
   }
   CATCH_FAISS_ERROR
 }
@@ -305,20 +330,28 @@ void FaissHnswAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float rang
 
     T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissHnsw);
     T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
-    T_CHECK_NE(common_params_.metric_type, MetricType::kInnerProduct)
-        << "Range search is currently not supported for inner product metric.";
-
     float radius = range;
     if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-      radius = CosineSimilarityThresholdToL2Distance(range);
+      // An L2-backed cosine index compares against L2 distances, so the user-facing cosine
+      // threshold has to be translated into the equivalent L2 bound. An inner-product-backed one
+      // compares against cosine similarities directly and needs no translation -- and must not get
+      // one, since the translation also inverts the direction of the bound.
+      if (NeedsL2ToCosine(static_cast<MetricType>(common_params_.metric_type), physical_metric_)) {
+        radius = CosineSimilarityThresholdToL2Distance(range);
+      }
       T_CHECK(result_order == ResultOrder::kDescending)
           << "only descending order is allowed for range search results based on cosine similarity";
+    } else if (common_params_.metric_type == MetricType::kInnerProduct) {
+      // Inner product is computed natively, so the threshold needs no translation: it is used
+      // directly as a lower bound on the score. Being a similarity, results run descending.
+      T_CHECK(result_order == ResultOrder::kDescending)
+          << "only descending order is allowed for range search results based on inner product";
     } else if (common_params_.metric_type == MetricType::kL2Distance) {
       T_CHECK(result_order == ResultOrder::kAscending)
           << "only ascending order is allowed for range search with l2 distance";
     } else {
       T_LOG(ERROR) << "using unsupported distance metric, hnsw range search only supports l2 "
-                      "distance and cosine similarity";
+                      "distance, cosine similarity and inner product";
     }
 
     faiss::SearchParametersHNSW faiss_search_parameters;
@@ -343,7 +376,9 @@ void FaissHnswAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float rang
     }
 
     // Transform the query vector first if a pre-transform is set
-    const float* x = reinterpret_cast<const float*>(query_vector.data);
+    std::vector<float> query_scratch;
+    const float* x = PrepareCosineQuery(reinterpret_cast<const float*>(query_vector.data),
+                                        query_vector.size, &query_scratch);
     if (faiss_transform_ != nullptr) {
       const float* xt = reinterpret_cast<const faiss::IndexPreTransform*>(faiss_transform_)
                             ->apply_chain(ANN_SEARCHER_QUERY_COUNT, x);
@@ -368,10 +403,8 @@ void FaissHnswAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float rang
       }
     }
 
-    if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-      auto distances = reinterpret_cast<float*>(result_distances->data());
-      L2DistanceToCosineSimilarity(distances, distances, result_distances->size());
-    }
+    FinalizeScores(result_ids->data(), result_distances->data(), result_distances->size(),
+                   physical_metric_);
   }
   CATCH_FAISS_ERROR
 }
@@ -404,6 +437,11 @@ void FaissHnswAnnSearcher::OnIndexLoaded() {
   faiss_id_map_ = id_map;
   faiss_transform_ = transform;
   faiss_hnsw_ = hnsw;
+  T_CHECK_NOTNULL(hnsw->storage);
+  T_CHECK_EQ(hnsw->metric_type, hnsw->storage->metric_type)
+      << "HNSW metric does not match its storage metric";
+  physical_metric_ = hnsw->storage->metric_type;
+  ValidateLoadedMetric(static_cast<MetricType>(common_params_.metric_type), physical_metric_);
 }
 
 }  // namespace tenann

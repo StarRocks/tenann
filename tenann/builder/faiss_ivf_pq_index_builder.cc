@@ -47,14 +47,8 @@ FaissIvfPqIndexBuilder::~FaissIvfPqIndexBuilder() = default;
 
 IndexRef FaissIvfPqIndexBuilder::InitIndex() {
   try {
-    // create faiss index
-    auto metric_type = faiss::METRIC_L2;
-    if (common_params_.metric_type == MetricType::kInnerProduct) {
-      metric_type = faiss::METRIC_INNER_PRODUCT;
-    }
-
     // use bruteforce coarse quantizer by default
-    auto quantizer = std::make_unique<faiss::IndexFlat>(common_params_.dim, metric_type);
+    auto quantizer = std::make_unique<faiss::IndexFlat>(common_params_.dim, physical_metric_);
     // Pass common_params_.dim (not quantizer->d) as the dim argument. Reading
     // quantizer->d in the same call expression as quantizer.release() is
     // unsequenced ([basic.exec]/10) and undefined behavior: if release() is
@@ -62,7 +56,7 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
     // quantizer->d a nullptr dereference at offset 8 (faiss::Index::d).
     auto index_ivfpq =
         std::make_unique<IndexIvfPq>(quantizer.release(), common_params_.dim, index_params_.nlist,
-                                     index_params_.M, index_params_.nbits, metric_type);
+                                     index_params_.M, index_params_.nbits, physical_metric_);
     index_ivfpq->own_fields = true;
 
     // default search params
@@ -74,7 +68,7 @@ IndexRef FaissIvfPqIndexBuilder::InitIndex() {
     // Based on this function: fix_ivf_fields(IndexIVF* index_ivf)
     // Extract the key steps.
     index_ivfpq->quantizer_trains_alone = 0;
-    index_ivfpq->cp.spherical = metric_type == faiss::METRIC_INNER_PRODUCT;
+    index_ivfpq->cp.spherical = physical_metric_ == faiss::METRIC_INNER_PRODUCT;
 
     VLOG(VERBOSE_DEBUG) << "nlist: " << index_ivfpq->invlists->nlist << ", M: " << index_ivfpq->pq.M
                         << ", nbits: " << index_ivfpq->pq.nbits;

@@ -22,6 +22,8 @@
 #include <limits.h>
 #include <stddef.h>
 
+#include <string>
+
 #include "tenann/common/error.h"
 #include "tenann/common/logging.h"
 
@@ -135,8 +137,12 @@ struct FaissHnswSearchParams {
 struct IndexWriterOptions {
   DEFINE_OPTIONAL_PARAM(bool, write_index_cache, false);
   std::string custom_cache_key = "";
+  std::string cosine_backend = "l2";
 
-  void Validate() {}
+  void Validate() {
+    T_CHECK(cosine_backend == "l2" || cosine_backend == "inner_product")
+        << "cosine_backend must be l2 or inner_product";
+  }
 };
 
 struct IndexReaderOptions {

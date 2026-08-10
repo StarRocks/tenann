@@ -19,6 +19,7 @@
 
 #include "tenann/builder/faiss_hnsw_index_builder.h"
 
+#include <limits>
 #include <sstream>
 
 #include "faiss/IndexHNSW.h"
@@ -45,11 +46,6 @@ FaissHnswIndexBuilder::FaissHnswIndexBuilder(const IndexMeta& meta)
           q == static_cast<int>(ScalarQuantizerType::kPQ))
       << "invalid HNSW quantizer value: " << q;
 
-  if (q != static_cast<int>(ScalarQuantizerType::kFlat)) {
-    T_CHECK_EQ(common_params_.metric_type, MetricType::kL2Distance)
-        << "HNSW quantized variants (SQ/PQ) currently only support L2 metric";
-  }
-
   if (q == static_cast<int>(ScalarQuantizerType::kPQ)) {
     T_CHECK_GE(index_params_.nbits_pq, 4);
     T_CHECK_LE(index_params_.nbits_pq, 16);
@@ -57,6 +53,7 @@ FaissHnswIndexBuilder::FaissHnswIndexBuilder(const IndexMeta& meta)
     T_CHECK_EQ(common_params_.dim % index_params_.m_pq, 0)
         << "HNSW+PQ requires dim (" << common_params_.dim
         << ") to be divisible by m_pq (" << index_params_.m_pq << ")";
+    faiss_util::EstimateHnswPqSdcBytes(index_params_.m_pq, index_params_.nbits_pq);
   }
 }
 
@@ -67,6 +64,9 @@ size_t FaissHnswIndexBuilder::GetMinTrainRows() const {
     case ScalarQuantizerType::kPQ:
       // faiss' recommendation: at least 100 training rows per centroid; the
       // PQ codebook has 2^nbits_pq centroids.
+      T_CHECK_LT(static_cast<size_t>(index_params_.nbits_pq), std::numeric_limits<size_t>::digits);
+      T_CHECK_LE(static_cast<size_t>(1) << index_params_.nbits_pq,
+                 std::numeric_limits<size_t>::max() / 100);
       return (static_cast<size_t>(1) << index_params_.nbits_pq) * 100;
     case ScalarQuantizerType::kSQ4:
     case ScalarQuantizerType::kSQ8:
@@ -83,15 +83,14 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
     auto factory_string =
         faiss_util::GetHnswRepr(common_params_, index_params_, use_custom_row_id_);
 
-    auto metric_type = faiss::METRIC_L2;
-    if (common_params_.metric_type == MetricType::kInnerProduct) {
-      metric_type = faiss::METRIC_INNER_PRODUCT;
-    }
-
     // create faiss index
     auto index = std::unique_ptr<faiss::Index>(
-        faiss::index_factory(common_params_.dim, factory_string.c_str(), metric_type));
+        faiss::index_factory(common_params_.dim, factory_string.c_str(), physical_metric_));
     auto [_, __, index_hnsw] = faiss_util::CheckAndUnpackHnswMutable(index.get(), &common_params_);
+    T_CHECK_EQ(index_hnsw->metric_type, physical_metric_)
+        << "faiss HNSW factory ignored the requested metric";
+    T_CHECK_EQ(index_hnsw->storage->metric_type, physical_metric_)
+        << "faiss HNSW storage ignored the requested metric";
 
     // set index parameters
     index_hnsw->hnsw.efConstruction = index_params_.efConstruction;
