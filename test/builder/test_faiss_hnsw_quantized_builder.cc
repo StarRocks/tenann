@@ -23,6 +23,7 @@
 #include <memory>
 #include <numeric>
 #include <random>
+#include <unistd.h>
 #include <vector>
 
 #include "faiss/IndexHNSW.h"
@@ -85,7 +86,7 @@ std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 42) {
 }
 
 std::string MakeIndexPath(const std::string& tag) {
-  return "/tmp/tenann_hnsw_quantized_test_" + tag + ".index";
+  return "/tmp/tenann_hnsw_quantized_test_" + std::to_string(getpid()) + "_" + tag + ".index";
 }
 
 }  // namespace
