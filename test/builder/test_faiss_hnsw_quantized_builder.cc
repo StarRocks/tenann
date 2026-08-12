@@ -18,11 +18,18 @@
  */
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <random>
+#include <stdexcept>
+#include <string>
+#include <unistd.h>
+#include <utility>
 #include <vector>
 
 #include "faiss/IndexHNSW.h"
@@ -84,8 +91,42 @@ std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 42) {
   return v;
 }
 
-std::string MakeIndexPath(const std::string& tag) {
-  return "/tmp/tenann_hnsw_quantized_test_" + tag + ".index";
+class TemporaryIndexPath {
+ public:
+  explicit TemporaryIndexPath(const std::string& tag) {
+    const std::string path_template = "/tmp/tenann_hnsw_quantized_test_" + tag + "_XXXXXX";
+    std::vector<char> mutable_path(path_template.begin(), path_template.end());
+    mutable_path.push_back('\0');
+
+    const int fd = mkstemp(mutable_path.data());
+    if (fd == -1) {
+      throw std::runtime_error("failed to create temporary index file");
+    }
+    path_ = mutable_path.data();
+    close(fd);
+  }
+
+  ~TemporaryIndexPath() {
+    if (!path_.empty()) {
+      std::remove(path_.c_str());
+    }
+  }
+
+  TemporaryIndexPath(const TemporaryIndexPath&) = delete;
+  TemporaryIndexPath& operator=(const TemporaryIndexPath&) = delete;
+
+  TemporaryIndexPath(TemporaryIndexPath&& other) noexcept : path_(std::move(other.path_)) {
+    other.path_.clear();
+  }
+
+  operator const std::string&() const { return path_; }
+
+ private:
+  std::string path_;
+};
+
+TemporaryIndexPath MakeIndexPath(const std::string& tag) {
+  return TemporaryIndexPath(tag);
 }
 
 }  // namespace
@@ -275,6 +316,48 @@ void CheckPqSymmetricDistance(const IndexRef& ref, faiss::MetricType metric) {
                              ? faiss::fvec_inner_product(a.data(), b.data(), kDim)
                              : faiss::fvec_L2sqr(a.data(), b.data(), kDim);
   EXPECT_NEAR(actual, expected, 1e-4f * kDim);
+}
+
+TEST(FaissHnswPqSdcTest, ConcurrentL2TableComputationIsStable) {
+  constexpr int kParallelism = 4;
+  constexpr int kCentroids = 16;
+  constexpr int kSubDim = 8;
+  constexpr int kIterations = 3000;
+
+  auto centroids = RandomVectors(kParallelism * kCentroids, kSubDim, /*seed=*/31);
+  std::vector<float> expected(kParallelism * kCentroids * kCentroids);
+  std::vector<float> actual(expected.size());
+  for (int m = 0; m < kParallelism; ++m) {
+    const float* current = centroids.data() + m * kCentroids * kSubDim;
+    float* current_expected = expected.data() + m * kCentroids * kCentroids;
+    for (int i = 0; i < kCentroids; ++i) {
+      for (int j = 0; j < kCentroids; ++j) {
+        current_expected[i * kCentroids + j] =
+            faiss::fvec_L2sqr(current + i * kSubDim, current + j * kSubDim, kSubDim);
+      }
+    }
+  }
+
+  std::atomic<uint32_t> corrupted_tables{0};
+  for (int iteration = 0; iteration < kIterations; ++iteration) {
+#pragma omp parallel for num_threads(kParallelism)
+    for (int m = 0; m < kParallelism; ++m) {
+      const float* current = centroids.data() + m * kCentroids * kSubDim;
+      float* current_actual = actual.data() + m * kCentroids * kCentroids;
+      faiss::pairwise_L2sqr(kSubDim, kCentroids, current, kCentroids, current,
+                            current_actual, kSubDim, kSubDim, kCentroids);
+
+      const float* current_expected = expected.data() + m * kCentroids * kCentroids;
+      for (int i = 0; i < kCentroids * kCentroids; ++i) {
+        if (!std::isfinite(current_actual[i]) ||
+            std::abs(current_actual[i] - current_expected[i]) > 1e-4f) {
+          corrupted_tables.fetch_add(1, std::memory_order_relaxed);
+          break;
+        }
+      }
+    }
+  }
+  EXPECT_EQ(corrupted_tables.load(), 0u);
 }
 
 void RunPqSymmetricDistanceRoundTrip(MetricType logical_metric, const char* cosine_backend,
