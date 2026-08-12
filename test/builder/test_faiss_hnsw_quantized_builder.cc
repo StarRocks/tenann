@@ -19,11 +19,16 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <random>
+#include <stdexcept>
+#include <string>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 #include "faiss/IndexHNSW.h"
@@ -85,8 +90,42 @@ std::vector<float> RandomVectors(uint32_t n, uint32_t dim, int seed = 42) {
   return v;
 }
 
-std::string MakeIndexPath(const std::string& tag) {
-  return "/tmp/tenann_hnsw_quantized_test_" + std::to_string(getpid()) + "_" + tag + ".index";
+class TemporaryIndexPath {
+ public:
+  explicit TemporaryIndexPath(const std::string& tag) {
+    const std::string path_template = "/tmp/tenann_hnsw_quantized_test_" + tag + "_XXXXXX";
+    std::vector<char> mutable_path(path_template.begin(), path_template.end());
+    mutable_path.push_back('\0');
+
+    const int fd = mkstemp(mutable_path.data());
+    if (fd == -1) {
+      throw std::runtime_error("failed to create temporary index file");
+    }
+    path_ = mutable_path.data();
+    close(fd);
+  }
+
+  ~TemporaryIndexPath() {
+    if (!path_.empty()) {
+      std::remove(path_.c_str());
+    }
+  }
+
+  TemporaryIndexPath(const TemporaryIndexPath&) = delete;
+  TemporaryIndexPath& operator=(const TemporaryIndexPath&) = delete;
+
+  TemporaryIndexPath(TemporaryIndexPath&& other) noexcept : path_(std::move(other.path_)) {
+    other.path_.clear();
+  }
+
+  operator const std::string&() const { return path_; }
+
+ private:
+  std::string path_;
+};
+
+TemporaryIndexPath MakeIndexPath(const std::string& tag) {
+  return TemporaryIndexPath(tag);
 }
 
 }  // namespace
