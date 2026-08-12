@@ -28,6 +28,7 @@
 #include "tenann/common/logging.h"
 #include "tenann/index/internal/faiss_index_util.h"
 #include "tenann/index/internal/index_ivfpq.h"
+#include "tenann/index/internal/metric_util.h"
 #include "tenann/index/parameter_serde.h"
 #include "tenann/index/parameters.h"
 #include "tenann/searcher/internal/id_filter_adapter.h"
@@ -69,14 +70,13 @@ void FaissIvfPqAnnSearcher::AnnSearch(PrimitiveSeqView query_vector, int64_t k, 
 
     VLOG(VERBOSE_DEBUG) << "nprobe: " << faiss_search_parameters.nprobe;
 
-    faiss_index->search(ANN_SEARCHER_QUERY_COUNT, reinterpret_cast<const float*>(query_vector.data),
-                        k, reinterpret_cast<float*>(result_distances), result_ids,
-                        &faiss_search_parameters);
+    std::vector<float> query_scratch;
+    const float* x = PrepareCosineQuery(reinterpret_cast<const float*>(query_vector.data),
+                                        query_vector.size, &query_scratch);
+    faiss_index->search(ANN_SEARCHER_QUERY_COUNT, x, k, reinterpret_cast<float*>(result_distances),
+                        result_ids, &faiss_search_parameters);
 
-    if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-      auto distances = reinterpret_cast<float*>(result_distances);
-      L2DistanceToCosineSimilarity(distances, distances, k);
-    }
+    FinalizeScores(result_ids, reinterpret_cast<float*>(result_distances), k, physical_metric_);
   }
   CATCH_FAISS_ERROR
 }
@@ -86,14 +86,10 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
                                         std::vector<float>* result_distances,
                                         const IdFilter* id_filter) {
   try {
-    // TODO: add desending order support
-    // T_CHECK(result_order != ResultOrder::kDescending) << "descending order not implemented";
     T_CHECK_NOTNULL(index_ref_);
 
     T_CHECK_EQ(index_ref_->index_type(), IndexType::kFaissIvfPq);
     T_CHECK_EQ(query_vector.elem_type, PrimitiveType::kFloatType);
-    T_CHECK_NE(common_params_.metric_type, MetricType::kInnerProduct)
-        << "Range search is currently not supported for inner product metric.";
 
     auto faiss_index = static_cast<const faiss::Index*>(index_ref_->index_raw());
 
@@ -114,23 +110,30 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
 
     float radius = range;
     if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-      radius = CosineSimilarityThresholdToL2Distance(range);
+      radius = PrepareCosineRange(range, physical_metric_);
       T_CHECK(result_order == ResultOrder::kDescending)
           << "only descending order is allowed for range search results based on cosine similarity";
+    } else if (common_params_.metric_type == MetricType::kInnerProduct) {
+      // Computed natively, so the threshold needs no translation: it is used directly as a lower
+      // bound on the score.
+      T_CHECK(result_order == ResultOrder::kDescending)
+          << "only descending order is allowed for range search results based on inner product";
     } else if (common_params_.metric_type == MetricType::kL2Distance) {
       T_CHECK(result_order == ResultOrder::kAscending)
           << "only ascending order is allowed for range search with l2 distance";
     } else {
-      T_LOG(ERROR) << "using unsupported distance metric, hnsw range search only supports l2 "
-                      "distance and cosine similarity";
+      T_LOG(ERROR) << "using unsupported distance metric, ivfpq range search only supports l2 "
+                      "distance, cosine similarity and inner product";
     }
 
     // Note that the parameters pass to faiss::IndexPretransform::range_search will be transparently
     // passed to the underlying index
     // (here the params will be passed to tenann::IndexIvfPq::range_search).
+    std::vector<float> query_scratch;
+    const float* x = PrepareCosineQuery(reinterpret_cast<const float*>(query_vector.data),
+                                        query_vector.size, &query_scratch);
     faiss::RangeSearchResult results(ANN_SEARCHER_QUERY_COUNT);
-    faiss_index->range_search(ANN_SEARCHER_QUERY_COUNT,
-                              reinterpret_cast<const float*>(query_vector.data), radius, &results,
+    faiss_index->range_search(ANN_SEARCHER_QUERY_COUNT, x, radius, &results,
                               &dynamic_search_parameters);
 
     // number of results returned by index search
@@ -146,15 +149,21 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
     std::vector<int64_t> indices(num_preserve_results);
     std::iota(indices.begin(), indices.end(), 0);
 
-    auto distance_less = [result_id_data, result_distance_data](int64_t left, int64_t right) {
-      if (result_distance_data[left] < result_distance_data[right])
-        return true;
-      else if (result_distance_data[left] > result_distance_data[right])
-        return false;
-      else
-        return result_id_data[left] < result_id_data[right];
+    // Inner product is a similarity: the BEST results are the LARGEST, the opposite of every
+    // convention in the distance-metric path.
+    const bool is_similarity = faiss::is_similarity_metric(physical_metric_);
+    // The heap keeps the num_preserve_results BEST entries by evicting its top() whenever it
+    // overflows, so its comparator has to order worst-last. "Best" is the smallest value for a
+    // distance and the largest for a similarity, so only the distance comparison flips; an
+    // ascending id tie-break is a valid strict weak ordering either way.
+    auto better_last = [result_id_data, result_distance_data, is_similarity](int64_t left,
+                                                                             int64_t right) {
+      const float dl = result_distance_data[left];
+      const float dr = result_distance_data[right];
+      if (dl != dr) return is_similarity ? (dl > dr) : (dl < dr);
+      return result_id_data[left] < result_id_data[right];
     };
-    std::priority_queue<int64_t, std::vector<int64_t>, decltype(distance_less)> heap(distance_less);
+    std::priority_queue<int64_t, std::vector<int64_t>, decltype(better_last)> heap(better_last);
 
     // insert indices to the heap and only preserve top-n results,
     // where n = num_preserve_results
@@ -180,10 +189,8 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
       (*result_distances)[i] = result_distance_data[idx];
     }
 
-    if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-      auto distances = reinterpret_cast<float*>(result_distances->data());
-      L2DistanceToCosineSimilarity(distances, distances, result_distances->size());
-    }
+    FinalizeScores(result_ids->data(), result_distances->data(), result_distances->size(),
+                   physical_metric_);
   }
   CATCH_FAISS_ERROR
 }
@@ -227,6 +234,16 @@ void FaissIvfPqAnnSearcher::FaissIvfPqAnnSearcher::OnSearchParamsChange(const js
   for (auto it = value.begin(); it != value.end(); ++it) {
     OnSearchParamItemChange(it.key(), it.value());
   }
+}
+
+void FaissIvfPqAnnSearcher::OnIndexLoaded() {
+  auto* faiss_index = static_cast<faiss::Index*>(index_ref_->index_raw());
+  auto [_, ivfpq] = faiss_util::CheckAndUnpackIvfPq(faiss_index, &common_params_);
+  T_CHECK_NOTNULL(ivfpq->quantizer);
+  T_CHECK_EQ(ivfpq->metric_type, ivfpq->quantizer->metric_type)
+      << "IVF-PQ metric does not match its coarse quantizer metric";
+  physical_metric_ = ivfpq->metric_type;
+  ValidateLoadedMetric(static_cast<MetricType>(common_params_.metric_type), physical_metric_);
 }
 
 }  // namespace tenann

@@ -122,7 +122,10 @@ inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_p
 inline void FetchParameters(const IndexMeta& meta, IndexWriterOptions* out_params) {
   GET_OPTIONAL_WRITE_INDEX_PARAM_TO(meta, *out_params, write_index_cache);
   if (meta.index_writer_options().contains("custom_cache_key")) {
-      out_params->custom_cache_key = meta.index_writer_options()["custom_cache_key"];
+    out_params->custom_cache_key = meta.index_writer_options()["custom_cache_key"];
+  }
+  if (meta.index_writer_options().contains("cosine_backend")) {
+    out_params->cosine_backend = meta.index_writer_options()["cosine_backend"];
   }
 
   out_params->Validate();

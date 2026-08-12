@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -55,6 +56,21 @@ inline const TargetIndexType* checked_faiss_down_cast(const faiss::Index* index,
  * Faiss HNSW index
  ************************************************************/
 
+inline size_t EstimateHnswPqSdcBytes(int m_pq, int nbits_pq) {
+  T_CHECK_GT(m_pq, 0);
+  T_CHECK_GE(nbits_pq, 0);
+  T_CHECK_LT(static_cast<size_t>(nbits_pq), std::numeric_limits<size_t>::digits);
+
+  const size_t ksub = static_cast<size_t>(1) << nbits_pq;
+  const size_t max = std::numeric_limits<size_t>::max();
+  T_CHECK_LE(static_cast<size_t>(m_pq), max / ksub) << "SDC table size overflows size_t";
+  size_t elements = static_cast<size_t>(m_pq) * ksub;
+  T_CHECK_LE(elements, max / ksub) << "SDC table size overflows size_t";
+  elements *= ksub;
+  T_CHECK_LE(elements, max / sizeof(float)) << "SDC table size overflows size_t";
+  return elements * sizeof(float);
+}
+
 inline std::string GetHnswRepr(const VectorIndexCommonParams& common_params,
                                const FaissHnswIndexParams& index_params,
                                bool use_custom_rowid = false) {
@@ -88,6 +104,9 @@ inline std::string GetHnswRepr(const VectorIndexCommonParams& common_params,
       if (index_params.nbits_pq != 8) {
         oss << "x" << index_params.nbits_pq;
       }
+      // HNSW uses PQ's symmetric distance table for graph construction, not
+      // polysemous codes. Skip the unrelated L2-only permutation training.
+      oss << "np";
       break;
     case ScalarQuantizerType::kFlat:
       break;

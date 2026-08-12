@@ -77,7 +77,7 @@ TEST(IndexMemoryUsage, ChargesQuantizedHnswByStorageCodeSize) {
 
   auto flat = BuildHnsw("HNSW8,Flat", data);
   auto sq8 = BuildHnsw("HNSW8,SQ8", data);
-  auto pq8 = BuildHnsw("HNSW8,PQ8", data);
+  auto pq8 = BuildHnsw("HNSW8,PQ8np", data);
 
   const size_t flat_usage = flat->EstimateMemoryUsage();
   const size_t sq8_usage = sq8->EstimateMemoryUsage();
@@ -89,12 +89,14 @@ TEST(IndexMemoryUsage, ChargesQuantizedHnswByStorageCodeSize) {
   EXPECT_LT(sq8_usage, flat_usage);
   EXPECT_EQ(flat_usage - sq8_usage, vectors_fp32 / 4 * 3);
 
-  // PQ8 keeps 8 bytes per vector regardless of dim, plus one shared codebook of
-  // m * 2^nbits * (dim/m) = 2^nbits * dim floats. For a small segment at high dim the
-  // codebook can outweigh the codes, so it must be charged too.
+  // PQ8 keeps 8 bytes per vector regardless of dim, plus one shared codebook and the
+  // symmetric distance table HNSW uses while constructing and maintaining the graph.
   const size_t pq_codebook = 256 * static_cast<size_t>(kDim) * sizeof(float);
-  EXPECT_LT(pq8_usage, sq8_usage);
-  EXPECT_EQ(flat_usage - pq8_usage, vectors_fp32 - static_cast<size_t>(kNumRows) * 8 - pq_codebook);
+  const size_t pq_sdc = 8 * 256 * 256 * sizeof(float);
+  EXPECT_LT(pq8_usage, flat_usage);
+  EXPECT_GT(pq8_usage, sq8_usage);
+  EXPECT_EQ(flat_usage - pq8_usage,
+            vectors_fp32 - static_cast<size_t>(kNumRows) * 8 - pq_codebook - pq_sdc);
 }
 
 // Guards the other direction: the fix must not undercharge a non-quantized index,

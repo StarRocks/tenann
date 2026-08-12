@@ -20,7 +20,9 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
+#include "faiss/MetricType.h"
 #include "tenann/common/seq_view.h"
 #include "tenann/index/parameters.h"
 #include "tenann/searcher/id_filter.h"
@@ -81,6 +83,35 @@ class AnnSearcher : public Searcher<AnnSearcher> {
                            const IdFilter* id_filter = nullptr);
 
  protected:
+  /**
+   * @brief Returns the query to search with, normalized into `scratch` when the index needs that
+   * and nothing else will do it.
+   *
+   * Cosine is defined on directions, so a query that is not unit length would otherwise scale every
+   * score. An index built with is_vector_normed=false carries a normalizing pre-transform that
+   * covers the query too; one built with is_vector_normed=true does not -- there the caller
+   * promised unit-norm input and only the write path verifies that promise.
+   *
+   * A zero vector is left alone rather than turned into NaNs, which keeps its inner product at 0.
+   */
+  const float* PrepareCosineQuery(const float* query, size_t dim,
+                                  std::vector<float>* scratch) const;
+
+  /**
+   * @brief Validate a logical cosine threshold and convert it for the physical metric.
+   */
+  float PrepareCosineRange(float range, faiss::MetricType physical_metric) const;
+
+  /**
+   * @brief Convert physical cosine scores to the logical representation and clamp valid results.
+   *
+   * Faiss pads an under-filled top-k result with id -1 and metric-specific distance sentinels.
+   * Those padding scores are intentionally left untouched; callers must use the ID to determine
+   * whether a result slot is valid.
+   */
+  void FinalizeScores(const int64_t* ids, float* scores, size_t n,
+                      faiss::MetricType physical_metric) const;
+
   VectorIndexCommonParams common_params_;
 };
 

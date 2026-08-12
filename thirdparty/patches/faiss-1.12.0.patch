@@ -5,12 +5,12 @@ index b80a5f4c9..049e474f0 100644
 @@ -19,7 +19,7 @@
  # the License.
  # =============================================================================
- 
+
 -cmake_minimum_required(VERSION 3.24.0 FATAL_ERROR)
 +cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
- 
+
  set(FAISS_LANGUAGES CXX)
- 
+
 diff --git a/faiss/CMakeLists.txt b/faiss/CMakeLists.txt
 index 0ad036967..230b1c536 100644
 --- a/faiss/CMakeLists.txt
@@ -18,7 +18,7 @@ index 0ad036967..230b1c536 100644
 @@ -377,12 +377,14 @@ if(FAISS_USE_LTO)
    endif()
  endif()
- 
+
 -find_package(OpenMP REQUIRED)
 -target_link_libraries(faiss PRIVATE OpenMP::OpenMP_CXX)
 -target_link_libraries(faiss_avx2 PRIVATE OpenMP::OpenMP_CXX)
@@ -33,7 +33,7 @@ index 0ad036967..230b1c536 100644
 +  target_link_libraries(faiss_avx512_spr PRIVATE OpenMP::OpenMP_CXX)
 +  target_link_libraries(faiss_sve PRIVATE OpenMP::OpenMP_CXX)
 +endif()
- 
+
  if(FAISS_ENABLE_MKL)
    find_package(MKL)
 @@ -393,19 +395,12 @@ if(MKL_FOUND)
@@ -60,5 +60,137 @@ index 0ad036967..230b1c536 100644
 +  target_link_libraries(faiss_avx512_spr PRIVATE ${OpenBLAS_LIBRARIES})
 +  target_link_libraries(faiss_sve PRIVATE ${OpenBLAS_LIBRARIES})
  endif()
- 
+
  install(TARGETS faiss
+diff --git a/faiss/IndexHNSW.cpp b/faiss/IndexHNSW.cpp
+index c2b20dd..7ec4ba5 100644
+--- a/faiss/IndexHNSW.cpp
++++ b/faiss/IndexHNSW.cpp
+@@ -666,7 +666,8 @@ IndexHNSWPQ::IndexHNSWPQ(
+
+ void IndexHNSWPQ::train(idx_t n, const float* x) {
+     IndexHNSW::train(n, x);
+-    (dynamic_cast<IndexPQ*>(storage))->pq.compute_sdc_table();
++    auto* pq_storage = dynamic_cast<IndexPQ*>(storage);
++    pq_storage->pq.compute_sdc_table(pq_storage->metric_type);
+ }
+
+ /**************************************************************
+diff --git a/faiss/impl/ProductQuantizer.cpp b/faiss/impl/ProductQuantizer.cpp
+index 3fbedb8..4ad4bce 100644
+--- a/faiss/impl/ProductQuantizer.cpp
++++ b/faiss/impl/ProductQuantizer.cpp
+@@ -12,6 +12,7 @@
+ #include <cstddef>
+ #include <cstdio>
+ #include <cstring>
++#include <limits>
+ #include <memory>
+
+ #include <algorithm>
+@@ -782,19 +783,43 @@ void ProductQuantizer::search_ip(
+ }
+
+ void ProductQuantizer::compute_sdc_table() {
+-    sdc_table.resize(M * ksub * ksub);
++    compute_sdc_table(METRIC_L2);
++}
++
++void ProductQuantizer::compute_sdc_table(MetricType metric) {
++    FAISS_THROW_IF_NOT_MSG(
++            metric == METRIC_L2 || metric == METRIC_INNER_PRODUCT,
++            "SDC table only supports L2 and inner product metrics");
++    FAISS_THROW_IF_NOT_MSG(
++            M <= std::numeric_limits<size_t>::max() / ksub &&
++                    M * ksub <=
++                            std::numeric_limits<size_t>::max() / ksub,
++            "SDC table size overflows size_t");
+
+-    if (dsub < 4) {
++    const size_t table_size = M * ksub * ksub;
++    FAISS_THROW_IF_NOT_MSG(
++            table_size <= static_cast<size_t>(
++                                  std::numeric_limits<int64_t>::max()),
++            "SDC table is too large to compute");
++    sdc_table.resize(table_size);
++
++    if (metric == METRIC_INNER_PRODUCT || dsub < 4) {
+ #pragma omp parallel for
+-        for (int mk = 0; mk < M * ksub; mk++) {
++        for (int64_t mk = 0; mk < static_cast<int64_t>(M * ksub); mk++) {
+             // allow omp to schedule in a more fine-grained way
+             // `collapse` is not supported in OpenMP 2.x
+-            int m = mk / ksub;
+-            int k = mk % ksub;
++            size_t m = mk / ksub;
++            size_t k = mk % ksub;
+             const float* cents = centroids.data() + m * ksub * dsub;
+             const float* centi = cents + k * dsub;
+             float* dis_tab = sdc_table.data() + m * ksub * ksub;
+-            fvec_L2sqr_ny(dis_tab + k * ksub, centi, cents, dsub, ksub);
++            if (metric == METRIC_L2) {
++                fvec_L2sqr_ny(
++                        dis_tab + k * ksub, centi, cents, dsub, ksub);
++            } else {
++                fvec_inner_products_ny(
++                        dis_tab + k * ksub, centi, cents, dsub, ksub);
++            }
+         }
+     } else {
+         // NOTE: it would disable the omp loop in pairwise_L2sqr
+diff --git a/faiss/impl/ProductQuantizer.h b/faiss/impl/ProductQuantizer.h
+index 57c005c..2877f80 100644
+--- a/faiss/impl/ProductQuantizer.h
++++ b/faiss/impl/ProductQuantizer.h
+@@ -15,6 +15,7 @@
+ #include <vector>
+
+ #include <faiss/Clustering.h>
++#include <faiss/MetricType.h>
+ #include <faiss/impl/Quantizer.h>
+ #include <faiss/impl/platform_macros.h>
+ #include <faiss/utils/Heap.h>
+@@ -166,9 +167,15 @@ struct ProductQuantizer : Quantizer {
+     /// Symmetric Distance Table
+     std::vector<float> sdc_table;
+
+-    // intitialize the SDC table from the centroids
++    // Initialize the L2 SDC table from the centroids.
+     void compute_sdc_table();
+
++    // Initialize the SDC table using the requested metric. For inner product,
++    // entries are similarities and are only valid for consumers such as HNSW's
++    // metric-aware symmetric_dis path, which negates similarities before using
++    // the smaller-is-better graph traversal. search_sdc remains L2-only.
++    void compute_sdc_table(MetricType metric);
++
+     void search_sdc(
+             const uint8_t* qcodes,
+             size_t nq,
+diff --git a/faiss/impl/index_read.cpp b/faiss/impl/index_read.cpp
+index 89f05c7..842eb77 100644
+--- a/faiss/impl/index_read.cpp
++++ b/faiss/impl/index_read.cpp
+@@ -1135,7 +1135,8 @@ Index* read_index(IOReader* f, int io_flags) {
+         idxhnsw->storage = read_index(f, io_flags);
+         idxhnsw->own_fields = idxhnsw->storage != nullptr;
+         if (h == fourcc("IHNp") && !(io_flags & IO_FLAG_PQ_SKIP_SDC_TABLE)) {
+-            dynamic_cast<IndexPQ*>(idxhnsw->storage)->pq.compute_sdc_table();
++            auto* pq_storage = dynamic_cast<IndexPQ*>(idxhnsw->storage);
++            pq_storage->pq.compute_sdc_table(pq_storage->metric_type);
+         }
+         idx = idxhnsw;
+     } else if (
+diff --git a/faiss/index_factory.cpp b/faiss/index_factory.cpp
+index baf7a76..3e40fc8 100644
+--- a/faiss/index_factory.cpp
++++ b/faiss/index_factory.cpp
+@@ -474,7 +474,7 @@ IndexHNSW* parse_IndexHNSW(
+     if (match("PQ([0-9]+)(x[0-9]+)?(np)?")) {
+         int M = std::stoi(sm[1].str());
+         int nbit = mres_to_int(sm[2], 8, 1);
+-        IndexHNSWPQ* ipq = new IndexHNSWPQ(d, M, hnsw_M, nbit);
++        IndexHNSWPQ* ipq = new IndexHNSWPQ(d, M, hnsw_M, nbit, mt);
+         dynamic_cast<IndexPQ*>(ipq->storage)->do_polysemous_training =
+                 sm[3].str() != "np";
+         return ipq;

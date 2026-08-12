@@ -42,19 +42,23 @@ inline void L2DistanceToCosineSimilarity(const float* src, float* dst, size_t k)
   }
 }
 
+/** @brief Validate a cosine similarity threshold used by range search. */
+inline void ValidateCosineSimilarityThreshold(float threshold) {
+  if (!(threshold >= -1 && threshold <= 1)) {
+    throw Error(__FILE__, __LINE__,
+                "the given cosine similarity threshold must be in range [-1, 1]");
+  }
+}
+
 /**
- * @brief Used for range search. Convert a cosine similarity threshold to l2 distane limit.
+ * @brief Convert a cosine similarity threshold to an L2 distance limit.
  * It only works if both the database and query vectors are normalized.
  *
- * @param threshold Threshold for range search base on cosine similarity
+ * @param threshold Threshold for range search based on cosine similarity
  * @return float
  */
-
 inline float CosineSimilarityThresholdToL2Distance(float threshold) {
-  if (threshold < -1 || threshold > 1) {
-    throw Error(__FILE__, __LINE__,
-                "the give cosine similarity threshold must be in range [-1, 1]");
-  }
+  ValidateCosineSimilarityThreshold(threshold);
   return (1 - threshold) * 2;
 }
 

@@ -119,6 +119,7 @@ size_t Index::EstimateMemoryUsage() {
     // dominant term for a small segment at high dim.
     if (const auto* pq_storage = dynamic_cast<const faiss::IndexPQ*>(storage)) {
       mem_usage += pq_storage->pq.centroids.capacity() * sizeof(float);
+      mem_usage += pq_storage->pq.sdc_table.capacity() * sizeof(float);
     }
 
     return mem_usage;

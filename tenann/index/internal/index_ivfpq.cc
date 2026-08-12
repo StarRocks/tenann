@@ -653,7 +653,7 @@ struct RangeSearchResults {
       }
       /* End tenann. */
     } else {
-      if (C::cmp(radius, dis)) {
+      if (detail::IsWithinRangeInclusive<C>(dis, radius)) {
         idx_t id = ids ? ids[j] : lo_build(key, j);
         rres.add(dis, id);
       }
@@ -886,7 +886,12 @@ struct IVFPQScanner : IVFPQScannerT<idx_t, METRIC_TYPE, PQDecoder>, InvertedList
   void scan_codes_range(size_t ncode, const uint8_t* codes, const idx_t* ids, float radius,
                         RangeQueryResult& rres) const override {
     /* The following lines are added by tenann */
-    if (0 < range_search_confidence && range_search_confidence <= 1) {
+    // The confidence widening is L2-only: it takes sqrtf() of a squared distance and bounds the
+    // true distance from below via ||a - a_hat||. An inner product has no squared form to undo, and
+    // its error bound is Cauchy-Schwarz (|q.a - q.a_hat| <= ||q|| * ||a - a_hat||), which depends
+    // on the query norm rather than the stored per-vector residual alone. So a similarity metric
+    // takes the plain C::cmp path, which is already metric-specialized and correct.
+    if (METRIC_TYPE == METRIC_L2 && 0 < range_search_confidence && range_search_confidence <= 1) {
       RangeSearchResults<C, use_sel, true> res = {
           /* key */ this->key,
           /* ids */ this->store_pairs ? nullptr : ids,
