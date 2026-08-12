@@ -150,7 +150,7 @@ index 57c005c..2877f80 100644
  #include <faiss/impl/Quantizer.h>
  #include <faiss/impl/platform_macros.h>
  #include <faiss/utils/Heap.h>
-@@ -166,9 +167,12 @@ struct ProductQuantizer : Quantizer {
+@@ -166,9 +167,15 @@ struct ProductQuantizer : Quantizer {
      /// Symmetric Distance Table
      std::vector<float> sdc_table;
 
