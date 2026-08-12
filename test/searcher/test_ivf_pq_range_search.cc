@@ -23,14 +23,35 @@
 #include <cmath>
 #include <cstdio>
 #include <iostream>
+#include <limits>
 #include <random>
 
 #include "tenann/index/default_index_cache.h"
+#include "tenann/index/internal/index_ivfpq.h"
 #include "tenann/index/parameters.h"
 #include "tenann/searcher/internal/id_filter_adapter.h"
 #include "test/faiss_test_base.h"
 
 namespace tenann {
+
+TEST(IvfPqRangePredicateTest, IncludesBoundaryAndRejectsNaN) {
+  using L2Comparator = faiss::CMax<float, faiss::idx_t>;
+  using IpComparator = faiss::CMin<float, faiss::idx_t>;
+
+  EXPECT_TRUE(detail::IsWithinRangeInclusive<L2Comparator>(0.25f, 0.5f));
+  EXPECT_TRUE(detail::IsWithinRangeInclusive<L2Comparator>(0.5f, 0.5f));
+  EXPECT_FALSE(detail::IsWithinRangeInclusive<L2Comparator>(0.75f, 0.5f));
+  EXPECT_TRUE(detail::IsWithinRangeInclusive<IpComparator>(0.75f, 0.5f));
+  EXPECT_TRUE(detail::IsWithinRangeInclusive<IpComparator>(0.5f, 0.5f));
+  EXPECT_FALSE(detail::IsWithinRangeInclusive<IpComparator>(0.25f, 0.5f));
+
+  const float nan = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_FALSE(detail::IsWithinRangeInclusive<L2Comparator>(nan, 0.5f));
+  EXPECT_FALSE(detail::IsWithinRangeInclusive<IpComparator>(nan, 0.5f));
+  EXPECT_FALSE(detail::IsWithinRangeInclusive<L2Comparator>(0.5f, nan));
+  EXPECT_FALSE(detail::IsWithinRangeInclusive<IpComparator>(0.5f, nan));
+}
+
 class IvfPqRangeSearchTest : public FaissTestBase {
  public:
   IvfPqRangeSearchTest() : FaissTestBase() {

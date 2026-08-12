@@ -110,9 +110,7 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
 
     float radius = range;
     if (common_params_.metric_type == MetricType::kCosineSimilarity) {
-      if (NeedsL2ToCosine(static_cast<MetricType>(common_params_.metric_type), physical_metric_)) {
-        radius = CosineSimilarityThresholdToL2Distance(range);
-      }
+      radius = PrepareCosineRange(range, physical_metric_);
       T_CHECK(result_order == ResultOrder::kDescending)
           << "only descending order is allowed for range search results based on cosine similarity";
     } else if (common_params_.metric_type == MetricType::kInnerProduct) {

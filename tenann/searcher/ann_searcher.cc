@@ -61,6 +61,14 @@ const float* AnnSearcher::PrepareCosineQuery(const float* query, size_t dim,
   return scratch->data();
 }
 
+float AnnSearcher::PrepareCosineRange(float range, faiss::MetricType physical_metric) const {
+  if (NeedsL2ToCosine(static_cast<MetricType>(common_params_.metric_type), physical_metric)) {
+    return CosineSimilarityThresholdToL2Distance(range);
+  }
+  ValidateCosineSimilarityThreshold(range);
+  return range;
+}
+
 void AnnSearcher::FinalizeScores(const int64_t* ids, float* scores, size_t n,
                                  faiss::MetricType physical_metric) const {
   if (common_params_.metric_type != MetricType::kCosineSimilarity) {

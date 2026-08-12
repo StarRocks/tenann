@@ -653,7 +653,7 @@ struct RangeSearchResults {
       }
       /* End tenann. */
     } else {
-      if (!C::cmp(dis, radius)) {
+      if (detail::IsWithinRangeInclusive<C>(dis, radius)) {
         idx_t id = ids ? ids[j] : lo_build(key, j);
         rres.add(dis, id);
       }

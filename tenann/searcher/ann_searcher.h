@@ -98,6 +98,11 @@ class AnnSearcher : public Searcher<AnnSearcher> {
                                   std::vector<float>* scratch) const;
 
   /**
+   * @brief Validate a logical cosine threshold and convert it for the physical metric.
+   */
+  float PrepareCosineRange(float range, faiss::MetricType physical_metric) const;
+
+  /**
    * @brief Convert physical cosine scores to the logical representation and clamp valid results.
    *
    * Faiss pads an under-filled top-k result with id -1 and metric-specific distance sentinels.

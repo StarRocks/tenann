@@ -938,7 +938,23 @@ class ScoreFinalizerForTest : public FaissHnswAnnSearcher {
   explicit ScoreFinalizerForTest(const IndexMeta& meta) : FaissHnswAnnSearcher(meta) {}
 
   using AnnSearcher::FinalizeScores;
+  using AnnSearcher::PrepareCosineRange;
 };
+
+TEST(FaissHnswCosineRangeTest, ValidatesThresholdForEveryPhysicalMetric) {
+  auto meta = MakeHnswMeta(ScalarQuantizerType::kFlat, 0, 8, MetricType::kCosineSimilarity);
+  ScoreFinalizerForTest searcher(meta);
+
+  EXPECT_FLOAT_EQ(searcher.PrepareCosineRange(-1.0f, faiss::METRIC_L2), 4.0f);
+  EXPECT_FLOAT_EQ(searcher.PrepareCosineRange(1.0f, faiss::METRIC_INNER_PRODUCT), 1.0f);
+  for (auto physical_metric : {faiss::METRIC_L2, faiss::METRIC_INNER_PRODUCT}) {
+    EXPECT_THROW(searcher.PrepareCosineRange(-1.01f, physical_metric), Error);
+    EXPECT_THROW(searcher.PrepareCosineRange(1.01f, physical_metric), Error);
+    EXPECT_THROW(
+        searcher.PrepareCosineRange(std::numeric_limits<float>::quiet_NaN(), physical_metric),
+        Error);
+  }
+}
 
 TEST(FaissHnswCosineScoreTest, PaddingKeepsFaissSentinels) {
   auto meta = MakeHnswMeta(ScalarQuantizerType::kFlat, 0, 8, MetricType::kCosineSimilarity);

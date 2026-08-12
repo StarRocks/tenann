@@ -336,9 +336,7 @@ void FaissHnswAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float rang
       // threshold has to be translated into the equivalent L2 bound. An inner-product-backed one
       // compares against cosine similarities directly and needs no translation -- and must not get
       // one, since the translation also inverts the direction of the bound.
-      if (NeedsL2ToCosine(static_cast<MetricType>(common_params_.metric_type), physical_metric_)) {
-        radius = CosineSimilarityThresholdToL2Distance(range);
-      }
+      radius = PrepareCosineRange(range, physical_metric_);
       T_CHECK(result_order == ResultOrder::kDescending)
           << "only descending order is allowed for range search results based on cosine similarity";
     } else if (common_params_.metric_type == MetricType::kInnerProduct) {

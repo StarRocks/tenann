@@ -26,6 +26,16 @@ namespace tenann {
 
 using faiss::idx_t;
 
+namespace detail {
+
+template <class C>
+inline bool IsWithinRangeInclusive(float distance, float radius) {
+  // Keep the boundary inclusive without treating unordered NaN values as matches.
+  return C::cmp(radius, distance) || distance == radius;
+}
+
+}  // namespace detail
+
 struct IndexIvfPqSearchParameters : faiss::IVFPQSearchParameters {
   float range_search_confidence;
   IndexIvfPqSearchParameters() : range_search_confidence(0) {}
