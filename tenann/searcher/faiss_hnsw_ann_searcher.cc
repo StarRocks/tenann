@@ -438,7 +438,7 @@ void FaissHnswAnnSearcher::OnIndexLoaded() {
   T_CHECK_NOTNULL(hnsw->storage);
   T_CHECK_EQ(hnsw->metric_type, hnsw->storage->metric_type)
       << "HNSW metric does not match its storage metric";
-  physical_metric_ = hnsw->storage->metric_type;
+  physical_metric_ = FromFaissMetric(hnsw->storage->metric_type);
   ValidateLoadedMetric(static_cast<MetricType>(common_params_.metric_type), physical_metric_);
 }
 

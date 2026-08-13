@@ -52,7 +52,7 @@ class FaissIvfPqAnnSearcher : public AnnSearcher {
 
  private:
   FaissIvfPqSearchParams search_params_;
-  faiss::MetricType physical_metric_ = faiss::METRIC_L2;
+  MetricType physical_metric_ = MetricType::kL2Distance;
 };
 
 }  // namespace tenann

@@ -151,7 +151,7 @@ void FaissIvfPqAnnSearcher::RangeSearch(PrimitiveSeqView query_vector, float ran
 
     // Inner product is a similarity: the BEST results are the LARGEST, the opposite of every
     // convention in the distance-metric path.
-    const bool is_similarity = faiss::is_similarity_metric(physical_metric_);
+    const bool is_similarity = physical_metric_ == MetricType::kInnerProduct;
     // The heap keeps the num_preserve_results BEST entries by evicting its top() whenever it
     // overflows, so its comparator has to order worst-last. "Best" is the smallest value for a
     // distance and the largest for a similarity, so only the distance comparison flips; an
@@ -242,7 +242,7 @@ void FaissIvfPqAnnSearcher::OnIndexLoaded() {
   T_CHECK_NOTNULL(ivfpq->quantizer);
   T_CHECK_EQ(ivfpq->metric_type, ivfpq->quantizer->metric_type)
       << "IVF-PQ metric does not match its coarse quantizer metric";
-  physical_metric_ = ivfpq->metric_type;
+  physical_metric_ = FromFaissMetric(ivfpq->metric_type);
   ValidateLoadedMetric(static_cast<MetricType>(common_params_.metric_type), physical_metric_);
 }
 

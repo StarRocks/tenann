@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include "faiss/MetricType.h"
 #include "tenann/searcher/ann_searcher.h"
 
 namespace tenann {
@@ -56,7 +55,7 @@ class FaissHnswAnnSearcher : public AnnSearcher {
   const void* faiss_id_map_;
   const void* faiss_transform_;
   const void* faiss_hnsw_;
-  faiss::MetricType physical_metric_ = faiss::METRIC_L2;
+  MetricType physical_metric_ = MetricType::kL2Distance;
 };
 
 }  // namespace tenann

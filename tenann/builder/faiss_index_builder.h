@@ -21,7 +21,6 @@
 
 #include <memory>
 
-#include "faiss/MetricType.h"
 #include "tenann/builder/index_builder.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/parameters.h"
@@ -86,7 +85,7 @@ class FaissIndexBuilder : public IndexBuilder {
   VectorIndexCommonParams common_params_;
   VectorIndexExtraParams extra_params_;
   IndexWriterOptions index_writer_options_;
-  faiss::MetricType physical_metric_ = faiss::METRIC_L2;
+  MetricType physical_metric_ = MetricType::kL2Distance;
 
   bool memory_only_ = false;
   bool is_opened_ = false;
