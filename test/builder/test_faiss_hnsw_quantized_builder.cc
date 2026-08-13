@@ -1028,9 +1028,9 @@ TEST(FaissHnswCosineRangeTest, ValidatesThresholdForEveryPhysicalMetric) {
   auto meta = MakeHnswMeta(ScalarQuantizerType::kFlat, 0, 8, MetricType::kCosineSimilarity);
   ScoreFinalizerForTest searcher(meta);
 
-  EXPECT_FLOAT_EQ(searcher.PrepareCosineRange(-1.0f, faiss::METRIC_L2), 4.0f);
-  EXPECT_FLOAT_EQ(searcher.PrepareCosineRange(1.0f, faiss::METRIC_INNER_PRODUCT), 1.0f);
-  for (auto physical_metric : {faiss::METRIC_L2, faiss::METRIC_INNER_PRODUCT}) {
+  EXPECT_FLOAT_EQ(searcher.PrepareCosineRange(-1.0f, MetricType::kL2Distance), 4.0f);
+  EXPECT_FLOAT_EQ(searcher.PrepareCosineRange(1.0f, MetricType::kInnerProduct), 1.0f);
+  for (auto physical_metric : {MetricType::kL2Distance, MetricType::kInnerProduct}) {
     EXPECT_THROW(searcher.PrepareCosineRange(-1.01f, physical_metric), Error);
     EXPECT_THROW(searcher.PrepareCosineRange(1.01f, physical_metric), Error);
     EXPECT_THROW(
@@ -1045,12 +1045,12 @@ TEST(FaissHnswCosineScoreTest, PaddingKeepsFaissSentinels) {
   const int64_t ids[] = {7, -1};
 
   float l2_scores[] = {0.0f, std::numeric_limits<float>::infinity()};
-  searcher.FinalizeScores(ids, l2_scores, 2, faiss::METRIC_L2);
+  searcher.FinalizeScores(ids, l2_scores, 2, MetricType::kL2Distance);
   EXPECT_FLOAT_EQ(l2_scores[0], 1.0f);
   EXPECT_EQ(l2_scores[1], std::numeric_limits<float>::infinity());
 
   float ip_scores[] = {2.0f, -std::numeric_limits<float>::infinity()};
-  searcher.FinalizeScores(ids, ip_scores, 2, faiss::METRIC_INNER_PRODUCT);
+  searcher.FinalizeScores(ids, ip_scores, 2, MetricType::kInnerProduct);
   EXPECT_FLOAT_EQ(ip_scores[0], 1.0f);
   EXPECT_EQ(ip_scores[1], -std::numeric_limits<float>::infinity());
 }

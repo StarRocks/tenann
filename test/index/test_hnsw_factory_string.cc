@@ -188,22 +188,22 @@ TEST(HnswFactoryStringTest, FaissFactoryBuildsIDMapHnswSq8) {
 
 TEST(VectorMetricResolverTest, ResolvesBuildMetric) {
   EXPECT_EQ(ResolveBuildMetric(MetricType::kL2Distance, CosineBackend::kInnerProduct),
-            faiss::METRIC_L2);
+            MetricType::kL2Distance);
   EXPECT_EQ(ResolveBuildMetric(MetricType::kInnerProduct, CosineBackend::kL2),
-            faiss::METRIC_INNER_PRODUCT);
+            MetricType::kInnerProduct);
   EXPECT_EQ(ResolveBuildMetric(MetricType::kCosineSimilarity, CosineBackend::kL2),
-            faiss::METRIC_L2);
+            MetricType::kL2Distance);
   EXPECT_EQ(ResolveBuildMetric(MetricType::kCosineSimilarity, CosineBackend::kInnerProduct),
-            faiss::METRIC_INNER_PRODUCT);
+            MetricType::kInnerProduct);
 }
 
 TEST(VectorMetricResolverTest, ValidatesLoadedMetric) {
-  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kL2Distance, faiss::METRIC_L2));
-  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kInnerProduct, faiss::METRIC_INNER_PRODUCT));
-  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kCosineSimilarity, faiss::METRIC_L2));
-  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kCosineSimilarity, faiss::METRIC_INNER_PRODUCT));
-  EXPECT_THROW(ValidateLoadedMetric(MetricType::kL2Distance, faiss::METRIC_INNER_PRODUCT), Error);
-  EXPECT_THROW(ValidateLoadedMetric(MetricType::kInnerProduct, faiss::METRIC_L2), Error);
+  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kL2Distance, MetricType::kL2Distance));
+  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kInnerProduct, MetricType::kInnerProduct));
+  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kCosineSimilarity, MetricType::kL2Distance));
+  EXPECT_NO_THROW(ValidateLoadedMetric(MetricType::kCosineSimilarity, MetricType::kInnerProduct));
+  EXPECT_THROW(ValidateLoadedMetric(MetricType::kL2Distance, MetricType::kInnerProduct), Error);
+  EXPECT_THROW(ValidateLoadedMetric(MetricType::kInnerProduct, MetricType::kL2Distance), Error);
 }
 
 TEST(VectorMetricResolverTest, RejectsInvalidCosineBackend) {

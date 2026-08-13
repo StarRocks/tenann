@@ -30,10 +30,14 @@ enum class CosineBackend { kL2, kInnerProduct };
 
 CosineBackend ParseCosineBackend(const std::string& value);
 
-faiss::MetricType ResolveBuildMetric(MetricType logical_metric, CosineBackend cosine_backend);
+MetricType ResolveBuildMetric(MetricType logical_metric, CosineBackend cosine_backend);
 
-void ValidateLoadedMetric(MetricType logical_metric, faiss::MetricType physical_metric);
+MetricType FromFaissMetric(faiss::MetricType metric);
 
-bool NeedsL2ToCosine(MetricType logical_metric, faiss::MetricType physical_metric);
+faiss::MetricType ToFaissMetric(MetricType metric);
+
+void ValidateLoadedMetric(MetricType logical_metric, MetricType physical_metric);
+
+bool NeedsL2ToCosine(MetricType logical_metric, MetricType physical_metric);
 
 }  // namespace tenann

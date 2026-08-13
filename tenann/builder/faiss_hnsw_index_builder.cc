@@ -30,6 +30,7 @@
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
 #include "tenann/index/internal/faiss_index_util.h"
+#include "tenann/index/internal/metric_util.h"
 #include "tenann/index/parameter_serde.h"
 
 namespace tenann {
@@ -82,14 +83,15 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
     // create faiss index factory string
     auto factory_string =
         faiss_util::GetHnswRepr(common_params_, index_params_, use_custom_row_id_);
+    const auto faiss_metric = ToFaissMetric(physical_metric_);
 
     // create faiss index
     auto index = std::unique_ptr<faiss::Index>(
-        faiss::index_factory(common_params_.dim, factory_string.c_str(), physical_metric_));
+        faiss::index_factory(common_params_.dim, factory_string.c_str(), faiss_metric));
     auto [_, __, index_hnsw] = faiss_util::CheckAndUnpackHnswMutable(index.get(), &common_params_);
-    T_CHECK_EQ(index_hnsw->metric_type, physical_metric_)
+    T_CHECK_EQ(index_hnsw->metric_type, faiss_metric)
         << "faiss HNSW factory ignored the requested metric";
-    T_CHECK_EQ(index_hnsw->storage->metric_type, physical_metric_)
+    T_CHECK_EQ(index_hnsw->storage->metric_type, faiss_metric)
         << "faiss HNSW storage ignored the requested metric";
 
     // set index parameters

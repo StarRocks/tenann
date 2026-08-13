@@ -34,35 +34,61 @@ CosineBackend ParseCosineBackend(const std::string& value) {
   return CosineBackend::kL2;
 }
 
-faiss::MetricType ResolveBuildMetric(MetricType logical_metric, CosineBackend cosine_backend) {
+MetricType ResolveBuildMetric(MetricType logical_metric, CosineBackend cosine_backend) {
   switch (logical_metric) {
+    case MetricType::kL2Distance:
+      return MetricType::kL2Distance;
+    case MetricType::kInnerProduct:
+      return MetricType::kInnerProduct;
+    case MetricType::kCosineSimilarity:
+      return cosine_backend == CosineBackend::kInnerProduct ? MetricType::kInnerProduct
+                                                            : MetricType::kL2Distance;
+    default:
+      T_LOG(ERROR) << "unsupported logical metric: " << static_cast<int>(logical_metric);
+      return MetricType::kL2Distance;
+  }
+}
+
+MetricType FromFaissMetric(faiss::MetricType metric) {
+  switch (metric) {
+    case faiss::METRIC_L2:
+      return MetricType::kL2Distance;
+    case faiss::METRIC_INNER_PRODUCT:
+      return MetricType::kInnerProduct;
+    default:
+      T_LOG(ERROR) << "unsupported faiss metric: " << static_cast<int>(metric);
+      return MetricType::kL2Distance;
+  }
+}
+
+faiss::MetricType ToFaissMetric(MetricType metric) {
+  switch (metric) {
     case MetricType::kL2Distance:
       return faiss::METRIC_L2;
     case MetricType::kInnerProduct:
       return faiss::METRIC_INNER_PRODUCT;
-    case MetricType::kCosineSimilarity:
-      return cosine_backend == CosineBackend::kInnerProduct ? faiss::METRIC_INNER_PRODUCT
-                                                            : faiss::METRIC_L2;
     default:
-      T_LOG(ERROR) << "unsupported logical metric: " << static_cast<int>(logical_metric);
+      T_LOG(ERROR) << "unsupported physical metric: " << static_cast<int>(metric);
       return faiss::METRIC_L2;
   }
 }
 
-void ValidateLoadedMetric(MetricType logical_metric, faiss::MetricType physical_metric) {
+void ValidateLoadedMetric(MetricType logical_metric, MetricType physical_metric) {
   const bool valid =
-      (logical_metric == MetricType::kL2Distance && physical_metric == faiss::METRIC_L2) ||
+      (logical_metric == MetricType::kL2Distance && physical_metric == MetricType::kL2Distance) ||
       (logical_metric == MetricType::kInnerProduct &&
-       physical_metric == faiss::METRIC_INNER_PRODUCT) ||
+       physical_metric == MetricType::kInnerProduct) ||
       (logical_metric == MetricType::kCosineSimilarity &&
-       (physical_metric == faiss::METRIC_L2 || physical_metric == faiss::METRIC_INNER_PRODUCT));
+       (physical_metric == MetricType::kL2Distance ||
+        physical_metric == MetricType::kInnerProduct));
   T_CHECK(valid) << "logical metric " << static_cast<int>(logical_metric)
                  << " is incompatible with loaded physical metric "
                  << static_cast<int>(physical_metric);
 }
 
-bool NeedsL2ToCosine(MetricType logical_metric, faiss::MetricType physical_metric) {
-  return logical_metric == MetricType::kCosineSimilarity && physical_metric == faiss::METRIC_L2;
+bool NeedsL2ToCosine(MetricType logical_metric, MetricType physical_metric) {
+  return logical_metric == MetricType::kCosineSimilarity &&
+         physical_metric == MetricType::kL2Distance;
 }
 
 }  // namespace tenann

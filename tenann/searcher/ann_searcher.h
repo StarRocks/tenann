@@ -22,7 +22,6 @@
 #include <memory>
 #include <vector>
 
-#include "faiss/MetricType.h"
 #include "tenann/common/seq_view.h"
 #include "tenann/index/parameters.h"
 #include "tenann/searcher/id_filter.h"
@@ -100,7 +99,7 @@ class AnnSearcher : public Searcher<AnnSearcher> {
   /**
    * @brief Validate a logical cosine threshold and convert it for the physical metric.
    */
-  float PrepareCosineRange(float range, faiss::MetricType physical_metric) const;
+  float PrepareCosineRange(float range, MetricType physical_metric) const;
 
   /**
    * @brief Convert physical cosine scores to the logical representation and clamp valid results.
@@ -110,7 +109,7 @@ class AnnSearcher : public Searcher<AnnSearcher> {
    * whether a result slot is valid.
    */
   void FinalizeScores(const int64_t* ids, float* scores, size_t n,
-                      faiss::MetricType physical_metric) const;
+                      MetricType physical_metric) const;
 
   VectorIndexCommonParams common_params_;
 };
