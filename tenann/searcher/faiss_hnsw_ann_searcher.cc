@@ -20,6 +20,7 @@
 #include "tenann/searcher/faiss_hnsw_ann_searcher.h"
 
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 #include "faiss/IndexHNSW.h"
@@ -28,6 +29,8 @@
 #include "faiss/impl/DistanceComputer.h"
 #include "faiss/impl/FaissException.h"
 #include "faiss/impl/HNSW.h"
+#include "faiss/impl/VisitedTable.h"
+#include "faiss/impl/hnsw/MinimaxHeap.h"
 #include "faiss_hnsw_ann_searcher.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/internal/faiss_index_util.h"
@@ -41,7 +44,11 @@ namespace tenann {
 
 namespace detail {
 using namespace faiss;
-using MinimaxHeap = HNSW::MinimaxHeap;
+// faiss >= 1.13 moved MinimaxHeap out of HNSW and templated it on the heap
+// comparator. faiss::MinimaxHeap is the CMax (smaller-is-better) instantiation,
+// which is what the traversal below expects: similarity metrics are handled by
+// negating distances in storage_distance_computer().
+using MinimaxHeap = faiss::MinimaxHeap;
 using storage_idx_t = HNSW::storage_idx_t;
 
 /** Copied from faiss/IndexHNSW.cpp */
@@ -180,7 +187,10 @@ void IndexHnswRangeSearch(const IndexHNSW& index, idx_t n, const float* x, float
   // each has to be adjusted separately.
   const bool is_similarity = is_similarity_metric(index.storage->metric_type);
 
-  VisitedTable vt(index.ntotal);
+  // faiss >= 1.13 turned VisitedTable into an abstract base class; concrete tables
+  // (hash-set or versioned-array based) are handed out by the factory.
+  std::unique_ptr<VisitedTable> vt_holder = VisitedTable::create(index.ntotal);
+  VisitedTable& vt = *vt_holder;
 
   if (limit > 0) {  // search top-ef nearest neighbors first, then perform post filtering based on
                     // the returned distances

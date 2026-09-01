@@ -238,7 +238,7 @@ PATCHED_MARK="patched_mark"
 # patch faiss
 cd $TP_SOURCE_DIR/$FAISS_SOURCE
 if [ ! -f $PATCHED_MARK ]; then
-    patch -p1 < $TP_PATCH_DIR/faiss-1.12.0.patch
+    patch -p1 < $TP_PATCH_DIR/faiss-1.15.0.patch
     touch $PATCHED_MARK
 fi
 cd -

@@ -241,9 +241,16 @@ build_faiss() {
         -DFAISS_OPT_LEVEL=${FAISS_OPT_LEVEL} \
         -DBUILD_SHARED_LIBS=OFF \
         -DBUILD_TESTING=OFF \
-        -DOpenMP_C_FLAGS="" \
-        -DOpenMP_CXX_FLAGS="" \
+        -DFAISS_ENABLE_MKL=OFF \
         ..
+
+    # The faiss patch makes OpenMP optional, so a failed detection would
+    # silently produce a single-threaded faiss. Fail loudly instead.
+    if ! grep -q "^OpenMP_CXX_FLAGS:STRING=.*-fopenmp" CMakeCache.txt; then
+        echo "ERROR: faiss was configured without OpenMP (-fopenmp missing)."
+        echo "       Check FindOpenMP detection for ${TENANN_GCC_HOME}/bin/g++."
+        exit 1
+    fi
 
     ${BUILD_SYSTEM} -j$PARALLEL
     ${BUILD_SYSTEM} install
