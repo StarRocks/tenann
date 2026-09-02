@@ -19,28 +19,25 @@
 
 #pragma once
 
-#include <cstdint>
-
-#include "tenann/common/json.h"
+#include "tenann/builder/faiss_index_builder_with_buffer.h"
+#include "tenann/index/parameters.h"
 
 namespace tenann {
 
-enum IndexFamily { kVectorIndex = 0, kTextIndex };
+class FaissIvfSqIndexBuilder final : public FaissIndexBuilderWithBuffer {
+ public:
+  explicit FaissIvfSqIndexBuilder(const IndexMeta& meta);
+  ~FaissIvfSqIndexBuilder() override;
 
-enum IndexType {
-  kFaissHnsw = 0,  // 0: faiss hnsw
-  kFaissIvfFlat,   // 1: faiss ivf-flat
-  kFaissIvfPq,     // 2: faiss ivf-pq
-  kFaissIvfSq,     // 3: faiss ivf-sq
+  T_FORBID_COPY_AND_ASSIGN(FaissIvfSqIndexBuilder);
+  T_FORBID_MOVE(FaissIvfSqIndexBuilder);
 
-  kFaissIvfPqOneInvertedList = 100  // 100: one inverted list of faiss ivf-pq, use for block cache
-};
+ protected:
+  IndexRef InitIndex() override;
 
-enum MetricType {
-  kL2Distance = 0,    // 0: euclidean l2 distance
-  kCosineSimilarity,  // 1: cosine similarity
-  kInnerProduct,      // 2: inner product or dot product
-  kCosineDistance,    // 3: cosine distance = 1 - cosine similarity
+ private:
+  FaissIvfSqIndexParams index_params_;
+  FaissIvfSqSearchParams search_params_;
 };
 
 }  // namespace tenann

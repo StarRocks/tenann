@@ -6,7 +6,7 @@ TenANN provides C++ and Python APIs for building and searching vector indexes wi
 
 ## Features
 
-- **Multiple Index Types**: HNSW (graph-based), IVF-PQ (inverted file with product quantization)
+- **Multiple Index Types**: HNSW (graph-based), IVF-PQ (product quantization), IVF-SQ (scalar quantization)
 - **Distance Metrics**: L2 distance, cosine similarity, inner product, cosine distance
 - **Filtered Search**: Top-K search, range search, and filtered search (range/array/bitmap filters)
 - **Zero-Copy Data Views**: Efficient data passing between user code and FAISS without copying
@@ -136,6 +136,7 @@ Disk -> IndexReader -> IndexCache -> Searcher -> Search Results
 |---|---|
 | HNSW | Hierarchical Navigable Small World (graph-based) |
 | IVF-PQ | Inverted File with Product Quantization |
+| IVF-SQ | Inverted File with 4-bit or 8-bit Scalar Quantization |
 
 ### Distance Metric Support
 
@@ -143,6 +144,7 @@ Disk -> IndexReader -> IndexCache -> Searcher -> Search Results
 |--------|-------------|-------------------|-----------------|---------------|
 | HNSW   | Yes | Yes | - | - |
 | IVF-PQ | Yes | Yes | - | Experimental |
+| IVF-SQ | Yes | Yes | - | Experimental |
 
 ### Query Type Support
 
@@ -150,13 +152,14 @@ Disk -> IndexReader -> IndexCache -> Searcher -> Search Results
 |--------|------------|------------------------|--------------|--------------------------|
 | HNSW   | Yes | Yes | Yes | Yes |
 | IVF-PQ | Yes | Yes | Yes | Yes |
+| IVF-SQ | Yes | Yes | Yes | Yes |
 
 ### Code Organization
 
 ```
 tenann/
 ├── bench/          # Benchmarking framework
-├── builder/        # Index building (HNSW, IVF-PQ)
+├── builder/        # Index building (HNSW, IVF-PQ, IVF-SQ)
 ├── common/         # Core types (seq_view, macros, errors)
 ├── factory/        # Factory pattern implementations
 ├── index/          # Index abstraction and I/O

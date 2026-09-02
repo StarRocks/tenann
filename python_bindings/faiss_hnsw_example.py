@@ -13,6 +13,7 @@ class IndexType(Enum):
     kFaissHnsw = 0
     kFaissIvfFlat = 1
     kFaissIvfPq = 2
+    kFaissIvfSq = 3
 
 class MetricType(Enum):
     kL2Distance = 0

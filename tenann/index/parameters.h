@@ -88,6 +88,26 @@ struct FaissIvfPqSearchParams {
   }
 };
 
+/** Parameters for Faiss IVF-SQ. */
+struct FaissIvfSqIndexParams {
+  DEFINE_OPTIONAL_PARAM(size_t, nlist, 16);
+  // Number of bits used by the scalar quantizer. IVF-SQ supports SQ4 and SQ8.
+  DEFINE_OPTIONAL_PARAM(size_t, nbits, 8);
+
+  void Validate() {
+    ASSERT_PARAM_IN_RANGE(nlist, 1, INT_MAX);
+    T_CHECK(nbits == 4 || nbits == 8) << "nbits must be either 4 or 8 for IVF-SQ";
+  }
+};
+
+/** Search parameters shared by Faiss IVF-SQ top-k and range search. */
+struct FaissIvfSqSearchParams {
+  DEFINE_OPTIONAL_PARAM(size_t, nprobe, 1);
+  DEFINE_OPTIONAL_PARAM(size_t, max_codes, 0);
+
+  void Validate() { ASSERT_PARAM_IN_RANGE(nprobe, 1, INT_MAX); }
+};
+
 /**
  * Scalar/Product quantizer type for HNSW index.
  * Used by FaissHnswIndexParams::quantizer.
