@@ -21,12 +21,13 @@
 
 #include "tenann/builder/faiss_hnsw_index_builder.h"
 #include "tenann/builder/faiss_ivf_pq_index_builder.h"
+#include "tenann/builder/faiss_ivf_sq_index_builder.h"
 #include "tenann/builder/index_builder.h"
 #include "tenann/common/error.h"
-#include "tenann/index/index_ivfpq_reader.h"
-#include "tenann/index/index_ivfpq_writer.h"
 #include "tenann/index/faiss_index_reader.h"
 #include "tenann/index/faiss_index_writer.h"
+#include "tenann/index/index_ivfpq_reader.h"
+#include "tenann/index/index_ivfpq_writer.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
 #include "tenann/store/index_meta.h"
@@ -41,6 +42,10 @@ namespace tenann {
   }                                                                  \
   case kFaissIvfPq: {                                                \
     CASE_FN(kFaissIvfPq);                                            \
+    break;                                                           \
+  }                                                                  \
+  case kFaissIvfSq: {                                                \
+    CASE_FN(kFaissIvfSq);                                            \
     break;                                                           \
   }                                                                  \
   default: {                                                         \
@@ -93,6 +98,21 @@ struct IndexFactoryTrait<kFaissIvfPq> {
 
   static std::shared_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
     return std::make_shared<FaissIvfPqIndexBuilder>(meta);
+  };
+};
+
+template <>
+struct IndexFactoryTrait<kFaissIvfSq> {
+  static std::shared_ptr<IndexReader> CreateReaderFromMeta(const IndexMeta& meta) {
+    return std::make_shared<FaissIndexReader>(meta);
+  };
+
+  static std::shared_ptr<IndexWriter> CreateWriterFromMeta(const IndexMeta& meta) {
+    return std::make_shared<FaissIndexWriter>(meta);
+  };
+
+  static std::shared_ptr<IndexBuilder> CreateBuilderFromMeta(const IndexMeta& meta) {
+    return std::make_shared<FaissIvfSqIndexBuilder>(meta);
   };
 };
 

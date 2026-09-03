@@ -22,12 +22,15 @@ set(TENANN_TEST_SRC
     builder/test_faiss_hnsw_index_builder.cc
     builder/test_faiss_hnsw_quantized_builder.cc
     builder/test_faiss_ivf_pq_index_builder.cc
+    builder/test_faiss_ivf_sq_index_builder.cc
     index/test_index.cc
     index/test_index_ivfpq.cc
     index/test_hnsw_quantizer_params.cc
     index/test_hnsw_factory_string.cc
+    index/test_ivf_sq_params.cc
     searcher/test_faiss_hnsw_ann_searcher.cc
     searcher/test_faiss_ivf_pq_ann_searcher.cc
+    searcher/test_faiss_ivf_sq_ann_searcher.cc
     searcher/test_ivf_pq_range_search.cc
     searcher/test_range_search.cc
     store/test_index_meta.cc

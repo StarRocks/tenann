@@ -79,8 +79,8 @@ inline void FetchParameters(const IndexMeta& meta, VectorIndexCommonParams* out_
 
 inline void FetchParameters(const IndexMeta& meta, VectorIndexExtraParams* out_params) {
   if (meta.extra_params().contains("comments")) {
-      out_params->comments = meta.extra_params()["comments"];
-  } 
+    out_params->comments = meta.extra_params()["comments"];
+  }
   out_params->Validate();
 }
 
@@ -119,6 +119,20 @@ inline void FetchParameters(const IndexMeta& meta, FaissIvfPqSearchParams* out_p
   out_params->Validate();
 }
 
+inline void FetchParameters(const IndexMeta& meta, FaissIvfSqIndexParams* out_params) {
+  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nlist);
+  GET_OPTIONAL_INDEX_PARAM_TO(meta, *out_params, nbits);
+
+  out_params->Validate();
+}
+
+inline void FetchParameters(const IndexMeta& meta, FaissIvfSqSearchParams* out_params) {
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, nprobe);
+  GET_OPTIONAL_SEARCH_PARAM_TO(meta, *out_params, max_codes);
+
+  out_params->Validate();
+}
+
 inline void FetchParameters(const IndexMeta& meta, IndexWriterOptions* out_params) {
   GET_OPTIONAL_WRITE_INDEX_PARAM_TO(meta, *out_params, write_index_cache);
   if (meta.index_writer_options().contains("custom_cache_key")) {
@@ -134,7 +148,7 @@ inline void FetchParameters(const IndexMeta& meta, IndexWriterOptions* out_param
 inline void FetchParameters(const IndexMeta& meta, IndexReaderOptions* out_params) {
   GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, cache_index_file);
   if (meta.index_reader_options().contains("custom_cache_key")) {
-      out_params->custom_cache_key = meta.index_reader_options()["custom_cache_key"];
+    out_params->custom_cache_key = meta.index_reader_options()["custom_cache_key"];
   }
   GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, force_read_and_overwrite_cache);
   GET_OPTIONAL_READ_INDEX_PARAM_TO(meta, *out_params, cache_index_block);

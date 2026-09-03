@@ -39,6 +39,11 @@ inline std::string IndexStr(const IndexMeta& meta) {
       FetchParameters(meta, &params);
       return fmt::format("ivf{}pq{}x{}", params.nlist, params.nbits, params.M);
     }
+    case IndexType::kFaissIvfSq: {
+      FaissIvfSqIndexParams params;
+      FetchParameters(meta, &params);
+      return fmt::format("ivf{}sq{}", params.nlist, params.nbits);
+    }
   }
 
   return "unknown index";

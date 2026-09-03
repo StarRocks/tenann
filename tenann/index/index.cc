@@ -25,6 +25,7 @@
 #include "faiss/IndexIDMap.h"
 #include "faiss/IndexIVFPQ.h"
 #include "faiss/IndexPQ.h"
+#include "faiss/IndexScalarQuantizer.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/index_ivfpq_reader.h"
 #include "tenann/index/internal/faiss_index_util.h"
@@ -182,6 +183,38 @@ size_t Index::EstimateMemoryUsage() {
 
     // TODO: Level1Quantizer.Index(quantizer)
     // TODO: Level1Quantizer.Index(clustering_index)
+    return mem_usage;
+  }
+
+  // IndexType::kFaissIvfSq
+  if (index_type_ == IndexType::kFaissIvfSq) {
+    auto* faiss_index = static_cast<faiss::Index*>(index_raw_);
+    auto [transform, index_ivf_sq] = faiss_util::UnpackIvfSq(faiss_index);
+    if (index_ivf_sq == nullptr) {
+      T_LOG(WARNING)
+          << "estimating memory usage for unsupported index types would always get result 1";
+      return 1;
+    }
+
+    if (transform != nullptr) {
+      mem_usage += sizeof(*transform);
+      mem_usage += transform->chain.capacity() * sizeof(faiss::VectorTransform*);
+      for (auto chain_ptr : transform->chain) {
+        mem_usage += sizeof(*chain_ptr);
+      }
+    }
+
+    mem_usage += sizeof(*index_ivf_sq);
+    if (index_ivf_sq->invlists != nullptr) {
+      mem_usage += sizeof(*index_ivf_sq->invlists);
+      mem_usage += index_ivf_sq->invlists->compute_ntotal() *
+                   (index_ivf_sq->code_size + sizeof(faiss::idx_t));
+    }
+    mem_usage += index_ivf_sq->direct_map.array.capacity() * sizeof(faiss::idx_t);
+    auto& direct_map = index_ivf_sq->direct_map.hashtable;
+    mem_usage += (direct_map.size() * (sizeof(faiss::idx_t) + sizeof(faiss::idx_t)) +
+                  direct_map.bucket_count() * (sizeof(void*) + sizeof(size_t))) *
+                 1.5;
     return mem_usage;
   }
 

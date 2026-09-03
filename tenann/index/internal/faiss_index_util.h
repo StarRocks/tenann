@@ -28,6 +28,7 @@
 #include "faiss/IndexIDMap.h"
 #include "faiss/IndexIVFPQ.h"
 #include "faiss/IndexPreTransform.h"
+#include "faiss/IndexScalarQuantizer.h"
 #include "tenann/common/error.h"
 #include "tenann/index/index.h"
 #include "tenann/index/internal/index_ivfpq.h"
@@ -228,6 +229,47 @@ inline std::tuple<faiss::IndexPreTransform*, tenann::IndexIvfPq*> UnpackIvfPqMut
   auto [transform, ivfpq] = UnpackIvfPq(index);
   return std::make_tuple(const_cast<faiss::IndexPreTransform*>(transform),
                          const_cast<tenann::IndexIvfPq*>(ivfpq));
+}
+
+/************************************************************
+ * Faiss IVF-SQ index
+ ************************************************************/
+
+inline std::tuple<const faiss::IndexPreTransform*, const faiss::IndexIVFScalarQuantizer*>
+CheckAndUnpackIvfSq(const faiss::Index* index, const VectorIndexCommonParams* common_params) {
+  const faiss::Index* sub_index = index;
+  const faiss::IndexPreTransform* transform = nullptr;
+
+  if (common_params != nullptr && common_params->metric_type == MetricType::kCosineSimilarity &&
+      !common_params->is_vector_normed) {
+    transform = CHECKED_FAISS_DOWN_CAST(faiss::IndexPreTransform, sub_index);
+    sub_index = transform->index;
+  } else if (transform = dynamic_cast<const faiss::IndexPreTransform*>(sub_index)) {
+    T_LOG(DEBUG) << " Parse Index as faiss::IndexPreTransform.";
+    sub_index = transform->index;
+  }
+
+  auto ivf_sq = CHECKED_FAISS_DOWN_CAST(faiss::IndexIVFScalarQuantizer, sub_index);
+  return std::make_tuple(transform, ivf_sq);
+}
+
+inline std::tuple<faiss::IndexPreTransform*, faiss::IndexIVFScalarQuantizer*>
+CheckAndUnpackIvfSqMutable(faiss::Index* index, const VectorIndexCommonParams* common_params) {
+  auto [transform, ivf_sq] = CheckAndUnpackIvfSq(index, common_params);
+  return std::make_tuple(const_cast<faiss::IndexPreTransform*>(transform),
+                         const_cast<faiss::IndexIVFScalarQuantizer*>(ivf_sq));
+}
+
+inline std::tuple<const faiss::IndexPreTransform*, const faiss::IndexIVFScalarQuantizer*>
+UnpackIvfSq(const faiss::Index* index) {
+  return CheckAndUnpackIvfSq(index, nullptr);
+}
+
+inline std::tuple<faiss::IndexPreTransform*, faiss::IndexIVFScalarQuantizer*> UnpackIvfSqMutable(
+    faiss::Index* index) {
+  auto [transform, ivf_sq] = UnpackIvfSq(index);
+  return std::make_tuple(const_cast<faiss::IndexPreTransform*>(transform),
+                         const_cast<faiss::IndexIVFScalarQuantizer*>(ivf_sq));
 }
 
 }  // namespace faiss_util
