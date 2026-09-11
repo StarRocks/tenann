@@ -26,6 +26,37 @@ namespace tenann {
 
 using faiss::idx_t;
 
+/// Distance kernels for 8-bit PQ codes. `sim_table` is a row-major
+/// (pq_m x pq_ksub) table of precomputed sub-distances, so code m indexes row m.
+/// The kernels are declared here so that a test can compare them against each other;
+/// production code should call Pq8DistanceSingleCode.
+namespace ivfpq_simd {
+
+float Pq8DistanceSingleCodeGeneric(const uint8_t* code, const float* sim_table, size_t pq_m,
+                                   size_t pq_ksub);
+
+#if defined(__x86_64__)
+/// True when the running CPU supports AVX2. Detected once.
+bool Avx2Supported();
+
+float Pq8DistanceSingleCodeAvx2(const uint8_t* code, const float* sim_table, size_t pq_m,
+                                size_t pq_ksub);
+#endif  // __x86_64__
+
+/// Picks the widest kernel the running CPU supports. Inline so the branch folds into
+/// the scan loop rather than adding a second call per code.
+inline float Pq8DistanceSingleCode(const uint8_t* code, const float* sim_table, size_t pq_m,
+                                   size_t pq_ksub) {
+#if defined(__x86_64__)
+  if (Avx2Supported()) {
+    return Pq8DistanceSingleCodeAvx2(code, sim_table, pq_m, pq_ksub);
+  }
+#endif
+  return Pq8DistanceSingleCodeGeneric(code, sim_table, pq_m, pq_ksub);
+}
+
+}  // namespace ivfpq_simd
+
 namespace detail {
 
 template <class C>

@@ -28,6 +28,7 @@ set(TENANN_TEST_SRC
     index/test_hnsw_quantizer_params.cc
     index/test_hnsw_factory_string.cc
     index/test_ivf_sq_params.cc
+    index/test_ivfpq_pq8_simd.cc
     searcher/test_faiss_hnsw_ann_searcher.cc
     searcher/test_faiss_ivf_pq_ann_searcher.cc
     searcher/test_faiss_ivf_sq_ann_searcher.cc

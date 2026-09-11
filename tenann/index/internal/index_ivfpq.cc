@@ -40,14 +40,127 @@
 #include "faiss/utils/hamming.h"
 #include "faiss/utils/utils.h"
 
-#ifdef __AVX2__
+#if defined(__x86_64__)
 #include <immintrin.h>
+#endif
 
 #include "index_ivfpq.h"
-#endif
 
 namespace tenann {
 using namespace faiss;
+
+namespace ivfpq_simd {
+
+float Pq8DistanceSingleCodeGeneric(const uint8_t* code, const float* sim_table, size_t pq_m,
+                                   size_t pq_ksub) {
+  const float* tab = sim_table;
+  float result = 0;
+  for (size_t m = 0; m < pq_m; m++) {
+    result += tab[code[m]];
+    tab += pq_ksub;
+  }
+  return result;
+}
+
+#if defined(__x86_64__)
+/// The same sum, 16 codes per iteration via two 8-lane gathers. The `target` attribute
+/// enables AVX2 for this function alone, so the kernel stays in the binary without
+/// making the whole translation unit require AVX2 at run time.
+__attribute__((target("avx2"))) float Pq8DistanceSingleCodeAvx2(const uint8_t* code,
+                                                                const float* sim_table, size_t pq_m,
+                                                                size_t pq_ksub) {
+  float result = 0;
+
+  size_t m = 0;
+  const size_t pqM16 = pq_m / 16;
+
+  const float* tab = sim_table;
+
+  if (pqM16 > 0) {
+    // process 16 values per loop
+
+    const __m256i ksub = _mm256_set1_epi32(static_cast<int>(pq_ksub));
+    __m256i offsets_0 = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+    offsets_0 = _mm256_mullo_epi32(offsets_0, ksub);
+
+    // accumulators of partial sums
+    __m256 partialSum = _mm256_setzero_ps();
+
+    // loop
+    for (m = 0; m < pqM16 * 16; m += 16) {
+      // load 16 uint8 values
+      const __m128i mm1 = _mm_loadu_si128((const __m128i_u*)(code + m));
+      {
+        // convert uint8 values (low part of __m128i) to int32
+        // values
+        const __m256i idx1 = _mm256_cvtepu8_epi32(mm1);
+
+        // add offsets
+        const __m256i indices_to_read_from = _mm256_add_epi32(idx1, offsets_0);
+
+        // gather 8 values, similar to 8 operations of tab[idx]
+        __m256 collected = _mm256_i32gather_ps(tab, indices_to_read_from, sizeof(float));
+        tab += pq_ksub * 8;
+
+        // collect partial sums
+        partialSum = _mm256_add_ps(partialSum, collected);
+      }
+
+      // move high 8 uint8 to low ones
+      const __m128i mm2 = _mm_unpackhi_epi64(mm1, _mm_setzero_si128());
+      {
+        // convert uint8 values (low part of __m128i) to int32
+        // values
+        const __m256i idx1 = _mm256_cvtepu8_epi32(mm2);
+
+        // add offsets
+        const __m256i indices_to_read_from = _mm256_add_epi32(idx1, offsets_0);
+
+        // gather 8 values, similar to 8 operations of tab[idx]
+        __m256 collected = _mm256_i32gather_ps(tab, indices_to_read_from, sizeof(float));
+        tab += pq_ksub * 8;
+
+        // collect partial sums
+        partialSum = _mm256_add_ps(partialSum, collected);
+      }
+    }
+
+    // horizontal sum for partialSum
+    const __m256 h0 = _mm256_hadd_ps(partialSum, partialSum);
+    const __m256 h1 = _mm256_hadd_ps(h0, h0);
+
+    // extract high and low __m128 regs from __m256
+    const __m128 h2 = _mm256_extractf128_ps(h1, 1);
+    const __m128 h3 = _mm256_castps256_ps128(h1);
+
+    // get a final hsum into all 4 regs
+    const __m128 h4 = _mm_add_ss(h2, h3);
+
+    // extract f[0] from __m128
+    const float hsum = _mm_cvtss_f32(h4);
+    result += hsum;
+  }
+
+  //
+  if (m < pq_m) {
+    // process leftovers
+    for (; m < pq_m; m++) {
+      result += tab[code[m]];
+      tab += pq_ksub;
+    }
+  }
+
+  return result;
+}
+
+bool Avx2Supported() {
+  static const bool supported = __builtin_cpu_supports("avx2");
+  return supported;
+}
+#endif  // __x86_64__
+
+}  // namespace ivfpq_simd
+
 
 IndexIvfPq::IndexIvfPq() : faiss::IndexIVFPQ() {}
 
@@ -694,7 +807,6 @@ struct IVFPQScannerT : QueryTables {
    * Scaning the codes: simple PQ scan.
    *****************************************************/
 
-#ifdef __AVX2__
   /// Returns the distance to a single code.
   /// General-purpose version.
   template <class SearchResultType, typename T = PQDecoder>
@@ -714,114 +826,12 @@ struct IVFPQScannerT : QueryTables {
   }
 
   /// Returns the distance to a single code.
-  /// Specialized AVX2 PQDecoder8 version.
+  /// 8-bit codes take the widest kernel the running CPU supports.
   template <class SearchResultType, typename T = PQDecoder>
   typename std::enable_if<(std::is_same<T, PQDecoder8>::value),
                           float>::type inline distance_single_code(const uint8_t* code) const {
-    float result = 0;
-
-    size_t m = 0;
-    const size_t pqM16 = pq.M / 16;
-
-    const float* tab = sim_table;
-
-    if (pqM16 > 0) {
-      // process 16 values per loop
-
-      const __m256i ksub = _mm256_set1_epi32(pq.ksub);
-      __m256i offsets_0 = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
-      offsets_0 = _mm256_mullo_epi32(offsets_0, ksub);
-
-      // accumulators of partial sums
-      __m256 partialSum = _mm256_setzero_ps();
-
-      // loop
-      for (m = 0; m < pqM16 * 16; m += 16) {
-        // load 16 uint8 values
-        const __m128i mm1 = _mm_loadu_si128((const __m128i_u*)(code + m));
-        {
-          // convert uint8 values (low part of __m128i) to int32
-          // values
-          const __m256i idx1 = _mm256_cvtepu8_epi32(mm1);
-
-          // add offsets
-          const __m256i indices_to_read_from = _mm256_add_epi32(idx1, offsets_0);
-
-          // gather 8 values, similar to 8 operations of tab[idx]
-          __m256 collected = _mm256_i32gather_ps(tab, indices_to_read_from, sizeof(float));
-          tab += pq.ksub * 8;
-
-          // collect partial sums
-          partialSum = _mm256_add_ps(partialSum, collected);
-        }
-
-        // move high 8 uint8 to low ones
-        const __m128i mm2 = _mm_unpackhi_epi64(mm1, _mm_setzero_si128());
-        {
-          // convert uint8 values (low part of __m128i) to int32
-          // values
-          const __m256i idx1 = _mm256_cvtepu8_epi32(mm2);
-
-          // add offsets
-          const __m256i indices_to_read_from = _mm256_add_epi32(idx1, offsets_0);
-
-          // gather 8 values, similar to 8 operations of tab[idx]
-          __m256 collected = _mm256_i32gather_ps(tab, indices_to_read_from, sizeof(float));
-          tab += pq.ksub * 8;
-
-          // collect partial sums
-          partialSum = _mm256_add_ps(partialSum, collected);
-        }
-      }
-
-      // horizontal sum for partialSum
-      const __m256 h0 = _mm256_hadd_ps(partialSum, partialSum);
-      const __m256 h1 = _mm256_hadd_ps(h0, h0);
-
-      // extract high and low __m128 regs from __m256
-      const __m128 h2 = _mm256_extractf128_ps(h1, 1);
-      const __m128 h3 = _mm256_castps256_ps128(h1);
-
-      // get a final hsum into all 4 regs
-      const __m128 h4 = _mm_add_ss(h2, h3);
-
-      // extract f[0] from __m128
-      const float hsum = _mm_cvtss_f32(h4);
-      result += hsum;
-    }
-
-    //
-    if (m < pq.M) {
-      // process leftovers
-      PQDecoder decoder(code + m, pq.nbits);
-
-      for (; m < pq.M; m++) {
-        result += tab[decoder.decode()];
-        tab += pq.ksub;
-      }
-    }
-
-    return result;
+    return ivfpq_simd::Pq8DistanceSingleCode(code, sim_table, pq.M, pq.ksub);
   }
-
-#else
-  /// Returns the distance to a single code.
-  /// General-purpose version.
-  template <class SearchResultType>
-  inline float distance_single_code(const uint8_t* code) const {
-    PQDecoder decoder(code, pq.nbits);
-
-    const float* tab = sim_table;
-    float result = 0;
-
-    for (size_t m = 0; m < pq.M; m++) {
-      result += tab[decoder.decode()];
-      tab += pq.ksub;
-    }
-
-    return result;
-  }
-#endif
 
   /// version of the scan where we use precomputed tables.
   template <class SearchResultType>
