@@ -27,6 +27,7 @@ set(TENANN_SRC
     builder/faiss_ivf_pq_index_builder.cc
     builder/faiss_ivf_sq_index_builder.cc
     common/logging.cc
+    common/simd_info.cc
     factory/index_factory.cc
     factory/ann_searcher_factory.cc
     index/internal/metric_util.cc
@@ -64,15 +65,10 @@ add_library(tenann STATIC ${TENANN_SRC})
 add_library(fmt STATIC IMPORTED)
 set_target_properties(fmt PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib64/libfmt.a)
 
-# Two targets (faiss and faiss_avx2) will be imported
+# faiss is built with FAISS_OPT_LEVEL=dd, so this single archive carries every
+# per-ISA kernel and selects one at runtime. There is no per-ISA variant to import.
 add_library(faiss STATIC IMPORTED)
 set_target_properties(faiss PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a)
-
-add_library(faiss_avx2 STATIC IMPORTED)
-set_target_properties(faiss_avx2 PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss_avx2.a)
-
-add_library(faiss_sve STATIC IMPORTED)
-set_target_properties(faiss_sve PROPERTIES IMPORTED_LOCATION ${TENANN_THIRDPARTY}/installed/lib/libfaiss_sve.a)
 
 # openblas
 find_package(OpenBLAS REQUIRED PATHS "${TENANN_THIRDPARTY}/installed/lib/cmake/openblas")
@@ -94,50 +90,4 @@ set(TENANN_LINK_LIBS
 target_link_libraries(tenann
     ${WL_START_GROUP}
     ${TENANN_LINK_LIBS}
-    ${WL_END_GROUP})
-
-########################################################
-# tenann_avx2
-########################################################
-
-add_library(tenann_avx2 STATIC ${TENANN_SRC})
-if(NOT WITH_AVX2 STREQUAL "ON")
-  set_target_properties(tenann_avx2 PROPERTIES EXCLUDE_FROM_ALL TRUE)
-endif()
-
-target_compile_options(tenann_avx2 PRIVATE ${FAISS_AVX2_CXX_FLAGS})
-
-set(TENANN_AVX2_LINK_LIBS
-    fmt
-    faiss_avx2
-    ${OpenBLAS_LIBRARIES}
-    OpenMP::OpenMP_CXX
-    -lm)
-
-target_link_libraries(tenann_avx2
-    ${WL_START_GROUP}
-    ${TENANN_AVX2_LINK_LIBS}
-    ${WL_END_GROUP})
-
-########################################################
-# tenann_sve (ARM64 SVE support)
-########################################################
-
-add_library(tenann_sve STATIC ${TENANN_SRC})
-if(NOT WITH_SVE STREQUAL "ON")
-  set_target_properties(tenann_sve PROPERTIES EXCLUDE_FROM_ALL TRUE)
-endif()
-
-target_compile_options(tenann_sve PRIVATE ${FAISS_SVE_CXX_FLAGS})
-
-set(TENANN_SVE_LINK_LIBS
-    fmt
-    faiss_sve
-    ${OpenBLAS_LIBRARIES}
-    OpenMP::OpenMP_CXX
-    -lm)
-
-target_link_libraries(tenann_sve
-    ${WL_START_GROUP}
-    ${TENANN_SVE_LINK_LIBS}
     ${WL_END_GROUP})
