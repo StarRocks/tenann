@@ -27,9 +27,6 @@ sh build.sh --with-tests
 # Build with examples
 sh build.sh --with-examples
 
-# Build with AVX2 support (produces both libtenann.a and libtenann_avx2.a)
-sh build.sh --with-avx2
-
 # Build with Python bindings
 sh build.sh --with-python
 
@@ -47,6 +44,17 @@ sh build.sh -j 8
 ```
 
 Build artifacts are placed in `output/` directory.
+
+There is one library for every CPU. FAISS is built with `FAISS_OPT_LEVEL=dd`, so
+`libtenann.a` carries the AVX2, AVX-512 and (on ARM) NEON/SVE kernels together and
+selects one by probing the CPU at load time. `tenann::SimdLevelName()` reports which
+one got selected; neither the build flags nor the library name tell you.
+
+To build against a fixed instruction set instead, for example to compare two levels:
+
+```bash
+FAISS_OPT_LEVEL_OVERRIDE=avx2 sh thirdparty/build-thirdparty.sh faiss
+```
 
 ### Building Third-Party Dependencies
 
@@ -69,9 +77,6 @@ ctest
 
 # Run specific test binary
 ./build_Release/test/tenann_test
-
-# Run tests with AVX2 (if built with --with-avx2)
-./build_Release/test/tenann_test_avx2
 
 # Run specific test case
 ./build_Release/test/tenann_test --gtest_filter=FaissHnswIndexBuilderTest.*
