@@ -27,6 +27,7 @@ set(TENANN_SRC
     builder/faiss_ivf_pq_index_builder.cc
     builder/faiss_ivf_sq_index_builder.cc
     common/logging.cc
+    common/simd_info.cc
     factory/index_factory.cc
     factory/ann_searcher_factory.cc
     index/internal/metric_util.cc
