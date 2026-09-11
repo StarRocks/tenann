@@ -223,14 +223,18 @@ build_faiss() {
     rm -rf CMakeCache.txt CMakeFiles/
     echo "machine type:" $MACHINE_TYPE
 
+    # "dd" compiles every per-ISA kernel into the single faiss target and picks one
+    # at runtime via CPUID, so one library covers AVX2/AVX-512 on x86 and NEON/SVE on
+    # ARM. A fixed opt level bakes in one ISA instead: "avx2" left the AVX-512 kernels
+    # (sq-avx512.cpp, impl/hnsw/avx512.cpp, distances_avx512.cpp, ...) out of the
+    # build entirely, and "generic" did the same to the ARM SVE kernels.
+    #
     # FAISS_OPT_LEVEL_OVERRIDE lets a build pick a different opt level without
     # editing this script, which is what makes an A/B between two levels possible.
     if [ -n "${FAISS_OPT_LEVEL_OVERRIDE:-}" ]; then
         FAISS_OPT_LEVEL=${FAISS_OPT_LEVEL_OVERRIDE}
-    elif [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
-        FAISS_OPT_LEVEL=avx2
     else
-        FAISS_OPT_LEVEL=generic
+        FAISS_OPT_LEVEL=dd
     fi
     echo "FAISS_OPT_LEVEL: $FAISS_OPT_LEVEL"
 
