@@ -223,7 +223,11 @@ build_faiss() {
     rm -rf CMakeCache.txt CMakeFiles/
     echo "machine type:" $MACHINE_TYPE
 
-    if [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
+    # FAISS_OPT_LEVEL_OVERRIDE lets a build pick a different opt level without
+    # editing this script, which is what makes an A/B between two levels possible.
+    if [ -n "${FAISS_OPT_LEVEL_OVERRIDE:-}" ]; then
+        FAISS_OPT_LEVEL=${FAISS_OPT_LEVEL_OVERRIDE}
+    elif [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
         FAISS_OPT_LEVEL=avx2
     else
         FAISS_OPT_LEVEL=generic
@@ -313,6 +317,16 @@ export GLOBAL_CXXFLAGS="-fPIC -static-libstdc++ -static-libgcc -O3 -fno-omit-fra
 export CPPFLAGS=$GLOBAL_CPPFLAGS
 export CXXFLAGS=$GLOBAL_CXXFLAGS
 export CFLAGS=$GLOBAL_CFLAGS
+
+# Build only the named components when any are given, e.g. `build-thirdparty.sh faiss`.
+if [ $# -gt 0 ]; then
+    for component in "$@"; do
+        echo "Building only: $component"
+        build_${component}
+    done
+    echo "Done."
+    exit 0
+fi
 
 build_fmt
 build_openblas # must before faiss
