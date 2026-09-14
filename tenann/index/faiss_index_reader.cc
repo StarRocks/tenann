@@ -23,6 +23,7 @@
 
 #include "faiss/Index.h"
 #include "faiss/impl/FaissException.h"
+#include "faiss/impl/zerocopy_io.h"
 #include "faiss/index_io.h"
 #include "tenann/common/logging.h"
 #include "tenann/index/faiss_io_reader_adapter.h"
@@ -39,6 +40,23 @@ IndexRef FaissIndexReader::ReadIndexFile(const std::string& path) {
     MonotonicStopWatch total_sw;
     total_sw.start();
     if (file_reader_) {
+      auto zc = file_reader_->TryGetZeroCopyBuffer();
+      if (zc.data != nullptr && zc.size > 0) {
+        // The reader already staged the whole file, so FAISS can view the bytes instead
+        // of copying them into its own arrays. The caller timed the fetch; everything
+        // measured here is deserialization proper.
+        faiss::ZeroCopyIOReader io_reader(zc.data, static_cast<size_t>(zc.size));
+        raw_index = faiss::read_index(&io_reader, faiss::IO_FLAG_READ_ONLY);
+        total_sw.stop();
+        read_timing_stats_.init_index_ns += static_cast<int64_t>(total_sw.elapsed_time());
+        // The index holds views into the staged buffer, so the owner token has to outlive
+        // it; the deleter carries it. The buffer is also the index's real footprint, which
+        // the type-based heuristic cannot see through a view.
+        return std::make_shared<Index>(
+            raw_index, (IndexType)index_meta_.index_type(),
+            [owner = zc.owner](void* index) { delete static_cast<faiss::Index*>(index); },
+            static_cast<size_t>(zc.size));
+      }
       // Use external file reader (for remote file systems).
       // Cannot use MMAP with remote FS, use IO_FLAG_READ_ONLY instead.
       FaissIOReaderAdapter io_reader(file_reader_);

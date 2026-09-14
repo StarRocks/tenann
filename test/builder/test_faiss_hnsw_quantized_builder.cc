@@ -53,7 +53,12 @@ namespace {
 
 constexpr uint32_t kDim = 32;
 constexpr uint32_t kNb = 2000;
-constexpr uint32_t kNq = 5;
+// Enough queries for the recall estimate to be stable. At kNq=5 the metric can only
+// take the values 0, 0.2, ... 1.0, so one query flipping moves it by 0.2 -- and pq4x4,
+// whose true self-recall measures 0.81 here, lands under the 0.6 floor about 5% of the
+// time purely from sampling. The index build is not seeded, so that shows up as a flake
+// rather than as a stable failure.
+constexpr uint32_t kNq = 200;
 constexpr uint32_t kK = 10;
 
 IndexMeta MakeHnswMeta(ScalarQuantizerType q, int m_pq = 0, int nbits_pq = 8,
