@@ -46,9 +46,6 @@ sh build.sh --with-tests
 # Build with examples
 sh build.sh --with-examples
 
-# Build with AVX2 support (produces both libtenann.a and libtenann_avx2.a)
-sh build.sh --with-avx2
-
 # Build with Python bindings
 sh build.sh --with-python
 
