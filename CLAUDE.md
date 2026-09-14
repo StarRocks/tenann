@@ -81,9 +81,8 @@ ctest
 # Run specific test case
 ./build_Release/test/tenann_test --gtest_filter=FaissHnswIndexBuilderTest.*
 
-# Generate code coverage report
-cd build_Release
-make coverage
+# Generate code coverage report (build.sh generates a Ninja build, so there is no Makefile)
+cmake --build build_Release --target coverage
 # View report at build_Release/coverage_html/index.html
 ```
 
