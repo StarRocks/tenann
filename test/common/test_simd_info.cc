@@ -24,6 +24,25 @@
 #include "gtest/gtest.h"
 #include "tenann/common/simd_info.h"
 
+#if defined(__aarch64__)
+#include <sys/auxv.h>
+#ifndef HWCAP_SVE
+#define HWCAP_SVE (1 << 22)
+#endif
+#endif
+
+extern "C" char* openblas_get_config(void);
+
+namespace {
+
+/// FAISS_SIMD_LEVEL pins the level, which is how a benchmark compares two of them.
+bool LevelIsPinned() {
+  const char* env = std::getenv("FAISS_SIMD_LEVEL");
+  return env != nullptr && env[0] != '\0';
+}
+
+}  // namespace
+
 namespace tenann {
 
 TEST(SimdInfoTest, ReportsAKnownLevel) {
@@ -43,12 +62,6 @@ bool CpuHasAvx512() {
 }
 
 bool CpuHasAvx2() { return __builtin_cpu_supports("avx2"); }
-
-/// FAISS_SIMD_LEVEL pins the level, which is how a benchmark compares two of them.
-bool LevelIsPinned() {
-  const char* env = std::getenv("FAISS_SIMD_LEVEL");
-  return env != nullptr && env[0] != '\0';
-}
 
 }  // namespace
 
@@ -88,5 +101,41 @@ TEST(SimdInfoTest, PicksTheWidestLevelTheCpuOffers) {
   }
 }
 #endif  // __x86_64__
+
+#if defined(__aarch64__)
+namespace {
+
+bool CpuHasSve() { return (getauxval(AT_HWCAP) & HWCAP_SVE) != 0; }
+
+}  // namespace
+
+// The ARM counterpart of the x86 invariant, and the one that decides whether a single
+// package can serve every machine: reporting ARM_SVE where the CPU has none faults.
+TEST(SimdInfoTest, LevelNeverExceedsCpuCapability) {
+  if (!CpuHasSve()) {
+    EXPECT_NE(SimdLevelName(), "ARM_SVE")
+        << "kernels report ARM_SVE on a CPU without SVE; this would fault";
+  }
+}
+
+// Left to choose for itself the dispatch must take SVE where it exists. Falling back to
+// NEON on an SVE machine means faiss was built at a fixed FAISS_OPT_LEVEL rather than
+// "dd", so the SVE kernels are not in the library at all.
+TEST(SimdInfoTest, PicksTheWidestLevelTheCpuOffers) {
+  if (LevelIsPinned()) {
+    GTEST_SKIP() << "FAISS_SIMD_LEVEL pins the level, so there is no choice to check";
+  }
+  EXPECT_EQ(SimdLevelName(), CpuHasSve() ? "ARM_SVE" : "ARM_NEON");
+}
+#endif  // __aarch64__
+
+// A DYNAMIC_ARCH OpenBLAS picks its kernels the way faiss picks its own. Linking a
+// single-architecture build instead is silent: it runs, and it either leaves the wide
+// kernels unused or faults on an older CPU.
+TEST(SimdInfoTest, OpenBlasDispatchesAtRunTime) {
+  const std::string config = openblas_get_config();
+  EXPECT_NE(config.find("DYNAMIC_ARCH"), std::string::npos)
+      << "OpenBLAS reports \"" << config << "\"; a single-architecture build was linked";
+}
 
 }  // namespace tenann

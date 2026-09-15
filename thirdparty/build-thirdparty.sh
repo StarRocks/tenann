@@ -201,19 +201,23 @@ build_openblas() {
     check_if_source_exist $OPENBLAS_SOURCE
     cd $TP_SOURCE_DIR/$OPENBLAS_SOURCE
     make clean
-    # DYNAMIC_ARCH builds every kernel variant and selects one at run time, the same
-    # way faiss does. A fixed TARGET does not: TARGET=HASWELL emitted AVX2+FMA
-    # unconditionally, so a bundle built that way faulted on a pre-AVX2 CPU as soon as
-    # any BLAS routine ran, and it could never use AVX-512 on a CPU that had it.
+    # DYNAMIC_ARCH selects a kernel at run time, the way faiss does; DYNAMIC_LIST keeps only
+    # the ISAs worth carrying, and TARGET names the oldest CPU the code built once -- LAPACK
+    # above all -- may assume. DYNAMIC_LIST does not govern that shared body: left to itself
+    # getarch picks the build machine's own core, which puts instructions no run-time check
+    # guards into it. An array because DYNAMIC_LIST's value has a space in it.
     if [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
-        BLAS_FLAGS="DYNAMIC_ARCH=1 NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 USE_LOCKING=1 NOFORTRAN=1"
+        BLAS_FLAGS=(DYNAMIC_ARCH=1 TARGET=PRESCOTT "DYNAMIC_LIST=HASWELL SKYLAKEX" NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 USE_LOCKING=1 NOFORTRAN=1)
     elif [[ "${MACHINE_TYPE}" == "aarch64" ]]; then
-        BLAS_FLAGS="DYNAMIC_ARCH=1 NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 USE_LOCKING=1 NO_SME=1 NOFORTRAN=1"
+        # Neoverse N1 (Graviton2, Ampere Altra), N2 (Yitian 710), V1 (Graviton3) and TSV110
+        # (Kunpeng 920), out of seventeen. The list spans non-SVE and SVE cores on purpose:
+        # with ARMV8 as the baseline, one package serves both.
+        BLAS_FLAGS=(DYNAMIC_ARCH=1 TARGET=ARMV8 "DYNAMIC_LIST=NEOVERSEN1 NEOVERSEN2 NEOVERSEV1 TSV110" NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 USE_LOCKING=1 NO_SME=1 NOFORTRAN=1)
     else
-        BLAS_FLAGS="NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 USE_LOCKING=1"
+        BLAS_FLAGS=(NO_SHARED=1 USE_THREAD=0 USE_OPENMP=0 USE_LOCKING=1)
     fi
-    make -j$PARALLEL $BLAS_FLAGS libs netlib
-    make PREFIX=${TP_INSTALL_DIR} $BLAS_FLAGS install
+    make -j$PARALLEL "${BLAS_FLAGS[@]}" libs netlib
+    make PREFIX=${TP_INSTALL_DIR} "${BLAS_FLAGS[@]}" install
 }
 #faiss
 build_faiss() {
