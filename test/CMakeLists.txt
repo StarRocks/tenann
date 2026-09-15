@@ -38,6 +38,7 @@ set(TENANN_TEST_SRC
     store/test_index_meta.cc
     store/test_lru_cache.cc
     store/test_index_file_reader.cc
+    store/test_zero_copy_index_read.cc
     store/test_index_file_writer.cc
     searcher/test_file_reader_search.cc
     thirdparty/test_fmt.cc
