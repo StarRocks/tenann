@@ -51,6 +51,12 @@ class FaissIOReaderAdapter : public faiss::IOReader {
     return static_cast<size_t>(n) / size;
   }
 
+  /// Let the underlying reader own the allocation of the next large array.
+  void* allocate_for_read(size_t bytes,
+                          std::shared_ptr<faiss::MaybeOwnedVectorOwner>* owner) override {
+    return reader_->AllocateForRead(bytes, owner);
+  }
+
   /// Returns the total number of bytes read through this IOReader so far.
   /// Used to determine the file offset at which inverted lists data starts.
   size_t bytes_read() const { return bytes_read_; }

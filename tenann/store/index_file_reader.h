@@ -28,6 +28,10 @@
 // plus the one FAISS makes anyway.
 #define TENANN_HAS_ZERO_COPY_READ 1
 
+namespace faiss {
+struct MaybeOwnedVectorOwner;
+}  // namespace faiss
+
 namespace tenann {
 
 /// Abstract file reader interface that allows TenANN to read index files
@@ -57,6 +61,18 @@ class IndexFileReader {
 
   /// Returns the file name / path (used for cache key generation).
   virtual const std::string& filename() const = 0;
+
+  /// Supply the memory FAISS should use for the next large array of the index, so the
+  /// caller decides how those bytes are allocated -- huge pages, an accounted mapping,
+  /// a pool -- instead of getting whatever std::vector::resize() produces.
+  ///
+  /// Return nullptr (the default) to leave FAISS on its own allocation path; the load
+  /// still succeeds, it is only the allocation that differs. On success also populate
+  /// |owner|, whose destructor releases the block once the last view into it is gone.
+  virtual void* AllocateForRead(size_t bytes,
+                                std::shared_ptr<faiss::MaybeOwnedVectorOwner>* owner) {
+    return nullptr;
+  }
 
   /// Index bytes the reader already holds, offered to FAISS so it can point its arrays
   /// at them instead of allocating and copying its own. `owner` keeps the bytes alive and

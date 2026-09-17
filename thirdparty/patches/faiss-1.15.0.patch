@@ -1,5 +1,4 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 5b090f7..8b10f3d 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -19,7 +19,7 @@
@@ -12,10 +11,9 @@ index 5b090f7..8b10f3d 100644
  set(FAISS_LANGUAGES CXX)
  
 diff --git a/faiss/CMakeLists.txt b/faiss/CMakeLists.txt
-index 1a4a30a..061efdd 100644
 --- a/faiss/CMakeLists.txt
 +++ b/faiss/CMakeLists.txt
-@@ -366,6 +366,11 @@ set(FAISS_HEADERS
+@@ -366,6 +366,11 @@
    utils/NeuralNet.h
    utils/WorkerThread.h
    utils/distances.h
@@ -27,7 +25,7 @@ index 1a4a30a..061efdd 100644
    utils/extra_distances.h
    utils/fp16-fp16c.h
    utils/fp16-inl.h
-@@ -706,12 +711,14 @@ if(FAISS_USE_LTO)
+@@ -706,12 +711,14 @@
    endif()
  endif()
  
@@ -48,7 +46,7 @@ index 1a4a30a..061efdd 100644
  
  if(FAISS_ENABLE_MKL)
    find_package(MKL)
-@@ -723,38 +730,16 @@ if(MKL_FOUND)
+@@ -723,38 +730,16 @@
    target_link_libraries(faiss_avx512_spr PRIVATE ${MKL_LIBRARIES})
    target_link_libraries(faiss_sve PRIVATE ${MKL_LIBRARIES})
  else()
@@ -98,10 +96,9 @@ index 1a4a30a..061efdd 100644
  
  install(TARGETS faiss
 diff --git a/faiss/IndexHNSW.cpp b/faiss/IndexHNSW.cpp
-index 7611f04..626398a 100644
 --- a/faiss/IndexHNSW.cpp
 +++ b/faiss/IndexHNSW.cpp
-@@ -789,7 +789,8 @@ IndexHNSWPQ::IndexHNSWPQ(
+@@ -789,7 +789,8 @@
  
  void IndexHNSWPQ::train(idx_t n, const float* x) {
      IndexHNSW::train(n, x);
@@ -112,7 +109,6 @@ index 7611f04..626398a 100644
  
  /**************************************************************
 diff --git a/faiss/impl/ProductQuantizer.cpp b/faiss/impl/ProductQuantizer.cpp
-index 15260ed..202ade7 100644
 --- a/faiss/impl/ProductQuantizer.cpp
 +++ b/faiss/impl/ProductQuantizer.cpp
 @@ -12,6 +12,7 @@
@@ -123,7 +119,7 @@ index 15260ed..202ade7 100644
  #include <memory>
  #include <type_traits>
  
-@@ -821,20 +822,43 @@ void ProductQuantizer::search_ip(
+@@ -821,20 +822,43 @@
  }
  
  void ProductQuantizer::compute_sdc_table() {
@@ -173,7 +169,6 @@ index 15260ed..202ade7 100644
          });
      } else {
 diff --git a/faiss/impl/ProductQuantizer.h b/faiss/impl/ProductQuantizer.h
-index 07d11c8..1db5a13 100644
 --- a/faiss/impl/ProductQuantizer.h
 +++ b/faiss/impl/ProductQuantizer.h
 @@ -15,6 +15,7 @@
@@ -184,7 +179,7 @@ index 07d11c8..1db5a13 100644
  #include <faiss/impl/Quantizer.h>
  #include <faiss/impl/platform_macros.h>
  #include <faiss/utils/Heap.h>
-@@ -166,9 +167,15 @@ struct ProductQuantizer : Quantizer {
+@@ -166,9 +167,15 @@
      /// Symmetric Distance Table
      std::vector<float> sdc_table;
  
@@ -202,10 +197,62 @@ index 07d11c8..1db5a13 100644
              const uint8_t* qcodes,
              size_t nq,
 diff --git a/faiss/impl/index_read.cpp b/faiss/impl/index_read.cpp
-index 66d875f..c3289b2 100644
 --- a/faiss/impl/index_read.cpp
 +++ b/faiss/impl/index_read.cpp
-@@ -2585,7 +2585,7 @@ std::unique_ptr<Index> read_index_up(IOReader* f, int io_flags) {
+@@ -235,6 +235,52 @@
+ 
+             return true;
+         }
++
++        // is the reader willing to supply the memory for this array?
++        //
++        // Only when the size is not known beforehand. A known size means the caller
++        // already resized `target` (read_InvertedLists does this for every list), and
++        // swapping in a different block there would throw away an allocation that has
++        // already been made and zeroed -- strictly worse than staying out of the way.
++        if (!beforeknown_size.has_value()) {
++            size_t size = 0;
++            // Past this point the size is consumed, so this branch can no longer bow
++            // out with `false`: the caller would read the next field as a size.
++            READANDCHECK(&size, 1);
++
++            // Same guards READVECTOR/READXBVECTOR apply: a corrupt file must not be
++            // able to ask for an arbitrary allocation, and the multiplication below
++            // must not wrap.
++            using value_type = typename VectorT::value_type;
++            const size_t multiplier = size_multiplier.value_or(1);
++            FAISS_THROW_IF_NOT(
++                    size < (faiss::get_deserialization_vector_byte_limit() /
++                            (multiplier * sizeof(value_type))));
++            size *= multiplier;
++            FAISS_THROW_IF_NOT_FMT(
++                    size <= SIZE_MAX / sizeof(value_type),
++                    "read_vector_base: size %zu would overflow for element size %zu",
++                    size,
++                    sizeof(value_type));
++
++            std::shared_ptr<MaybeOwnedVectorOwner> owner;
++            void* address = f->allocate_for_read(size * sizeof(value_type), &owner);
++            if (address != nullptr) {
++                // Read straight into the supplied block. If this throws, `owner` goes
++                // out of scope here and the block is released with it.
++                auto* typed = reinterpret_cast<value_type*>(address);
++                READANDCHECK(typed, size);
++                // Ownership moves into the vector only once the bytes are all there.
++                target = VectorT::create_view(address, size, owner);
++                return true;
++            }
++
++            // Declined. The size is already gone from the stream, so finish the read
++            // here rather than handing it back to READVECTOR.
++            target.resize(size);
++            READANDCHECK(target.data(), size);
++            return true;
++        }
+     }
+ 
+     return false;
+@@ -2585,7 +2631,7 @@
              FAISS_THROW_IF_NOT_MSG(
                      storage_pq,
                      "dynamic_cast to IndexPQ failed for HNSW storage");
@@ -214,11 +261,48 @@ index 66d875f..c3289b2 100644
          }
          idx = std::move(idxhnsw);
      } else if (
+diff --git a/faiss/impl/io.h b/faiss/impl/io.h
+--- a/faiss/impl/io.h
++++ b/faiss/impl/io.h
+@@ -19,11 +19,14 @@
+ #include <cstddef>
+ #include <cstdint>
+ #include <cstdio>
++#include <memory>
+ #include <string>
+ #include <vector>
+ 
+ namespace faiss {
+ 
++struct MaybeOwnedVectorOwner;
++
+ struct IOReader {
+     // name that can be used in error messages
+     std::string name;
+@@ -34,6 +37,19 @@
+     // return a file number that can be memory-mapped
+     virtual int filedescriptor();
+ 
++    // Supply the memory for the next large array read, so the reader -- not FAISS --
++    // decides how those bytes are allocated. Returning nullptr (the default) leaves
++    // every existing reader on the plain path, allocating through std::vector.
++    //
++    // On success the implementation must also populate |owner|, which frees the block
++    // once the last view into it is gone. FAISS reads straight into the returned
++    // pointer and hands it to MaybeOwnedVector::create_view.
++    virtual void* allocate_for_read(
++            size_t bytes,
++            std::shared_ptr<MaybeOwnedVectorOwner>* owner) {
++        return nullptr;
++    }
++
+     virtual ~IOReader() {}
+ };
+ 
 diff --git a/faiss/index_factory.cpp b/faiss/index_factory.cpp
-index 6d55e86..06ae5d1 100644
 --- a/faiss/index_factory.cpp
 +++ b/faiss/index_factory.cpp
-@@ -567,7 +567,7 @@ IndexHNSW* parse_IndexHNSW(
+@@ -567,7 +567,7 @@
      if (match("PQ([0-9]+)(x[0-9]+)?(np)?")) {
          int M = std::stoi(sm[1].str());
          int nbit = mres_to_int(sm[2], 8, 1);
