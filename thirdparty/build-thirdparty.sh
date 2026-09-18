@@ -229,18 +229,19 @@ build_faiss() {
     rm -rf CMakeCache.txt CMakeFiles/
     echo "machine type:" $MACHINE_TYPE
 
-    # "dd" compiles every per-ISA kernel into the single faiss target and picks one
-    # at runtime via CPUID, so one library covers AVX2/AVX-512 on x86 and NEON/SVE on
-    # ARM. A fixed opt level bakes in one ISA instead: "avx2" left the AVX-512 kernels
-    # (sq-avx512.cpp, impl/hnsw/avx512.cpp, distances_avx512.cpp, ...) out of the
-    # build entirely, and "generic" did the same to the ARM SVE kernels.
+    # Not "dd". FAISS's dynamic-dispatch mode compiles every per-ISA kernel into the one
+    # faiss target, and templates that are NOT parameterised by SIMD level -- the comment on
+    # PQCodeDistanceScalar says so itself -- are then emitted from avx2.cpp and avx512.cpp
+    # under the same mangled name with different code. They are weak symbols, so the linker
+    # keeps whichever it meets first: pick the AVX-512 one and the baseline and AVX2 paths
+    # execute AVX-512 too, which SIGILLs on any CPU without it. It survives testing on an
+    # AVX-512 machine and dies on the first that lacks it.
     #
-    # FAISS_OPT_LEVEL_OVERRIDE lets a build pick a different opt level without
-    # editing this script, which is what makes an A/B between two levels possible.
-    if [ -n "${FAISS_OPT_LEVEL_OVERRIDE:-}" ]; then
-        FAISS_OPT_LEVEL=${FAISS_OPT_LEVEL_OVERRIDE}
+    # A fixed opt level keeps each library to one ISA, so nothing can collide across levels.
+    if [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
+        FAISS_OPT_LEVEL=avx2
     else
-        FAISS_OPT_LEVEL=dd
+        FAISS_OPT_LEVEL=generic
     fi
     echo "FAISS_OPT_LEVEL: $FAISS_OPT_LEVEL"
 
@@ -327,16 +328,6 @@ export GLOBAL_CXXFLAGS="-fPIC -static-libstdc++ -static-libgcc -O3 -fno-omit-fra
 export CPPFLAGS=$GLOBAL_CPPFLAGS
 export CXXFLAGS=$GLOBAL_CXXFLAGS
 export CFLAGS=$GLOBAL_CFLAGS
-
-# Build only the named components when any are given, e.g. `build-thirdparty.sh faiss`.
-if [ $# -gt 0 ]; then
-    for component in "$@"; do
-        echo "Building only: $component"
-        build_${component}
-    done
-    echo "Done."
-    exit 0
-fi
 
 build_fmt
 build_openblas # must before faiss

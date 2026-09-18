@@ -79,11 +79,13 @@ Usage: $0 <options>
      --clean            clean and build target
      --with-examples    build tenann with examples
      --with-tests       build tenann with tests
+     --with-avx2        build tenann with avx2 support
      --with-python      build tenann with python wrapper
      -j                 build Backend parallel
 
   Eg.
     $0                               build tenann
+    $0 --with-avx2                   build tenann with avx2
     $0 --clean                       clean and build tenann
     $0 --with-examples --with-tests  build tenann with examples and tests
     $0 --with-python                 build tenann with python wrapper
@@ -98,6 +100,7 @@ OPTS=$(getopt \
     -o 'h' \
     -l 'with-examples' \
     -l 'with-tests' \
+    -l 'with-avx2' \
     -l 'with-python' \
     -l 'tenann' \
     -l 'clean' \
@@ -115,9 +118,11 @@ BUILD_TENANN=
 CLEAN=
 WITH_EXAMPLES=
 WITH_TESTS=
+WITH_AVX2=
 WITH_PYTHON=
 MSG=""
 MSG_TENANN="libtenann.a"
+MSG_TENANN_AVX2="libtenann_avx2.a"
 
 HELP=0
 if [ $# == 1 ]; then
@@ -126,6 +131,7 @@ if [ $# == 1 ]; then
     CLEAN=0
     WITH_EXAMPLES=OFF
     WITH_TESTS=OFF
+    WITH_AVX2=OFF
     WITH_PYTHON=OFF
 elif [[ $OPTS =~ "-j" ]] && [ $# == 3 ]; then
     # default
@@ -133,6 +139,7 @@ elif [[ $OPTS =~ "-j" ]] && [ $# == 3 ]; then
     CLEAN=0
     WITH_EXAMPLES=OFF
     WITH_TESTS=OFF
+    WITH_AVX2=OFF
     WITH_PYTHON=OFF
     PARALLEL=$2
 else
@@ -140,6 +147,7 @@ else
     CLEAN=0
     WITH_EXAMPLES=OFF
     WITH_TESTS=OFF
+    WITH_AVX2=OFF
     WITH_PYTHON=OFF
     while true; do
         case "$1" in
@@ -157,6 +165,10 @@ else
             ;;
         --with-tests)
             WITH_TESTS=ON
+            shift
+            ;;
+        --with-avx2)
+            WITH_AVX2=ON
             shift
             ;;
         --with-python)
@@ -187,6 +199,15 @@ else
     done
 fi
 
+# Auto-detect and enable architecture-specific optimizations
+WITH_SVE=OFF
+if [ -e /proc/cpuinfo ]; then
+    # For x86_64, detect AVX2 support
+    if [[ -z $(grep -o 'avx[^ ]*' /proc/cpuinfo) ]]; then
+        WITH_AVX2=OFF
+    fi
+fi
+
 if [[ ${HELP} -eq 1 ]]; then
     usage
     exit
@@ -203,6 +224,8 @@ echo "Get params:
     CLEAN               -- $CLEAN
     WITH_EXAMPLES       -- $WITH_EXAMPLES
     WITH_TESTS          -- $WITH_TESTS
+    WITH_AVX2           -- $WITH_AVX2
+    WITH_SVE            -- $WITH_SVE
     WITH_PYTHON         -- $WITH_PYTHON
     PARALLEL            -- $PARALLEL
 "
@@ -240,6 +263,8 @@ if [ ${BUILD_TENANN} -eq 1 ]; then
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
         -DWITH_TESTS=${WITH_TESTS} \
         -DWITH_EXAMPLES=${WITH_EXAMPLES} \
+        -DWITH_AVX2=${WITH_AVX2} \
+        -DWITH_SVE=${WITH_SVE} \
         -DWITH_PYTHON=${WITH_PYTHON} \
         -DCMAKE_INSTALL_PREFIX=${TENANN_OUTPUT} \
         ..
@@ -252,6 +277,15 @@ fi
 
 echo "***************************************"
 echo "Successfully build TenANN - ${MSG} √ ${MSG_TENANN}"
+if [ "$WITH_SVE" == "ON" ]; then
+    echo "  (with ARM SVE support)"
+fi
 echo "***************************************"
+
+if [ "$WITH_AVX2" == "ON" ]; then
+    echo "***************************************"
+    echo "Successfully build TenANN with AVX2 support - ${MSG} √ ${MSG_TENANN_AVX2}"
+    echo "***************************************"
+fi
 
 exit 0
