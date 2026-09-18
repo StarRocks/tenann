@@ -28,11 +28,18 @@
 // plus the one FAISS makes anyway.
 #define TENANN_HAS_ZERO_COPY_READ 1
 
-namespace faiss {
-struct MaybeOwnedVectorOwner;
-}  // namespace faiss
-
 namespace tenann {
+
+/// Owns a block of memory an IndexFileReader handed over for an index array. Its
+/// destructor releases the block, and the index holds a reference for as long as it
+/// views those bytes, so the block outlives every view into it.
+///
+/// This is TenANN's own type on purpose: the reader interface is what callers implement,
+/// and it must not oblige them to know what index library sits underneath.
+class MemoryOwner {
+ public:
+  virtual ~MemoryOwner() = default;
+};
 
 /// Abstract file reader interface that allows TenANN to read index files
 /// from arbitrary file systems (local, S3, HDFS, etc.).
@@ -62,15 +69,14 @@ class IndexFileReader {
   /// Returns the file name / path (used for cache key generation).
   virtual const std::string& filename() const = 0;
 
-  /// Supply the memory FAISS should use for the next large array of the index, so the
-  /// caller decides how those bytes are allocated -- huge pages, an accounted mapping,
-  /// a pool -- instead of getting whatever std::vector::resize() produces.
+  /// Supply the memory for the next large array of the index, so the caller decides how
+  /// those bytes are allocated -- huge pages, an accounted mapping, a pool -- instead of
+  /// getting whatever the index library's own allocation produces.
   ///
-  /// Return nullptr (the default) to leave FAISS on its own allocation path; the load
-  /// still succeeds, it is only the allocation that differs. On success also populate
-  /// |owner|, whose destructor releases the block once the last view into it is gone.
-  virtual void* AllocateForRead(size_t bytes,
-                                std::shared_ptr<faiss::MaybeOwnedVectorOwner>* owner) {
+  /// Return nullptr (the default) to leave the allocation to the library; the load still
+  /// succeeds, only the allocation differs. On success also populate |owner|, whose
+  /// destructor releases the block once the last view into it is gone.
+  virtual void* AllocateForRead(size_t bytes, std::shared_ptr<MemoryOwner>* owner) {
     return nullptr;
   }
 
