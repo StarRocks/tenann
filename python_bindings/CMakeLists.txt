@@ -25,9 +25,15 @@ execute_process(COMMAND /bin/bash -c "python3-config --includes | awk -F '-I' '{
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
 include_directories(${python_includes})
 
-pybind11_add_module(tenann_py ${TENANN_PYTHON_BINDINGS_SRC})
-target_link_libraries(tenann_py PRIVATE tenann)
-set_target_properties(tenann PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(NOT WITH_AVX2 STREQUAL "ON")
+  pybind11_add_module(tenann_py ${TENANN_PYTHON_BINDINGS_SRC})
+  target_link_libraries(tenann_py PRIVATE tenann)
+  set_target_properties(tenann PROPERTIES POSITION_INDEPENDENT_CODE ON)
+else ()
+  pybind11_add_module(tenann_py ${TENANN_PYTHON_BINDINGS_SRC})
+  target_link_libraries(tenann_py PRIVATE tenann_avx2 ${TENANN_AVX2_LINK_LIBS})
+  set_target_properties(tenann_avx2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # Install tenann_py module
 execute_process(COMMAND /bin/bash -c "python3 -m site | grep lib-dynload | awk -F \"'\" '{print $2}'"

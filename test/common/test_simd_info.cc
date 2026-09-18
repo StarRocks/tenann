@@ -80,25 +80,19 @@ TEST(SimdInfoTest, LevelNeverExceedsCpuCapability) {
   }
 }
 
-// Left to choose for itself, the dispatch must land on the widest level the CPU
-// offers. Anything less means it is not really dispatching -- most likely because
-// faiss was built at a fixed FAISS_OPT_LEVEL instead of "dd", which silently leaves
-// the wider kernels out of the library altogether.
-TEST(SimdInfoTest, PicksTheWidestLevelTheCpuOffers) {
+// This library is built at a fixed FAISS_OPT_LEVEL, so the level is decided at compile
+// time and does not follow the CPU. Asserting that it takes the widest level available
+// would be asserting the dynamic-dispatch contract, which this build deliberately does
+// not have -- see build-thirdparty.sh for why "dd" is not used.
+TEST(SimdInfoTest, LevelIsFixedAtBuildTimeNotChosenPerCpu) {
   if (LevelIsPinned()) {
-    GTEST_SKIP() << "FAISS_SIMD_LEVEL pins the level, so there is no choice to check";
+    GTEST_SKIP() << "FAISS_SIMD_LEVEL pins the level explicitly";
   }
-
   const std::string level = SimdLevelName();
-  if (CpuHasAvx512()) {
-    EXPECT_EQ(level.rfind("AVX512", 0), 0U)
-        << "CPU supports AVX-512 but the kernels report " << level
-        << "; faiss is probably not built with FAISS_OPT_LEVEL=dd";
-  } else if (CpuHasAvx2()) {
-    EXPECT_EQ(level, "AVX2") << "CPU supports AVX2 but the kernels report " << level;
-  } else {
-    EXPECT_EQ(level, "NONE");
-  }
+  // The x86 build targets AVX2. A wider level here would mean kernels the baseline
+  // package must not contain.
+  EXPECT_TRUE(level == "AVX2" || level == "NONE")
+      << "fixed-level build reports " << level << "; expected the compiled-in level";
 }
 #endif  // __x86_64__
 
@@ -118,14 +112,15 @@ TEST(SimdInfoTest, LevelNeverExceedsCpuCapability) {
   }
 }
 
-// Left to choose for itself the dispatch must take SVE where it exists. Falling back to
-// NEON on an SVE machine means faiss was built at a fixed FAISS_OPT_LEVEL rather than
-// "dd", so the SVE kernels are not in the library at all.
-TEST(SimdInfoTest, PicksTheWidestLevelTheCpuOffers) {
+// The aarch64 build is fixed at the generic level, so NEON is what the kernels report
+// whether or not the CPU has SVE. The SVE package is a separate build.
+TEST(SimdInfoTest, LevelIsFixedAtBuildTimeNotChosenPerCpu) {
   if (LevelIsPinned()) {
-    GTEST_SKIP() << "FAISS_SIMD_LEVEL pins the level, so there is no choice to check";
+    GTEST_SKIP() << "FAISS_SIMD_LEVEL pins the level explicitly";
   }
-  EXPECT_EQ(SimdLevelName(), CpuHasSve() ? "ARM_SVE" : "ARM_NEON");
+  const std::string level = SimdLevelName();
+  EXPECT_TRUE(level == "ARM_NEON" || level == "NONE")
+      << "fixed-level build reports " << level << "; expected the compiled-in level";
 }
 #endif  // __aarch64__
 

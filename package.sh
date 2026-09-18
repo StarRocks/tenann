@@ -37,17 +37,11 @@ rm -rf ${TENANN_OUTPUT}/tmp
 mkdir -p ${TENANN_OUTPUT}/tmp
 
 # Detect OpenBLAS library version dynamically
-# Resolve through libopenblas.a, the canonical name OpenBLAS installs. Globbing for
-# libopenblas*r*.a and taking the first hit picks by directory order, so a stale
-# archive left by an earlier build with different flags wins silently: a leftover
-# libopenblas_haswell-r*.a is enough to ship a bundle with AVX2 baked in and no
-# runtime dispatch, which is exactly what this build is meant to stop doing.
-OPENBLAS_LINK=${TENANN_THIRDPARTY}/installed/lib/libopenblas.a
-if [ ! -e "$OPENBLAS_LINK" ]; then
-    echo "Error: ${OPENBLAS_LINK} not found. Build OpenBLAS first."
+OPENBLAS_LIB=$(find ${TENANN_THIRDPARTY}/installed/lib -name "libopenblas*r*.a" | head -n 1)
+if [ -z "$OPENBLAS_LIB" ]; then
+    echo "Error: OpenBLAS library not found in ${TENANN_THIRDPARTY}/installed/lib"
     exit 1
 fi
-OPENBLAS_LIB=$(readlink -f "$OPENBLAS_LINK")
 OPENBLAS_BASENAME=$(basename "$OPENBLAS_LIB")
 echo "Detected OpenBLAS library: $OPENBLAS_BASENAME"
 
@@ -55,15 +49,44 @@ echo "Detected OpenBLAS library: $OPENBLAS_BASENAME"
 cp ${OPENBLAS_LIB} ${TENANN_OUTPUT}/tmp
 cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss.a ${TENANN_OUTPUT}/tmp
 
-# Copy the TenANN library
+# Copy architecture-specific FAISS libraries
+if [ -f "${TENANN_THIRDPARTY}/installed/lib/libfaiss_avx2.a" ]; then
+    cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss_avx2.a ${TENANN_OUTPUT}/tmp
+fi
+if [ -f "${TENANN_THIRDPARTY}/installed/lib/libfaiss_sve.a" ]; then
+    cp ${TENANN_THIRDPARTY}/installed/lib/libfaiss_sve.a ${TENANN_OUTPUT}/tmp
+fi
+
+# Copy TenANN libraries
 cp ${TENANN_OUTPUT}/lib/libtenann.a ${TENANN_OUTPUT}/tmp
+if [ -f "${TENANN_OUTPUT}/lib/libtenann_avx2.a" ]; then
+    cp ${TENANN_OUTPUT}/lib/libtenann_avx2.a ${TENANN_OUTPUT}/tmp
+fi
+if [ -f "${TENANN_OUTPUT}/lib/libtenann_sve.a" ]; then
+    cp ${TENANN_OUTPUT}/lib/libtenann_sve.a ${TENANN_OUTPUT}/tmp
+fi
 
 # Merge all static libraries into one
 cd ${TENANN_OUTPUT}/tmp
 
-# One bundle serves every CPU now: faiss selects its kernels at runtime, so there
-# is nothing left to specialize per ISA.
-cat >libtenann-bundle.mri <<EOF
+# For ARM64, use SVE variant as the default bundle; otherwise use base variant
+if [[ "$MACHINE_TYPE" == "aarch64" ]] || [[ "$MACHINE_TYPE" == "arm64" ]]; then
+    # On ARM64, create bundle from SVE libraries (if available)
+    if [ -f "${TENANN_OUTPUT}/tmp/libtenann_sve.a" ]; then
+        cat >libtenann-bundle.mri <<EOF
+create libtenann-bundle.a
+addlib libtenann_sve.a
+addlib libfaiss_sve.a
+addlib ${OPENBLAS_BASENAME}
+save
+end
+EOF
+        ar -M <libtenann-bundle.mri
+        cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
+        echo "Created libtenann-bundle.a (ARM SVE variant)"
+    else
+        # Fallback to base libraries if SVE not available
+        cat >libtenann-bundle.mri <<EOF
 create libtenann-bundle.a
 addlib libtenann.a
 addlib libfaiss.a
@@ -71,9 +94,39 @@ addlib ${OPENBLAS_BASENAME}
 save
 end
 EOF
-ar -M <libtenann-bundle.mri
-cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
-echo "Created libtenann-bundle.a"
+        ar -M <libtenann-bundle.mri
+        cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
+        echo "Created libtenann-bundle.a"
+    fi
+else
+    # On x86_64, create base bundle
+    cat >libtenann-bundle.mri <<EOF
+create libtenann-bundle.a
+addlib libtenann.a
+addlib libfaiss.a
+addlib ${OPENBLAS_BASENAME}
+save
+end
+EOF
+    ar -M <libtenann-bundle.mri
+    cp ${TENANN_OUTPUT}/tmp/libtenann-bundle.a ${TENANN_OUTPUT}/lib
+    echo "Created libtenann-bundle.a"
+
+    # Create AVX2 variant if available
+    if [ -f "${TENANN_OUTPUT}/tmp/libtenann_avx2.a" ]; then
+        cat >libtenann-bundle-avx2.mri <<EOF
+create libtenann-bundle-avx2.a
+addlib libtenann_avx2.a
+addlib libfaiss_avx2.a
+addlib ${OPENBLAS_BASENAME}
+save
+end
+EOF
+        ar -M <libtenann-bundle-avx2.mri
+        cp ${TENANN_OUTPUT}/tmp/libtenann-bundle-avx2.a ${TENANN_OUTPUT}/lib
+        echo "Created libtenann-bundle-avx2.a"
+    fi
+fi
 
 # Clean temporary directory
 rm -rf ${TENANN_OUTPUT}/tmp
@@ -96,6 +149,7 @@ cp -r ${TENANN_OUTPUT}/include ${RELEASE_DIR}/
 if [ "$MACHINE_TYPE" == "x86_64" ]; then
     echo "Detected x86_64 architecture"
 
+    # For x86_64, include both standard and AVX2 versions
     if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
         cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/lib/
         echo "  Added libtenann-bundle.a"
@@ -104,11 +158,19 @@ if [ "$MACHINE_TYPE" == "x86_64" ]; then
         exit 1
     fi
 
+    if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle-avx2.a" ]; then
+        cp ${TENANN_OUTPUT}/lib/libtenann-bundle-avx2.a ${RELEASE_DIR}/lib/
+        echo "  Added libtenann-bundle-avx2.a"
+    else
+        echo "Warning: libtenann-bundle-avx2.a not found, skipping"
+    fi
+
     PACKAGE_NAME="${RELEASE_VERSION}-x86_64.tar.gz"
 
 elif [ "$MACHINE_TYPE" == "aarch64" ] || [ "$MACHINE_TYPE" == "arm64" ]; then
     echo "Detected ARM64 architecture"
 
+    # For ARM64, libtenann-bundle.a is already the SVE variant
     if [ -f "${TENANN_OUTPUT}/lib/libtenann-bundle.a" ]; then
         cp ${TENANN_OUTPUT}/lib/libtenann-bundle.a ${RELEASE_DIR}/lib/
         echo "  Added libtenann-bundle.a"
