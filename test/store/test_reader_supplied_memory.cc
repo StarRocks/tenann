@@ -23,7 +23,6 @@
 #include <string>
 #include <vector>
 
-#include "faiss/impl/maybe_owned_vector.h"
 #include "tenann/common/error.h"
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/factory/index_factory.h"
@@ -32,9 +31,9 @@
 
 namespace tenann {
 
-/// Owns one heap block on behalf of a FAISS view. The block is poisoned before it is
-/// freed, so a view left dangling reads 0xDD rather than bytes that happen to survive.
-class CountingOwner : public faiss::MaybeOwnedVectorOwner {
+/// Owns one heap block on behalf of the index. The block is poisoned before it is freed,
+/// so a view left dangling reads 0xDD rather than bytes that happen to survive.
+class CountingOwner : public MemoryOwner {
  public:
   CountingOwner(uint8_t* p, size_t bytes, int* live) : p_(p), bytes_(bytes), live_(live) {
     ++(*live_);
@@ -96,7 +95,7 @@ class SupplyingIndexFileReader : public IndexFileReader {
   const std::string& filename() const override { return filename_; }
 
   void* AllocateForRead(size_t bytes,
-                        std::shared_ptr<faiss::MaybeOwnedVectorOwner>* owner) override {
+                        std::shared_ptr<MemoryOwner>* owner) override {
     ++allocate_calls_;
     allocated_bytes_.push_back(bytes);
     if (allocate_calls_ < supply_from_) return nullptr;

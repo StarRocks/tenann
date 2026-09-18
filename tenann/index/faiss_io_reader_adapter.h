@@ -23,6 +23,7 @@
 #include <cstdint>
 
 #include "faiss/impl/io.h"
+#include "faiss/impl/maybe_owned_vector.h"
 #include "tenann/store/index_file_reader.h"
 #include "tenann/util/stop_watch.h"
 
@@ -32,6 +33,16 @@ namespace tenann {
 /// IndexFileReader, allowing FAISS to read from remote file systems.
 class FaissIOReaderAdapter : public faiss::IOReader {
  public:
+  /// The reader's owner, expressed as the type FAISS keeps. Holding it here is what
+  /// releases the block when the last view into it is gone -- and not before.
+  class FaissMemoryOwner : public faiss::MaybeOwnedVectorOwner {
+   public:
+    explicit FaissMemoryOwner(std::shared_ptr<MemoryOwner> owner) : owner_(std::move(owner)) {}
+
+   private:
+    std::shared_ptr<MemoryOwner> owner_;
+  };
+
   explicit FaissIOReaderAdapter(IndexFileReaderPtr reader)
       : reader_(std::move(reader)), bytes_read_(0), io_time_ns_(0) {
     name = reader_->filename();
@@ -51,10 +62,17 @@ class FaissIOReaderAdapter : public faiss::IOReader {
     return static_cast<size_t>(n) / size;
   }
 
-  /// Let the underlying reader own the allocation of the next large array.
+  /// Let the underlying reader own the allocation of the next large array. The two
+  /// owner types are kept apart deliberately: FAISS' lives here, TenANN's is what the
+  /// reader interface exposes, and this is the only place they meet.
   void* allocate_for_read(size_t bytes,
                           std::shared_ptr<faiss::MaybeOwnedVectorOwner>* owner) override {
-    return reader_->AllocateForRead(bytes, owner);
+    std::shared_ptr<MemoryOwner> from_reader;
+    void* address = reader_->AllocateForRead(bytes, &from_reader);
+    if (address != nullptr) {
+      *owner = std::make_shared<FaissMemoryOwner>(std::move(from_reader));
+    }
+    return address;
   }
 
   /// Returns the total number of bytes read through this IOReader so far.
