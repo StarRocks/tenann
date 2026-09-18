@@ -80,12 +80,14 @@ Usage: $0 <options>
      --with-examples    build tenann with examples
      --with-tests       build tenann with tests
      --with-avx2        build tenann with avx2 support
+     --with-sve         build tenann with ARM SVE support (aarch64)
      --with-python      build tenann with python wrapper
      -j                 build Backend parallel
 
   Eg.
     $0                               build tenann
     $0 --with-avx2                   build tenann with avx2
+    $0 --with-sve                    build tenann with ARM SVE
     $0 --clean                       clean and build tenann
     $0 --with-examples --with-tests  build tenann with examples and tests
     $0 --with-python                 build tenann with python wrapper
@@ -101,6 +103,7 @@ OPTS=$(getopt \
     -l 'with-examples' \
     -l 'with-tests' \
     -l 'with-avx2' \
+    -l 'with-sve' \
     -l 'with-python' \
     -l 'tenann' \
     -l 'clean' \
@@ -171,6 +174,10 @@ else
             WITH_AVX2=ON
             shift
             ;;
+        --with-sve)
+            WITH_SVE=ON
+            shift
+            ;;
         --with-python)
             WITH_PYTHON=ON
             shift
@@ -199,8 +206,10 @@ else
     done
 fi
 
-# Auto-detect and enable architecture-specific optimizations
-WITH_SVE=OFF
+# Auto-detect and enable architecture-specific optimizations.
+# --with-sve is parsed above, so only default it here; assigning unconditionally is what
+# made the aarch64 SVE package unbuildable without editing this file.
+WITH_SVE=${WITH_SVE:-OFF}
 if [ -e /proc/cpuinfo ]; then
     # For x86_64, detect AVX2 support
     if [[ -z $(grep -o 'avx[^ ]*' /proc/cpuinfo) ]]; then

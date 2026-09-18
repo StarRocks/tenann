@@ -238,7 +238,14 @@ build_faiss() {
     # AVX-512 machine and dies on the first that lacks it.
     #
     # A fixed opt level keeps each library to one ISA, so nothing can collide across levels.
-    if [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
+    # The aarch64 SVE package is a second, separate build of the whole thing:
+    # FAISS_OPT_LEVEL=sve is the only level at which faiss_sve is built and installed
+    # (every other level marks it EXCLUDE_FROM_ALL). Pair it with build.sh --with-sve.
+    #   non-SVE arm64:  ./build-thirdparty.sh                      && ./build.sh
+    #   SVE arm64:      FAISS_OPT_LEVEL_OVERRIDE=sve ./build-thirdparty.sh && ./build.sh --with-sve
+    if [ -n "${FAISS_OPT_LEVEL_OVERRIDE:-}" ]; then
+        FAISS_OPT_LEVEL=${FAISS_OPT_LEVEL_OVERRIDE}
+    elif [[ "${MACHINE_TYPE}" == "x86_64" ]]; then
         FAISS_OPT_LEVEL=avx2
     else
         FAISS_OPT_LEVEL=generic
