@@ -20,6 +20,7 @@
 #pragma once
 
 #include <cstddef>
+#include <vector>
 
 #include "tenann/builder/faiss_index_builder_with_buffer.h"
 #include "tenann/index/parameters.h"
@@ -29,6 +30,8 @@ class IndexHNSW;
 }
 
 namespace tenann {
+
+class HnswBuildStorage;
 
 /// Index builder for the faiss HNSW family, including HNSWFlat (no
 /// quantization) and quantized variants (HNSWSQ4/SQ8/PQ).
@@ -62,12 +65,30 @@ class FaissHnswIndexBuilder final : public FaissIndexBuilderWithBuffer {
   /// available.
   size_t GetMinTrainRows() const;
 
+  IndexBuilder& Flush() override;
+
  protected:
   IndexRef InitIndex() override;
 
+  void AddRaw(const TypedSliceIterator<float>& input_row_iterator) override;
+  void AddWithRowIds(const TypedSliceIterator<float>& input_row_iterator,
+                     const idx_t* row_ids) override;
+  void AddWithRowIdsAndNullFlags(const TypedSliceIterator<float>& input_row_iterator,
+                                 const idx_t* row_ids, const uint8_t* null_flags) override;
+
  private:
+  // Flat storage: rows are written straight into the index's storage (normalized there for cosine),
+  // and the graph is built for every flush_threshold_rows_ of them, so no row buffer or transform
+  // copy exists.
+  void StageRow(const float* row, const idx_t* row_id);
+  void BuildStaged();
+
   FaissHnswIndexParams index_params_;
   FaissHnswSearchParams search_params_;
+
+  HnswBuildStorage* build_storage_ = nullptr;  // owned by the index; null for quantized storage
+  bool normalize_rows_ = false;
+  std::vector<idx_t> staged_ids_;
 };
 
 }  // namespace tenann

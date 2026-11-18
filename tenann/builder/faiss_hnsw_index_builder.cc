@@ -24,12 +24,16 @@
 
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/IndexPreTransform.h"
+#include "faiss/VectorTransform.h"
 #include "faiss/index_factory.h"
+#include "faiss/utils/distances.h"
 #include "faiss_hnsw_index_builder.h"
 #include "tenann/common/logging.h"
 #include "tenann/common/typed_seq_view.h"
 #include "tenann/index/index.h"
 #include "tenann/index/internal/faiss_index_util.h"
+#include "tenann/index/internal/hnsw_build_storage.h"
 #include "tenann/index/internal/metric_util.h"
 #include "tenann/index/parameter_serde.h"
 
@@ -80,6 +84,7 @@ size_t FaissHnswIndexBuilder::GetMinTrainRows() const {
 
 IndexRef FaissHnswIndexBuilder::InitIndex() {
   try {
+    const int q = index_params_.quantizer;
     // create faiss index factory string
     auto factory_string =
         faiss_util::GetHnswRepr(common_params_, index_params_, use_custom_row_id_);
@@ -88,7 +93,8 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
     // create faiss index
     auto index = std::unique_ptr<faiss::Index>(
         faiss::index_factory(common_params_.dim, factory_string.c_str(), faiss_metric));
-    auto [_, __, index_hnsw] = faiss_util::CheckAndUnpackHnswMutable(index.get(), &common_params_);
+    auto [_, transform, index_hnsw] =
+        faiss_util::CheckAndUnpackHnswMutable(index.get(), &common_params_);
     T_CHECK_EQ(index_hnsw->metric_type, faiss_metric)
         << "faiss HNSW factory ignored the requested metric";
     T_CHECK_EQ(index_hnsw->storage->metric_type, faiss_metric)
@@ -104,6 +110,25 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
                         << ", efSearch: " << index_hnsw->hnsw.efSearch
                         << ", check_relative_distance: " << index_hnsw->hnsw.check_relative_distance;
 
+    // Flat storage: swap in the build storage. It serializes as the IndexFlat it replaces. A
+    // transform other than the L2Norm that GetHnswRepr adds keeps the generic path.
+    build_storage_ = nullptr;
+    normalize_rows_ = false;
+    staged_ids_.clear();
+    const bool l2norm_only =
+        transform == nullptr ||
+        (transform->chain.size() == 1 &&
+         dynamic_cast<const faiss::NormalizationTransform*>(transform->chain[0]) != nullptr);
+    if (q == static_cast<int>(ScalarQuantizerType::kFlat) && l2norm_only &&
+        index_hnsw->own_fields && dynamic_cast<faiss::IndexFlat*>(index_hnsw->storage) != nullptr) {
+      normalize_rows_ = transform != nullptr;
+      auto storage =
+          std::make_unique<HnswBuildStorage>(common_params_.dim, faiss_metric, memory_accountant_);
+      delete index_hnsw->storage;
+      index_hnsw->storage = storage.release();
+      build_storage_ = static_cast<HnswBuildStorage*>(index_hnsw->storage);
+    }
+
     // create shared index ref
     return std::make_shared<Index>(index.release(),        //
                                    IndexType::kFaissHnsw,  //
@@ -111,6 +136,79 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
   }
   CATCH_FAISS_ERROR
   CATCH_JSON_ERROR
+}
+
+IndexBuilder& FaissHnswIndexBuilder::Flush() {
+  if (build_storage_ == nullptr) {
+    return FaissIndexBuilderWithBuffer::Flush();
+  }
+  try {
+    BuildStaged();
+  }
+  CATCH_FAISS_ERROR;
+  return FaissIndexBuilder::Flush();
+}
+
+void FaissHnswIndexBuilder::AddRaw(const TypedSliceIterator<float>& input_row_iterator) {
+  if (build_storage_ == nullptr) {
+    return FaissIndexBuilderWithBuffer::AddRaw(input_row_iterator);
+  }
+  input_row_iterator.ForEach(
+      [&](idx_t, const float* slice_data, idx_t) { StageRow(slice_data, nullptr); });
+}
+
+void FaissHnswIndexBuilder::AddWithRowIds(const TypedSliceIterator<float>& input_row_iterator,
+                                          const idx_t* row_ids) {
+  if (build_storage_ == nullptr) {
+    return FaissIndexBuilderWithBuffer::AddWithRowIds(input_row_iterator, row_ids);
+  }
+  input_row_iterator.ForEach(
+      [&](idx_t i, const float* slice_data, idx_t) { StageRow(slice_data, row_ids + i); });
+}
+
+void FaissHnswIndexBuilder::AddWithRowIdsAndNullFlags(
+    const TypedSliceIterator<float>& input_row_iterator, const idx_t* row_ids,
+    const uint8_t* null_flags) {
+  if (build_storage_ == nullptr) {
+    return FaissIndexBuilderWithBuffer::AddWithRowIdsAndNullFlags(input_row_iterator, row_ids,
+                                                                  null_flags);
+  }
+  input_row_iterator.ForEach([&](idx_t i, const float* slice_data, idx_t) {
+    if (null_flags[i] == 0) StageRow(slice_data, row_ids + i);
+  });
+}
+
+void FaissHnswIndexBuilder::StageRow(const float* row, const idx_t* row_id) {
+  const size_t d = common_params_.dim;
+  float* dst = build_storage_->StageRow();
+  memcpy(dst, row, d * sizeof(float));
+  if (normalize_rows_) {
+    // What faiss's NormalizationTransform does to the rows it adds.
+    faiss::fvec_renorm_L2(d, 1, dst);
+  }
+  if (row_id != nullptr) staged_ids_.push_back(*row_id);
+  if (flush_threshold_rows_ > 0 &&
+      static_cast<size_t>(build_storage_->num_staged()) >= flush_threshold_rows_) {
+    BuildStaged();
+  }
+}
+
+// Builds the graph for the staged rows. The rows are added to the HNSW directly, below the IDMap
+// and the L2Norm transform, whose bookkeeping is then brought up to date; the transform's copy is
+// never made.
+void FaissHnswIndexBuilder::BuildStaged() {
+  const idx_t n = build_storage_->num_staged();
+  if (n == 0) return;
+  auto [id_map, transform, index_hnsw] = faiss_util::UnpackHnswMutable(GetFaissIndex());
+  T_CHECK(id_map == nullptr || static_cast<idx_t>(staged_ids_.size()) == n)
+      << "rows of an index with custom row ids must be added with their row ids";
+  index_hnsw->add(n, build_storage_->staged_data());
+  if (transform != nullptr) transform->ntotal = index_hnsw->ntotal;
+  if (id_map != nullptr) {
+    id_map->id_map.insert(id_map->id_map.end(), staged_ids_.begin(), staged_ids_.end());
+    id_map->ntotal = index_hnsw->ntotal;
+  }
+  staged_ids_.clear();
 }
 
 }  // namespace tenann
