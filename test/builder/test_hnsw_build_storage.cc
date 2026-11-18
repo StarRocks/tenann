@@ -18,7 +18,7 @@
  */
 
 // HNSW Flat built through HnswBuildStorage: rows staged in place, graph built per flush batch below
-// the IDMap / L2Norm wrappers.
+// the IDMap / L2Norm wrappers, optional 8-bit build distances.
 
 #include <omp.h>
 #include <unistd.h>
@@ -46,6 +46,7 @@
 #include "tenann/factory/ann_searcher_factory.h"
 #include "tenann/factory/index_factory.h"
 #include "tenann/index/internal/faiss_index_util.h"
+#include "tenann/index/internal/hnsw_build_storage.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/store/index_type.h"
 
@@ -53,7 +54,7 @@ namespace tenann {
 
 namespace {
 
-IndexMeta MakeMeta(uint32_t dim, MetricType metric) {
+IndexMeta MakeMeta(uint32_t dim, MetricType metric, bool int8_build) {
   IndexMeta meta;
   meta.SetMetaVersion(0);
   meta.SetIndexFamily(IndexFamily::kVectorIndex);
@@ -65,6 +66,7 @@ IndexMeta MakeMeta(uint32_t dim, MetricType metric) {
   meta.index_params()["efConstruction"] = 40;
   meta.search_params()["efSearch"] = 64;
   meta.index_writer_options()["write_index_cache"] = false;
+  meta.index_writer_options()["hnsw_int8_build"] = int8_build;
   meta.index_reader_options()["cache_index_file"] = false;
   return meta;
 }
@@ -166,9 +168,10 @@ std::vector<int64_t> ExactTopK(std::vector<float> base, const std::vector<float>
 
 // Recall@k of the written index, searched through the searcher StarRocks uses.
 float Recall(const IndexMeta& meta, const std::string& path, const std::vector<float>& queries,
-             uint32_t dim, size_t k, const std::vector<int64_t>& truth) {
+             uint32_t dim, size_t k, const std::vector<int64_t>& truth, int ef_search = 64) {
   auto searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta);
   searcher->ReadIndex(path);
+  searcher->SetSearchParamItem("efSearch", ef_search);
   const size_t nq = queries.size() / dim;
   std::vector<int64_t> got(k);
   size_t hits = 0;
@@ -208,7 +211,7 @@ TEST(HnswBuildStorageTest, SameIndexAsFaissAdd) {
   for (bool mapped : {false, true})
     for (MetricType metric : {MetricType::kCosineSimilarity, MetricType::kL2Distance}) {
       SCOPED_TRACE(std::to_string(static_cast<int>(metric)) + (mapped ? " mapped" : " heap"));
-      auto meta = MakeMeta(dim, metric);
+      auto meta = MakeMeta(dim, metric, /*int8_build=*/false);
       auto path = TempPath("same");
       Build(meta, data, dim, flush, path, nullptr,
             mapped ? std::make_shared<CountingAccountant>() : nullptr);
@@ -253,14 +256,14 @@ TEST(HnswBuildStorageTest, SameIndexAsFaissAdd) {
     }
 }
 
-// Every mapped byte is charged while the index holds it and released when the index goes, and the
-// charge stays close to the rows actually stored.
+// Every mapped byte is charged while held: the rows for the index's lifetime, the 8-bit codes until
+// Flush(). The charge stays close to what is actually stored.
 TEST(HnswBuildStorageTest, AccountantChargedForMappedRows) {
   const uint32_t dim = 32;
   const size_t n = 50000;
   auto data = ClusteredVectors(n, dim, 41);
   auto accountant = std::make_shared<CountingAccountant>();
-  auto meta = MakeMeta(dim, MetricType::kCosineSimilarity);
+  auto meta = MakeMeta(dim, MetricType::kCosineSimilarity, /*int8_build=*/true);
   auto path = TempPath("accountant");
   {
     auto builder = IndexFactory::CreateBuilderFromMeta(meta);
@@ -272,10 +275,13 @@ TEST(HnswBuildStorageTest, AccountantChargedForMappedRows) {
     std::iota(ids.begin(), ids.end(), 0);
     std::vector<uint8_t> nulls(n, 0);
     builder->Add({View(data, 0, n, dim)}, ids.data(), nulls.data());
-    builder->Flush();
     const int64_t rows_bytes = static_cast<int64_t>(n) * dim * sizeof(float);
+    const int64_t codes_bytes = static_cast<int64_t>(n) * dim;
+    builder->Flush();
     EXPECT_GE(accountant->current.load(), rows_bytes);
-    EXPECT_LE(accountant->peak.load(), rows_bytes * 1.15 + (1 << 20));
+    EXPECT_LE(accountant->current.load(), rows_bytes * 1.15 + (1 << 20));  // codes released
+    EXPECT_GE(accountant->peak.load(), rows_bytes + codes_bytes);
+    EXPECT_LE(accountant->peak.load(), (rows_bytes + codes_bytes) * 1.15 + (2 << 20));
     builder->Close();
   }
   EXPECT_EQ(accountant->current.load(), 0);
@@ -288,7 +294,7 @@ TEST(HnswBuildStorageTest, NullRowsSkippedAndRowIdsKept) {
   auto data = ClusteredVectors(n, dim, 21);
   std::vector<uint8_t> nulls(n, 0);
   for (size_t i = 0; i < n; i += 7) nulls[i] = 1;
-  auto meta = MakeMeta(dim, MetricType::kL2Distance);
+  auto meta = MakeMeta(dim, MetricType::kL2Distance, true);
   auto path = TempPath("nulls");
   Build(meta, data, dim, 1000, path, &nulls);
   std::unique_ptr<faiss::Index> idx(faiss::read_index(path.c_str()));
@@ -298,6 +304,111 @@ TEST(HnswBuildStorageTest, NullRowsSkippedAndRowIdsKept) {
   auto truth = ExactTopK(data, self, dim, k, false, &nulls);
   EXPECT_GE(Recall(meta, path, self, dim, k, truth), 0.95f);
   std::remove(path.c_str());
+}
+
+// Rows on a low-dimensional manifold, like real embeddings: an 8-d latent point through a fixed
+// random projection (|proj_seed|), plus a little noise. Isotropic high-dimensional noise has no
+// near neighbors to find.
+std::vector<float> ManifoldVectors(uint32_t n, uint32_t dim, int proj_seed, int seed) {
+  const uint32_t latent = 8;
+  std::mt19937 prng(proj_seed), rng(seed);
+  std::normal_distribution<float> g(0.0f, 1.0f);
+  std::vector<float> w(latent * dim);
+  for (auto& x : w) x = g(prng);
+  std::vector<float> v(static_cast<size_t>(n) * dim);
+  std::vector<float> z(latent);
+  for (uint32_t i = 0; i < n; i++) {
+    for (auto& x : z) x = g(rng);
+    for (uint32_t j = 0; j < dim; j++) {
+      float s = 0.05f * g(rng);
+      for (uint32_t l = 0; l < latent; l++) s += z[l] * w[l * dim + j];
+      v[static_cast<size_t>(i) * dim + j] = s;
+    }
+  }
+  return v;
+}
+
+// 8-bit build distances only steer which edges are kept; the written index is float and searched as
+// before.
+TEST(HnswBuildStorageTest, Int8BuildRecallMatchesFloatBuild) {
+  struct Case {
+    MetricType metric;
+    uint32_t dim;  // 37: exercises the kernels' scalar tail
+  };
+  for (Case c : {Case{MetricType::kCosineSimilarity, 64}, Case{MetricType::kL2Distance, 37}}) {
+    SCOPED_TRACE(static_cast<int>(c.metric));
+    const size_t n = 8000, k = 10;
+    auto data = ManifoldVectors(n, c.dim, 5, 11);
+    auto queries = ManifoldVectors(200, c.dim, 5, 12);
+    const bool cosine = c.metric == MetricType::kCosineSimilarity;
+    auto truth = ExactTopK(data, queries, c.dim, k, cosine);
+    float recall[2];
+    for (int int8 = 0; int8 < 2; int8++) {
+      auto meta = MakeMeta(c.dim, c.metric, int8 == 1);
+      auto path = TempPath("recall");
+      Build(meta, data, c.dim, 3000, path);
+      // A small ef keeps recall below 1, where a worse graph shows.
+      recall[int8] = Recall(meta, path, queries, c.dim, k, truth, /*ef_search=*/10);
+      std::remove(path.c_str());
+    }
+    EXPECT_GE(recall[0], 0.8f) << "float build";
+    EXPECT_GE(recall[1], recall[0] - 0.02f) << "float " << recall[0] << " int8 " << recall[1];
+    printf("metric %d dim %u: recall@10 float build %.4f, int8 build %.4f\n",
+           static_cast<int>(c.metric), c.dim, recall[0], recall[1]);
+  }
+}
+
+// L2 rows have no known range: the 8-bit range comes from the first batch and must widen
+// (re-encoding what is already in the graph) when a later batch falls outside it. Clipping the
+// later rows instead collapses their codes, and the graph over them falls behind one built with
+// float distances.
+TEST(HnswBuildStorageTest, Int8RangeWidensForLaterBatches) {
+  const uint32_t dim = 32;
+  const size_t n = 6000, k = 10;
+  auto data = ManifoldVectors(n, dim, 5, 31);
+  for (size_t i = (n / 2) * dim; i < n * dim; i++)
+    data[i] *= 20.0f;  // rows the first batch never saw
+  std::vector<float> queries = ManifoldVectors(200, dim, 5, 32);
+  for (auto& x : queries) x *= 20.0f;
+  auto truth = ExactTopK(data, queries, dim, k, false);
+  float recall[2];
+  for (int int8 = 0; int8 < 2; int8++) {
+    auto meta = MakeMeta(dim, MetricType::kL2Distance, int8 == 1);
+    auto path = TempPath("range");
+    Build(meta, data, dim, 2000, path);
+    recall[int8] = Recall(meta, path, queries, dim, k, truth, /*ef_search=*/10);
+    std::remove(path.c_str());
+  }
+  // One range over both scales coarsens the small rows a little (about 1.5 points here); clipping
+  // costs ~10.
+  EXPECT_GE(recall[1], recall[0] - 0.05f) << "float " << recall[0] << " int8 " << recall[1];
+  printf("widened range: recall@10 float build %.4f, int8 build %.4f\n", recall[0], recall[1]);
+}
+
+// Every SIMD kernel this CPU has must give the scalar result exactly: tails of every width, codes
+// at 0 and 255, and dimensions past the 8192-dim point where the int32 lanes are folded.
+TEST(HnswBuildStorageTest, Int8KernelsMatchScalar) {
+  std::mt19937 rng(3);
+  std::uniform_int_distribution<int> byte(0, 255);
+  for (size_t d : {1, 15, 16, 17, 31, 32, 33, 37, 64, 768, 1000, 16391}) {
+    std::vector<std::vector<uint8_t>> rows(5, std::vector<uint8_t>(d));
+    for (auto& r : rows)
+      for (auto& x : r) x = static_cast<uint8_t>(byte(rng));
+    std::fill(rows[1].begin(), rows[1].end(),
+              255);  // largest per-dimension term against rows[0]...
+    std::fill(rows[0].begin(), rows[0].begin() + d / 2, 0);
+    const uint8_t* y[4] = {rows[1].data(), rows[2].data(), rows[3].data(), rows[4].data()};
+    int64_t want_one, want_four[4];
+    ASSERT_TRUE(
+        hnsw_build_internal::L2U8WithLevel("scalar", rows[0].data(), y, d, &want_one, want_four));
+    for (const char* level : {"avx2", "avx512"}) {
+      int64_t one, four[4];
+      if (!hnsw_build_internal::L2U8WithLevel(level, rows[0].data(), y, d, &one, four)) continue;
+      SCOPED_TRACE(std::string(level) + " d=" + std::to_string(d));
+      EXPECT_EQ(one, want_one);
+      for (int k = 0; k < 4; k++) EXPECT_EQ(four[k], want_four[k]);
+    }
+  }
 }
 
 }  // namespace tenann

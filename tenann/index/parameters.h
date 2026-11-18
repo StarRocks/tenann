@@ -156,6 +156,8 @@ struct FaissHnswSearchParams {
 
 struct IndexWriterOptions {
   DEFINE_OPTIONAL_PARAM(bool, write_index_cache, false);
+  // HNSW Flat: build-time distances on an 8-bit copy of the rows; the stored vectors stay float.
+  DEFINE_OPTIONAL_PARAM(bool, hnsw_int8_build, true);
   std::string custom_cache_key = "";
   std::string cosine_backend = "l2";
 

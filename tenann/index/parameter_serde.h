@@ -135,6 +135,7 @@ inline void FetchParameters(const IndexMeta& meta, FaissIvfSqSearchParams* out_p
 
 inline void FetchParameters(const IndexMeta& meta, IndexWriterOptions* out_params) {
   GET_OPTIONAL_WRITE_INDEX_PARAM_TO(meta, *out_params, write_index_cache);
+  GET_OPTIONAL_WRITE_INDEX_PARAM_TO(meta, *out_params, hnsw_int8_build);
   if (meta.index_writer_options().contains("custom_cache_key")) {
     out_params->custom_cache_key = meta.index_writer_options()["custom_cache_key"];
   }
