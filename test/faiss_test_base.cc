@@ -260,7 +260,7 @@ bool FaissTestBase::RecallCheckResult_80Percent() { return ComputeRecall() > 0.8
 
 float FaissTestBase::ComputeRecall() {
   printf("ComputeRecall >>>>>>>>>>>>> nq %d nb %d\n", nq_, nb_);
-  float recall_sum;
+  float recall_sum = 0;
   for (int i = 0; i < nq_; i++) {
     printf("accurate_id(%d): \n", i);
     std::set<int> accurate_set;
