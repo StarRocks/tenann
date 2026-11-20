@@ -36,16 +36,18 @@ class HnswBuildStorage;
 /// Index builder for the faiss HNSW family, including HNSWFlat (no
 /// quantization) and quantized variants (HNSWSQ4/SQ8/PQ).
 ///
-/// Inherits from FaissIndexBuilderWithBuffer so that rows added via Add() are
-/// buffered and then dispatched to faiss in a single add(N, ...) call from
-/// Flush(). Batch-add lets faiss's hnsw_add_vertices engage its OpenMP
-/// parallel region (guarded by n > 100), giving multi-core speedup over
-/// per-row insertion. Peak buffer memory is bounded by SetFlushThresholdRows().
+/// Rows reach faiss in batches, so faiss's hnsw_add_vertices can engage its
+/// OpenMP parallel region (guarded by n > 100) instead of inserting per row.
+///
+/// HNSWFlat stages Add() rows straight into the index's own storage, with no
+/// separate buffer or transform copy, and builds the graph for every
+/// SetFlushThresholdRows() rows and at Flush(). Rows join the graph, and
+/// ntotal, only then. Building the graph is part of FlushTotalTime.
 ///
 /// Quantized variants require training before adding vectors; the parent
-/// buffers Add() input until Flush(), then trains on the buffered data before
-/// adding. For HNSWFlat the underlying faiss index reports `is_trained == true`
-/// and the train phase in Flush() is a no-op.
+/// (FaissIndexBuilderWithBuffer) buffers Add() input until Flush(), then
+/// trains on the buffered data before adding. Peak buffer memory is bounded by
+/// SetFlushThresholdRows().
 class FaissHnswIndexBuilder final : public FaissIndexBuilderWithBuffer {
  public:
   explicit FaissHnswIndexBuilder(const IndexMeta& meta);
@@ -82,6 +84,7 @@ class FaissHnswIndexBuilder final : public FaissIndexBuilderWithBuffer {
   // copy exists.
   void StageRow(const float* row, const idx_t* row_id);
   void BuildStaged();
+  void CheckGraphIntact() const;
 
   FaissHnswIndexParams index_params_;
   FaissHnswSearchParams search_params_;
@@ -89,6 +92,9 @@ class FaissHnswIndexBuilder final : public FaissIndexBuilderWithBuffer {
   HnswBuildStorage* build_storage_ = nullptr;  // owned by the index; null for quantized storage
   bool normalize_rows_ = false;
   std::vector<idx_t> staged_ids_;
+  // Set while a graph build mutates the index; still set afterwards only if that build threw,
+  // leaving the graph, storage and IDMap out of step, so the index must not be added to or written.
+  bool graph_broken_ = false;
 };
 
 }  // namespace tenann

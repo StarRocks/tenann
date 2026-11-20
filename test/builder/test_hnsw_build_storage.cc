@@ -38,6 +38,8 @@
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
 #include "faiss/IndexPreTransform.h"
+#include "faiss/impl/FaissAssert.h"
+#include "faiss/impl/IDSelector.h"
 #include "faiss/index_factory.h"
 #include "faiss/index_io.h"
 #include "faiss/utils/distances.h"
@@ -49,6 +51,7 @@
 #include "tenann/index/internal/hnsw_build_storage.h"
 #include "tenann/store/index_meta.h"
 #include "tenann/store/index_type.h"
+#include "test/faiss_test_base.h"
 
 namespace tenann {
 
@@ -71,7 +74,8 @@ IndexMeta MakeMeta(uint32_t dim, MetricType metric, bool int8_build) {
   return meta;
 }
 
-// Gaussian clusters: a graph over them is a real search problem, unlike uniform noise.
+// Gaussian clusters: a graph over them is a real search problem, unlike the uniform noise of
+// FaissTestBase::RandomVectors.
 std::vector<float> ClusteredVectors(uint32_t n, uint32_t dim, int seed, float scale = 1.0f) {
   std::mt19937 rng(seed);
   std::normal_distribution<float> g(0.0f, 1.0f);
@@ -166,31 +170,6 @@ std::vector<int64_t> ExactTopK(std::vector<float> base, const std::vector<float>
   return out;
 }
 
-// Recall@k of the written index, searched through the searcher StarRocks uses.
-float Recall(const IndexMeta& meta, const std::string& path, const std::vector<float>& queries,
-             uint32_t dim, size_t k, const std::vector<int64_t>& truth, int ef_search = 64) {
-  auto searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta);
-  searcher->ReadIndex(path);
-  searcher->SetSearchParamItem("efSearch", ef_search);
-  const size_t nq = queries.size() / dim;
-  std::vector<int64_t> got(k);
-  size_t hits = 0;
-  for (size_t i = 0; i < nq; i++) {
-    auto qv = PrimitiveSeqView{
-        .data = reinterpret_cast<uint8_t*>(const_cast<float*>(queries.data() + i * dim)),
-        .size = dim,
-        .elem_type = PrimitiveType::kFloatType};
-    searcher->AnnSearch(qv, k, got.data());
-    for (size_t a = 0; a < k; a++)
-      for (size_t b = 0; b < k; b++)
-        if (got[a] == truth[i * k + b]) {
-          hits++;
-          break;
-        }
-  }
-  return static_cast<float>(hits) / (nq * k);
-}
-
 struct OmpThreads {
   explicit OmpThreads(int n) : saved(omp_get_max_threads()) { omp_set_num_threads(n); }
   ~OmpThreads() { omp_set_num_threads(saved); }
@@ -199,11 +178,35 @@ struct OmpThreads {
 
 }  // namespace
 
+class HnswBuildStorageTest : public FaissTestBase {
+ protected:
+  // Recall@k of the written index, searched through the searcher StarRocks uses, scored by
+  // FaissTestBase::ComputeRecall.
+  float Recall(const IndexMeta& meta, const std::string& path, const std::vector<float>& queries,
+               uint32_t dim, size_t k, const std::vector<int64_t>& truth, int ef_search = 64) {
+    auto searcher = AnnSearcherFactory::CreateSearcherFromMeta(meta);
+    searcher->ReadIndex(path);
+    searcher->SetSearchParamItem("efSearch", ef_search);
+    nq() = queries.size() / dim;
+    this->k() = k;
+    accurate_query_result_ids() = truth;
+    result_ids().assign(nq() * k, -1);
+    for (size_t i = 0; i < nq(); i++) {
+      auto qv = PrimitiveSeqView{
+          .data = reinterpret_cast<uint8_t*>(const_cast<float*>(queries.data() + i * dim)),
+          .size = dim,
+          .elem_type = PrimitiveType::kFloatType};
+      searcher->AnnSearch(qv, k, result_ids().data() + i * k);
+    }
+    return ComputeRecall();
+  }
+};
+
 // With one thread, staging rows in place and building below the wrappers must give the graph
 // faiss's own add_with_ids builds for the same batches: same neighbors, levels, row ids and
 // (normalized) rows, whether the rows are on the heap or in a mapping charged to an accountant.
 // 6000 rows also outgrow the storage's first 4096 rows while rows are staged.
-TEST(HnswBuildStorageTest, SameIndexAsFaissAdd) {
+TEST_F(HnswBuildStorageTest, SameIndexAsFaissAdd) {
   OmpThreads one(1);
   const uint32_t dim = 32;
   const size_t n = 6000, flush = 2500;
@@ -258,7 +261,7 @@ TEST(HnswBuildStorageTest, SameIndexAsFaissAdd) {
 
 // Every mapped byte is charged while held: the rows for the index's lifetime, the 8-bit codes until
 // Flush(). The charge stays close to what is actually stored.
-TEST(HnswBuildStorageTest, AccountantChargedForMappedRows) {
+TEST_F(HnswBuildStorageTest, AccountantChargedForMappedRows) {
   const uint32_t dim = 32;
   const size_t n = 50000;
   auto data = ClusteredVectors(n, dim, 41);
@@ -278,8 +281,9 @@ TEST(HnswBuildStorageTest, AccountantChargedForMappedRows) {
     const int64_t rows_bytes = static_cast<int64_t>(n) * dim * sizeof(float);
     const int64_t codes_bytes = static_cast<int64_t>(n) * dim;
     builder->Flush();
-    EXPECT_GE(accountant->current.load(), rows_bytes);
-    EXPECT_LE(accountant->current.load(), rows_bytes * 1.15 + (1 << 20));  // codes released
+    const int64_t page = sysconf(_SC_PAGESIZE);
+    // The finished build keeps only the pages its rows need; the 8-bit codes are released.
+    EXPECT_EQ(accountant->current.load(), (rows_bytes + page - 1) / page * page);
     EXPECT_GE(accountant->peak.load(), rows_bytes + codes_bytes);
     EXPECT_LE(accountant->peak.load(), (rows_bytes + codes_bytes) * 1.15 + (2 << 20));
     builder->Close();
@@ -288,7 +292,7 @@ TEST(HnswBuildStorageTest, AccountantChargedForMappedRows) {
   std::remove(path.c_str());
 }
 
-TEST(HnswBuildStorageTest, NullRowsSkippedAndRowIdsKept) {
+TEST_F(HnswBuildStorageTest, NullRowsSkippedAndRowIdsKept) {
   const uint32_t dim = 32;
   const size_t n = 3000, k = 10;
   auto data = ClusteredVectors(n, dim, 21);
@@ -330,7 +334,7 @@ std::vector<float> ManifoldVectors(uint32_t n, uint32_t dim, int proj_seed, int 
 
 // 8-bit build distances only steer which edges are kept; the written index is float and searched as
 // before.
-TEST(HnswBuildStorageTest, Int8BuildRecallMatchesFloatBuild) {
+TEST_F(HnswBuildStorageTest, Int8BuildRecallMatchesFloatBuild) {
   struct Case {
     MetricType metric;
     uint32_t dim;  // 37: exercises the kernels' scalar tail
@@ -362,7 +366,7 @@ TEST(HnswBuildStorageTest, Int8BuildRecallMatchesFloatBuild) {
 // (re-encoding what is already in the graph) when a later batch falls outside it. Clipping the
 // later rows instead collapses their codes, and the graph over them falls behind one built with
 // float distances.
-TEST(HnswBuildStorageTest, Int8RangeWidensForLaterBatches) {
+TEST_F(HnswBuildStorageTest, Int8RangeWidensForLaterBatches) {
   const uint32_t dim = 32;
   const size_t n = 6000, k = 10;
   auto data = ManifoldVectors(n, dim, 5, 31);
@@ -387,7 +391,7 @@ TEST(HnswBuildStorageTest, Int8RangeWidensForLaterBatches) {
 
 // Every SIMD kernel this CPU has must give the scalar result exactly: tails of every width, codes
 // at 0 and 255, and dimensions past the 8192-dim point where the int32 lanes are folded.
-TEST(HnswBuildStorageTest, Int8KernelsMatchScalar) {
+TEST_F(HnswBuildStorageTest, Int8KernelsMatchScalar) {
   std::mt19937 rng(3);
   std::uniform_int_distribution<int> byte(0, 255);
   for (size_t d : {1, 15, 16, 17, 31, 32, 33, 37, 64, 768, 1000, 16391}) {
@@ -409,6 +413,173 @@ TEST(HnswBuildStorageTest, Int8KernelsMatchScalar) {
       for (int k = 0; k < 4; k++) EXPECT_EQ(four[k], want_four[k]);
     }
   }
+}
+
+// Without custom row ids the rows go below the L2Norm transform only, with no IDMap. Two flushes
+// with nothing built in between (threshold 0), the first batch given as variable-length arrays,
+// must still give faiss's graph for the same two batches.
+TEST_F(HnswBuildStorageTest, SameIndexWithoutRowIdsAcrossFlushes) {
+  OmpThreads one(1);
+  const uint32_t dim = 32;
+  const size_t n = 6000, half = n / 2;
+  auto data = ClusteredVectors(n, dim, 11);
+  auto meta = MakeMeta(dim, MetricType::kCosineSimilarity, /*int8_build=*/false);
+  auto path = TempPath("noids");
+  {
+    auto builder = IndexFactory::CreateBuilderFromMeta(meta);
+    builder->SetFlushThresholdRows(0);
+    builder->Open(path);
+    std::vector<uint32_t> offsets(half + 1);
+    for (size_t i = 0; i <= half; i++) offsets[i] = static_cast<uint32_t>(i * dim);
+    VlArraySeqView vl{.data = reinterpret_cast<const uint8_t*>(data.data()),
+                      .offsets = offsets.data(),
+                      .size = static_cast<uint32_t>(half),
+                      .elem_type = PrimitiveType::kFloatType};
+    builder->Add({vl});
+    builder->Flush();
+    builder->Add({View(data, half, n - half, dim)});
+    builder->Flush();
+    builder->Close();
+  }
+  std::unique_ptr<faiss::Index> got(faiss::read_index(path.c_str()));
+
+  VectorIndexCommonParams cp;
+  cp.dim = dim;
+  cp.metric_type = static_cast<int>(MetricType::kCosineSimilarity);
+  cp.is_vector_normed = false;
+  FaissHnswIndexParams hp;
+  hp.M = 16;
+  auto repr = faiss_util::GetHnswRepr(cp, hp, /*use_custom_rowid=*/false);
+  std::unique_ptr<faiss::Index> ref(faiss::index_factory(dim, repr.c_str(), faiss::METRIC_L2));
+  auto [ref_ids, ref_tr, ref_hnsw] = faiss_util::UnpackHnswMutable(ref.get());
+  ref_hnsw->hnsw.efConstruction = 40;
+  ref->add(half, data.data());
+  ref->add(n - half, data.data() + half * dim);
+
+  auto [got_ids, got_tr, got_hnsw] = faiss_util::UnpackHnswMutable(got.get());
+  ASSERT_EQ(got_ids, nullptr);
+  ASSERT_NE(got_tr, nullptr);
+  EXPECT_EQ(got->ntotal, static_cast<faiss::idx_t>(n));
+  EXPECT_EQ(got_tr->ntotal, static_cast<faiss::idx_t>(n));
+  EXPECT_EQ(got_hnsw->hnsw.levels, ref_hnsw->hnsw.levels);
+  EXPECT_EQ(got_hnsw->hnsw.offsets, ref_hnsw->hnsw.offsets);
+  const auto& gn = got_hnsw->hnsw.neighbors;
+  const auto& rn = ref_hnsw->hnsw.neighbors;
+  ASSERT_EQ(gn.size(), rn.size());
+  EXPECT_TRUE(std::equal(gn.data(), gn.data() + gn.size(), rn.data()));
+  EXPECT_EQ(got_hnsw->hnsw.entry_point, ref_hnsw->hnsw.entry_point);
+  auto* got_flat = dynamic_cast<faiss::IndexFlat*>(got_hnsw->storage);
+  auto* ref_flat = dynamic_cast<faiss::IndexFlat*>(ref_hnsw->storage);
+  ASSERT_NE(got_flat, nullptr);
+  ASSERT_EQ(got_flat->codes.size(), ref_flat->codes.size());
+  EXPECT_EQ(0, memcmp(got_flat->codes.data(), ref_flat->codes.data(), ref_flat->codes.size()));
+  std::remove(path.c_str());
+}
+
+// FinishBuild returns the spare capacity, keeps the rows, and later rows grow the block again.
+TEST_F(HnswBuildStorageTest, StorageTrimmedAfterBuild) {
+  const uint32_t dim = 16;
+  const size_t n = 5000;
+  auto data = ClusteredVectors(n + 10, dim, 5);
+  const int64_t page = sysconf(_SC_PAGESIZE);
+  for (bool mapped : {false, true}) {
+    SCOPED_TRACE(mapped ? "mapped" : "heap");
+    auto accountant = std::make_shared<CountingAccountant>();
+    HnswBuildStorage storage(dim, faiss::METRIC_L2, mapped ? accountant : nullptr,
+                             /*int8_build=*/false, /*unit_range=*/false);
+    for (size_t i = 0; i < n; i++) memcpy(storage.StageRow(), data.data() + i * dim, dim * 4);
+    storage.add(n, storage.staged_data());
+    EXPECT_GT(storage.capacity(), n);
+    storage.FinishBuild();
+    EXPECT_EQ(storage.capacity(), n);
+    if (mapped) {
+      const int64_t bytes = static_cast<int64_t>(n) * dim * 4;
+      EXPECT_EQ(accountant->current.load(), (bytes + page - 1) / page * page);
+    }
+    std::vector<float> row(dim);
+    storage.reconstruct(n - 1, row.data());
+    EXPECT_EQ(0, memcmp(row.data(), data.data() + (n - 1) * dim, dim * 4));
+
+    for (size_t i = n; i < n + 10; i++) memcpy(storage.StageRow(), data.data() + i * dim, dim * 4);
+    storage.add(10, storage.staged_data());
+    EXPECT_EQ(storage.ntotal, static_cast<faiss::idx_t>(n + 10));
+    storage.reconstruct(0, row.data());
+    EXPECT_EQ(0, memcmp(row.data(), data.data(), dim * 4));
+    storage.reconstruct(n + 9, row.data());
+    EXPECT_EQ(0, memcmp(row.data(), data.data() + (n + 9) * dim, dim * 4));
+  }
+}
+
+// The codes are a view, so faiss's in-place resizes must fail as an exception, not an abort.
+TEST_F(HnswBuildStorageTest, InPlaceResizeThrows) {
+  const uint32_t dim = 8;
+  auto data = ClusteredVectors(100, dim, 3);
+  HnswBuildStorage storage(dim, faiss::METRIC_L2, nullptr, /*int8_build=*/false,
+                           /*unit_range=*/false);
+  storage.add(100, data.data());
+  faiss::IDSelectorRange first(0, 1);
+  EXPECT_THROW(storage.remove_ids(first), faiss::FaissException);
+  faiss::IndexFlatL2 other(dim);
+  other.add(10, data.data());
+  EXPECT_THROW(storage.merge_from(other), faiss::FaissException);
+  std::vector<uint8_t> codes(dim * sizeof(float));
+  EXPECT_THROW(storage.add_sa_codes(1, codes.data(), nullptr), faiss::FaissException);
+  EXPECT_EQ(storage.ntotal, 100);
+}
+
+// Flush after Close fails before it builds the staged rows into the graph.
+TEST_F(HnswBuildStorageTest, FlushAfterCloseLeavesIndexAlone) {
+  const uint32_t dim = 16;
+  auto data = ClusteredVectors(500, dim, 9);
+  auto meta = MakeMeta(dim, MetricType::kL2Distance, /*int8_build=*/false);
+  auto builder = IndexFactory::CreateBuilderFromMeta(meta);
+  builder->SetFlushThresholdRows(0);
+  builder->Open();
+  builder->Add({View(data, 0, 500, dim)});
+  builder->Close();
+  EXPECT_ANY_THROW(builder->Flush());
+  EXPECT_EQ(static_cast<faiss::Index*>(builder->index_ref()->index_raw())->ntotal, 0);
+}
+
+// An allocation failing part way through an Add leaves every staged row with its id, so the rows
+// that made it in are built and found under their own ids.
+TEST_F(HnswBuildStorageTest, FailedGrowthKeepsRowsAndIdsInStep) {
+  struct FailingAccountant : CountingAccountant {
+    void Charge(int64_t bytes) override {
+      if (++charges == 2) throw std::runtime_error("no memory");
+      CountingAccountant::Charge(bytes);
+    }
+    int charges = 0;
+  };
+  const uint32_t dim = 16, k = 1;
+  const size_t n = 6000;
+  auto data = ClusteredVectors(n, dim, 17);
+  auto meta = MakeMeta(dim, MetricType::kL2Distance, /*int8_build=*/false);
+  auto path = TempPath("failed_growth");
+  auto accountant = std::make_shared<FailingAccountant>();
+  auto builder = IndexFactory::CreateBuilderFromMeta(meta);
+  builder->SetFlushThresholdRows(0);
+  builder->SetMemoryAccountant(accountant);
+  builder->EnableCustomRowId();
+  builder->Open(path);
+  std::vector<int64_t> ids(n);
+  std::iota(ids.begin(), ids.end(), 0);
+  // The first mapping holds 4096 rows; growing it fails.
+  EXPECT_ANY_THROW(builder->Add({View(data, 0, n, dim)}, ids.data()));
+  builder->Flush();
+  builder->Close();
+
+  std::unique_ptr<faiss::Index> idx(faiss::read_index(path.c_str()));
+  auto [id_map, tr, hnsw] = faiss_util::UnpackHnswMutable(idx.get());
+  ASSERT_NE(id_map, nullptr);
+  const size_t built = idx->ntotal;
+  EXPECT_EQ(built, 4096u);
+  EXPECT_EQ(id_map->id_map.size(), built);
+  std::vector<float> self(data.begin(), data.begin() + 100 * dim);
+  std::vector<int64_t> truth(100);
+  std::iota(truth.begin(), truth.end(), 0);
+  EXPECT_GE(Recall(meta, path, self, dim, k, truth), 0.95f);
+  std::remove(path.c_str());
 }
 
 }  // namespace tenann

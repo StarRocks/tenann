@@ -29,8 +29,13 @@ namespace tenann {
 
 /// Accounts memory a builder maps itself. Mapped memory bypasses the caller's allocator hooks, so
 /// the builder reports it here instead: Charge() before bytes are mapped, Release() after they are
-/// unmapped. Accounting only; a builder never declines an allocation on its account. The index
-/// can outlive its builder (an index cache), and releases what it still holds when destroyed.
+/// unmapped. Accounting only; a builder never declines an allocation on its account.
+///
+/// The built index keeps its rows, and their charge, until it is destroyed. It can outlive its
+/// builder (an index cache) and be destroyed on any thread, and it holds the accountant by
+/// shared_ptr until then. So an implementation must be thread-safe, must not throw from Release(),
+/// and must not refer to anything that dies with the build (wrap a tracker it shares ownership of).
+/// A cache that charges the index's EstimateMemoryUsage() counts these rows a second time.
 class MemoryAccountant {
  public:
   virtual ~MemoryAccountant() = default;

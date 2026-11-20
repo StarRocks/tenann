@@ -24,6 +24,7 @@
 
 #include "faiss/IndexFlat.h"
 #include "tenann/builder/memory_accountant.h"
+#include "tenann/common/macros.h"
 
 namespace tenann {
 
@@ -36,6 +37,10 @@ namespace tenann {
 /// construction is bound by the latency of reading candidate vectors, and a quarter of the bytes
 /// roughly halves it; the stored vectors, the written index and search stay float. It serializes
 /// as a plain IndexFlat.
+///
+/// The codes are a view over that block, so the faiss calls that resize codes in place
+/// (remove_ids, merge_from, add_sa_codes) throw instead of asserting, and a copy of the index
+/// (faiss::clone_index) must not outlive it. Read it back from its serialized form instead.
 class HnswBuildStorage : public faiss::IndexFlat {
  public:
   /// |unit_range|: rows lie in [-1, 1] (normalized), so the 8-bit range needs no pass over them.
@@ -43,23 +48,28 @@ class HnswBuildStorage : public faiss::IndexFlat {
                    bool int8_build, bool unit_range);
   ~HnswBuildStorage() override;
 
-  HnswBuildStorage(const HnswBuildStorage&) = delete;
-  HnswBuildStorage& operator=(const HnswBuildStorage&) = delete;
+  T_FORBID_COPY_AND_ASSIGN(HnswBuildStorage);
 
   /// Space for the next staged row; valid until the next call. Staged rows join ntotal on add().
   float* StageRow();
   faiss::idx_t num_staged() const { return num_staged_; }
-  const float* staged_data() const { return xb() + ntotal * d; }
+  float* staged_data() const { return xb() + ntotal * d; }
+
+  /// Drops the 8-bit copy, so distances are float from then on, and returns the block's spare
+  /// capacity, so a finished index holds only its rows. Later rows grow it again.
+  void FinishBuild();
+  size_t capacity() const { return capacity_; }
 
   /// Rows already staged are taken in place; any other input is copied in first.
   void add(faiss::idx_t n, const float* x) override;
   void reset() override;
   faiss::DistanceComputer* get_distance_computer() const override;
 
-  /// Drops the 8-bit copy. Distances are float from then on.
-  void FinishBuild();
-
   bool int8_active() const { return int8_on_; }
+
+  size_t remove_ids(const faiss::IDSelector& sel) override;
+  void merge_from(faiss::Index& otherIndex, faiss::idx_t add_id = 0) override;
+  void add_sa_codes(faiss::idx_t n, const uint8_t* x, const faiss::idx_t* xids) override;
 
  private:
   float* xb() const { return reinterpret_cast<float*>(rows_); }
@@ -69,6 +79,7 @@ class HnswBuildStorage : public faiss::IndexFlat {
   // outside it.
   void Encode(size_t from, size_t to);
   void EncodeRows(size_t from, size_t to);
+  void FreeRows() noexcept;
 
   MemoryAccountantPtr accountant_;
   uint8_t* rows_ = nullptr;  // float rows, capacity_ of them
