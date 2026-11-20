@@ -65,7 +65,11 @@ class HnswBuildStorage : public faiss::IndexFlat {
   void reset() override;
   faiss::DistanceComputer* get_distance_computer() const override;
 
-  bool int8_active() const { return int8_on_; }
+  /// Whether 8-bit distances served any part of the build so far. Stays set after FinishBuild().
+  bool int8_used() const { return int8_used_; }
+
+  /// Whether this CPU has an 8-bit distance kernel; without one the build stays float.
+  static bool Int8BuildSupported();
 
   size_t remove_ids(const faiss::IDSelector& sel) override;
   void merge_from(faiss::Index& otherIndex, faiss::idx_t add_id = 0) override;
@@ -75,17 +79,22 @@ class HnswBuildStorage : public faiss::IndexFlat {
   float* xb() const { return reinterpret_cast<float*>(rows_); }
   void Reserve(size_t rows);
   void SyncView();
-  // 8-bit codes for rows [from, to); widens the range (re-encoding earlier rows) when a row falls
-  // outside it.
+  // 8-bit codes for rows [from, to); widens the range (re-encoding earlier rows) when the rows'
+  // bulk falls outside it. A non-finite value turns the 8-bit build off.
   void Encode(size_t from, size_t to);
-  void EncodeRows(size_t from, size_t to);
+  // Returns false if a value in the rows is not finite.
+  bool EncodeRows(size_t from, size_t to);
+  // Frees the 8-bit copy; distances are float from then on.
+  void DropInt8() noexcept;
   void FreeRows() noexcept;
 
   MemoryAccountantPtr accountant_;
   uint8_t* rows_ = nullptr;  // float rows, capacity_ of them
-  uint8_t* int8_ = nullptr;  // 8-bit codes, capacity_ of them while int8_on_
+  uint8_t* int8_ = nullptr;  // 8-bit codes, int8_capacity_ of them while int8_on_
   bool int8_on_ = false;
+  mutable bool int8_used_ = false;
   size_t capacity_ = 0;
+  size_t int8_capacity_ = 0;  // tracked apart from capacity_: the blocks grow one after the other
   faiss::idx_t num_staged_ = 0;
   bool unit_range_ = false;
   bool has_range_ = false;

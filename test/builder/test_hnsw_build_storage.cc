@@ -122,7 +122,8 @@ struct CountingAccountant : MemoryAccountant {
 };
 
 // Feeds |data| the way StarRocks does: fixed-size batches with row ids and per-row null flags.
-void Build(const IndexMeta& meta, const std::vector<float>& data, uint32_t dim, size_t flush_rows,
+// Returns whether 8-bit distances served the build.
+bool Build(const IndexMeta& meta, const std::vector<float>& data, uint32_t dim, size_t flush_rows,
            const std::string& path, const std::vector<uint8_t>* nulls = nullptr,
            MemoryAccountantPtr accountant = nullptr) {
   const size_t n = data.size() / dim;
@@ -141,7 +142,12 @@ void Build(const IndexMeta& meta, const std::vector<float>& data, uint32_t dim, 
     builder->Add({View(data, off, m, dim)}, ids.data(), nf);
   }
   builder->Flush();
+  auto [id_map, transform, hnsw] =
+      faiss_util::UnpackHnswMutable(static_cast<faiss::Index*>(builder->index_ref()->index_raw()));
+  auto* storage = dynamic_cast<HnswBuildStorage*>(hnsw->storage);
+  const bool int8_used = storage != nullptr && storage->int8_used();
   builder->Close();
+  return int8_used;
 }
 
 // Exact top-k row ids over the (optionally normalized) rows that are not null.
@@ -279,7 +285,8 @@ TEST_F(HnswBuildStorageTest, AccountantChargedForMappedRows) {
     std::vector<uint8_t> nulls(n, 0);
     builder->Add({View(data, 0, n, dim)}, ids.data(), nulls.data());
     const int64_t rows_bytes = static_cast<int64_t>(n) * dim * sizeof(float);
-    const int64_t codes_bytes = static_cast<int64_t>(n) * dim;
+    const int64_t codes_bytes =
+        HnswBuildStorage::Int8BuildSupported() ? static_cast<int64_t>(n) * dim : 0;
     builder->Flush();
     const int64_t page = sysconf(_SC_PAGESIZE);
     // The finished build keeps only the pages its rows need; the 8-bit codes are released.
@@ -335,6 +342,9 @@ std::vector<float> ManifoldVectors(uint32_t n, uint32_t dim, int proj_seed, int 
 // 8-bit build distances only steer which edges are kept; the written index is float and searched as
 // before.
 TEST_F(HnswBuildStorageTest, Int8BuildRecallMatchesFloatBuild) {
+  if (!HnswBuildStorage::Int8BuildSupported()) {
+    GTEST_SKIP() << "this CPU has no 8-bit distance kernel, so the build stays float";
+  }
   struct Case {
     MetricType metric;
     uint32_t dim;  // 37: exercises the kernels' scalar tail
@@ -350,7 +360,7 @@ TEST_F(HnswBuildStorageTest, Int8BuildRecallMatchesFloatBuild) {
     for (int int8 = 0; int8 < 2; int8++) {
       auto meta = MakeMeta(c.dim, c.metric, int8 == 1);
       auto path = TempPath("recall");
-      Build(meta, data, c.dim, 3000, path);
+      EXPECT_EQ(Build(meta, data, c.dim, 3000, path), int8 == 1);
       // A small ef keeps recall below 1, where a worse graph shows.
       recall[int8] = Recall(meta, path, queries, c.dim, k, truth, /*ef_search=*/10);
       std::remove(path.c_str());
@@ -367,6 +377,9 @@ TEST_F(HnswBuildStorageTest, Int8BuildRecallMatchesFloatBuild) {
 // later rows instead collapses their codes, and the graph over them falls behind one built with
 // float distances.
 TEST_F(HnswBuildStorageTest, Int8RangeWidensForLaterBatches) {
+  if (!HnswBuildStorage::Int8BuildSupported()) {
+    GTEST_SKIP() << "this CPU has no 8-bit distance kernel, so the build stays float";
+  }
   const uint32_t dim = 32;
   const size_t n = 6000, k = 10;
   auto data = ManifoldVectors(n, dim, 5, 31);
@@ -379,7 +392,7 @@ TEST_F(HnswBuildStorageTest, Int8RangeWidensForLaterBatches) {
   for (int int8 = 0; int8 < 2; int8++) {
     auto meta = MakeMeta(dim, MetricType::kL2Distance, int8 == 1);
     auto path = TempPath("range");
-    Build(meta, data, dim, 2000, path);
+    EXPECT_EQ(Build(meta, data, dim, 2000, path), int8 == 1);
     recall[int8] = Recall(meta, path, queries, dim, k, truth, /*ef_search=*/10);
     std::remove(path.c_str());
   }
@@ -387,6 +400,58 @@ TEST_F(HnswBuildStorageTest, Int8RangeWidensForLaterBatches) {
   // costs ~10.
   EXPECT_GE(recall[1], recall[0] - 0.05f) << "float " << recall[0] << " int8 " << recall[1];
   printf("widened range: recall@10 float build %.4f, int8 build %.4f\n", recall[0], recall[1]);
+}
+
+// A couple of corrupt rows far outside the rest must not set the 8-bit range: stretched over them,
+// it would leave the other rows a few codes each, and the build distances between those rows would
+// collapse. The range follows the bulk of the values and the outliers are clipped.
+TEST_F(HnswBuildStorageTest, Int8RangeIgnoresOutliers) {
+  if (!HnswBuildStorage::Int8BuildSupported()) {
+    GTEST_SKIP() << "this CPU has no 8-bit distance kernel, so the build stays float";
+  }
+  const uint32_t dim = 32;
+  const size_t n = 8000, k = 10;
+  auto data = ManifoldVectors(n, dim, 5, 51);
+  for (size_t r : {size_t{100}, size_t{5000}}) {  // one in each batch
+    for (uint32_t j = 0; j < dim; j++) data[r * dim + j] = 1000.0f;
+  }
+  auto queries = ManifoldVectors(200, dim, 5, 52);
+  auto truth = ExactTopK(data, queries, dim, k, false);
+  float recall[2];
+  for (int int8 = 0; int8 < 2; int8++) {
+    auto meta = MakeMeta(dim, MetricType::kL2Distance, int8 == 1);
+    auto path = TempPath("outliers");
+    EXPECT_EQ(Build(meta, data, dim, 4000, path), int8 == 1);
+    recall[int8] = Recall(meta, path, queries, dim, k, truth, /*ef_search=*/10);
+    std::remove(path.c_str());
+  }
+  EXPECT_GE(recall[1], recall[0] - 0.02f) << "float " << recall[0] << " int8 " << recall[1];
+  printf("outliers: recall@10 float build %.4f, int8 build %.4f\n", recall[0], recall[1]);
+}
+
+// A non-finite value turns the 8-bit build off for the rest of the build instead of reaching the
+// codes: what was built so far stays, later batches use float distances, the 8-bit copy is released
+// and every row is still found.
+TEST_F(HnswBuildStorageTest, Int8BuildFallsBackOnNonFinite) {
+  if (!HnswBuildStorage::Int8BuildSupported()) {
+    GTEST_SKIP() << "this CPU has no 8-bit distance kernel, so the build stays float";
+  }
+  const uint32_t dim = 16;
+  const size_t n = 3000;
+  auto data = ManifoldVectors(n, dim, 5, 61);
+  data[1500 * dim + 3] = INFINITY;  // second batch
+  auto meta = MakeMeta(dim, MetricType::kL2Distance, /*int8_build=*/true);
+  auto path = TempPath("nonfinite");
+  auto accountant = std::make_shared<CountingAccountant>();
+  EXPECT_TRUE(Build(meta, data, dim, 1000, path, nullptr, accountant));  // the first batch used it
+  EXPECT_EQ(accountant->current.load(), 0);
+  std::unique_ptr<faiss::Index> idx(faiss::read_index(path.c_str()));
+  EXPECT_EQ(idx->ntotal, static_cast<faiss::idx_t>(n));
+  std::vector<float> self(data.begin() + 1900 * dim, data.begin() + 2100 * dim);
+  std::vector<int64_t> truth(200);
+  std::iota(truth.begin(), truth.end(), 1900);
+  EXPECT_GE(Recall(meta, path, self, dim, 1, truth), 0.95f);
+  std::remove(path.c_str());
 }
 
 // Every SIMD kernel this CPU has must give the scalar result exactly: tails of every width, codes

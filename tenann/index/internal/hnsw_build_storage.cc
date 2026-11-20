@@ -28,6 +28,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -174,13 +175,34 @@ struct Kernels {
   L2U8x4Fn four;
 };
 
-Kernels PickKernels() {
+// The kernels of |level| ("avx512", "avx2" or "scalar"), if this CPU has the level.
+bool KernelsFor(const std::string& level, Kernels* out) {
 #if defined(__x86_64__)
   __builtin_cpu_init();
-  if (__builtin_cpu_supports("avx512bw")) return {L2U8Avx512, L2U8x4Avx512};
-  if (__builtin_cpu_supports("avx2")) return {L2U8Avx2, L2U8x4Avx2};
+  if (level == "avx512") {
+    if (!__builtin_cpu_supports("avx512bw")) return false;
+    *out = {L2U8Avx512, L2U8x4Avx512};
+    return true;
+  }
+  if (level == "avx2") {
+    if (!__builtin_cpu_supports("avx2")) return false;
+    *out = {L2U8Avx2, L2U8x4Avx2};
+    return true;
+  }
 #endif
-  return {L2U8Scalar, L2U8x4Scalar};
+  if (level == "scalar") {
+    *out = {L2U8Scalar, L2U8x4Scalar};
+    return true;
+  }
+  return false;
+}
+
+Kernels PickKernels() {
+  Kernels k{L2U8Scalar, L2U8x4Scalar};
+  for (const char* level : {"avx512", "avx2"}) {
+    if (KernelsFor(level, &k)) break;
+  }
+  return k;
 }
 
 const Kernels& GetKernels() {
@@ -192,9 +214,41 @@ const Kernels& GetKernels() {
 // float.
 bool HasInt8Kernel() { return GetKernels().one != L2U8Scalar; }
 
+// Clips to the 8-bit range. NaN encodes as 0 and the infinities as the ends, so no value is
+// undefined to convert; Encode() turns the 8-bit build off for rows that hold them anyway.
 inline uint8_t EncodeValue(float v, float lo, float scale) {
-  float c = std::nearbyint((v - lo) * scale);
-  return static_cast<uint8_t>(std::clamp(c, 0.0f, 255.0f));
+  const float c = (v - lo) * scale;
+  if (!(c > 0.0f)) return 0;
+  if (c >= 255.0f) return 255;
+  return static_cast<uint8_t>(std::nearbyint(c));
+}
+
+// The 8-bit range of a batch: its values' 0.1% and 99.9% quantiles, the usual percentile
+// calibration, not their extremes. A few outlying values would otherwise stretch the range until
+// every other value has only a few codes left, and the build distances between them collapse;
+// clipped, they only blur the edges of the rows that hold them. Estimated from a fixed-size sample,
+// so the cost does not grow with the batch. Returns false if the values hold no finite one.
+constexpr size_t kRangeSamples = 1 << 16;
+constexpr double kRangeTail = 1e-3;
+
+bool BatchRange(const float* x, size_t count, float* lo, float* hi) {
+  std::vector<float> s;
+  if (count <= kRangeSamples) {
+    s.assign(x, x + count);
+  } else {
+    std::mt19937_64 rng(count);  // fixed per batch size: the same rows encode the same way
+    std::uniform_int_distribution<size_t> pick(0, count - 1);
+    s.resize(kRangeSamples);
+    for (auto& v : s) v = x[pick(rng)];
+  }
+  s.erase(std::remove_if(s.begin(), s.end(), [](float v) { return !std::isfinite(v); }), s.end());
+  if (s.empty()) return false;
+  const size_t k = static_cast<size_t>(kRangeTail * s.size());
+  std::nth_element(s.begin(), s.begin() + k, s.end());
+  *lo = s[k];
+  std::nth_element(s.begin(), s.end() - 1 - k, s.end());
+  *hi = s[s.size() - 1 - k];
+  return true;
 }
 
 // Squared L2 over 8-bit codes, scaled back to the units of the float rows.
@@ -336,22 +390,8 @@ void FreeBlock(uint8_t* p, size_t bytes, MemoryAccountant* accountant) {
 namespace hnsw_build_internal {
 bool L2U8WithLevel(const char* level, const uint8_t* q, const uint8_t* const* y, size_t d,
                    int64_t* one, int64_t* four) {
-  Kernels k{L2U8Scalar, L2U8x4Scalar};
-  const std::string l = level;
-#if defined(__x86_64__)
-  __builtin_cpu_init();
-  if (l == "avx512") {
-    if (!__builtin_cpu_supports("avx512bw")) return false;
-    k = {L2U8Avx512, L2U8x4Avx512};
-  } else if (l == "avx2") {
-    if (!__builtin_cpu_supports("avx2")) return false;
-    k = {L2U8Avx2, L2U8x4Avx2};
-  } else if (l != "scalar") {
-    return false;
-  }
-#else
-  if (l != "scalar") return false;
-#endif
+  Kernels k;
+  if (!KernelsFor(level, &k)) return false;
   *one = k.one(q, y[0], d);
   k.four(q, y, d, four);
   return true;
@@ -378,10 +418,11 @@ void HnswBuildStorage::FreeRows() noexcept {
   codes = faiss::MaybeOwnedVector<uint8_t>();
   uint8_t* rows = rows_;
   uint8_t* int8 = int8_;
-  const size_t rows_bytes = capacity_ * code_size, int8_bytes = capacity_ * d;
+  const size_t rows_bytes = capacity_ * code_size, int8_bytes = int8_capacity_ * d;
   rows_ = nullptr;
   int8_ = nullptr;
   capacity_ = 0;
+  int8_capacity_ = 0;
   try {
     FreeBlock(int8, int8_bytes, accountant_.get());
     FreeBlock(rows, rows_bytes, accountant_.get());
@@ -393,15 +434,27 @@ void HnswBuildStorage::FreeRows() noexcept {
 }
 
 void HnswBuildStorage::Reserve(size_t rows) {
-  if (rows <= capacity_) return;
-  // A mapping grows without copying, so it grows in small steps and is charged little beyond what
-  // it holds; the heap may copy on growth, so it doubles.
-  const size_t step = std::max(accountant_ ? capacity_ / 8 : capacity_, static_cast<size_t>(4096));
-  const size_t cap = std::max(rows, capacity_ + step);
-  rows_ = GrowBlock(rows_, capacity_ * code_size, cap * code_size, accountant_.get());
-  if (int8_on_) int8_ = GrowBlock(int8_, capacity_ * d, cap * d, accountant_.get());
-  capacity_ = cap;
-  SyncView();
+  if (rows > capacity_) {
+    // A mapping grows without copying, so it grows in small steps and is charged little beyond what
+    // it holds; the heap may copy on growth, so it doubles.
+    const size_t step =
+        std::max(accountant_ ? capacity_ / 8 : capacity_, static_cast<size_t>(4096));
+    const size_t cap = std::max(rows, capacity_ + step);
+    rows_ = GrowBlock(rows_, capacity_ * code_size, cap * code_size, accountant_.get());
+    capacity_ = cap;
+    SyncView();
+  }
+  if (int8_on_ && int8_capacity_ < capacity_) {
+    try {
+      int8_ = GrowBlock(int8_, int8_capacity_ * d, capacity_ * d, accountant_.get());
+      int8_capacity_ = capacity_;
+    } catch (const std::exception& e) {
+      // The 8-bit copy only speeds the build up: without room for it the build goes on in float.
+      T_LOG(WARNING) << "HNSW build: no room for the 8-bit copy of the rows (" << e.what()
+                     << "), building with float distances";
+      DropInt8();
+    }
+  }
 }
 
 void HnswBuildStorage::SyncView() {
@@ -437,6 +490,7 @@ void HnswBuildStorage::reset() {
 
 faiss::DistanceComputer* HnswBuildStorage::get_distance_computer() const {
   if (int8_on_ && ntotal > 0) {
+    int8_used_ = true;
     return new Int8L2DistanceComputer(int8_, xb(), ntotal, d, lo_, scale_);
   }
   return faiss::IndexFlat::get_distance_computer();
@@ -444,9 +498,7 @@ faiss::DistanceComputer* HnswBuildStorage::get_distance_computer() const {
 
 void HnswBuildStorage::FinishBuild() {
   T_CHECK_EQ(num_staged_, 0) << "staged rows must be added before the build finishes";
-  FreeBlock(int8_, capacity_ * d, accountant_.get());
-  int8_ = nullptr;
-  int8_on_ = false;
+  DropInt8();
   if (capacity_ == static_cast<size_t>(ntotal)) return;
   rows_ = ShrinkBlock(rows_, capacity_ * code_size, ntotal * code_size, accountant_.get());
   capacity_ = rows_ != nullptr ? ntotal : 0;
@@ -465,43 +517,74 @@ void HnswBuildStorage::add_sa_codes(faiss::idx_t, const uint8_t*, const faiss::i
   FAISS_THROW_MSG("HnswBuildStorage does not support add_sa_codes");
 }
 
-void HnswBuildStorage::Encode(size_t from, size_t to) {
-  float mn = INFINITY, mx = -INFINITY;
-  if (!unit_range_) {
-    const float* x = xb() + from * d;
-    const size_t count = (to - from) * d;
-#pragma omp parallel for reduction(min : mn) reduction(max : mx)
-    for (size_t i = 0; i < count; i++) {
-      mn = std::min(mn, x[i]);
-      mx = std::max(mx, x[i]);
-    }
+void HnswBuildStorage::DropInt8() noexcept {
+  uint8_t* p = int8_;
+  const size_t bytes = int8_capacity_ * d;
+  int8_ = nullptr;
+  int8_capacity_ = 0;
+  int8_on_ = false;
+  try {
+    FreeBlock(p, bytes, accountant_.get());
+  } catch (const std::exception& e) {
+    std::fprintf(stderr, "tenann: releasing the HNSW 8-bit build copy failed: %s\n", e.what());
+  } catch (...) {
+    std::fprintf(stderr, "tenann: releasing the HNSW 8-bit build copy failed\n");
   }
-  const float hi = lo_ + 255.0f / scale_;
-  if (!has_range_ || mn < lo_ || mx > hi) {
-    // A clipped value costs recall, a wider range does not: take the union with a margin and
-    // re-encode.
-    float new_lo = has_range_ ? std::min(mn, lo_) : mn;
-    float new_hi = has_range_ ? std::max(mx, hi) : mx;
-    float span = std::max(new_hi - new_lo, 1e-20f);
-    new_lo -= span * 0.05f;
-    new_hi += span * 0.05f;
-    lo_ = new_lo;
-    scale_ = 255.0f / (new_hi - new_lo);
-    has_range_ = true;
-    from = 0;
-  }
-  EncodeRows(from, to);
 }
 
-void HnswBuildStorage::EncodeRows(size_t from, size_t to) {
-  const float* x = xb();
-  const float lo = lo_, scale = scale_;
-#pragma omp parallel for
-  for (size_t r = from; r < to; r++) {
-    for (size_t i = 0; i < static_cast<size_t>(d); i++) {
-      int8_[r * d + i] = EncodeValue(x[r * d + i], lo, scale);
+bool HnswBuildStorage::Int8BuildSupported() { return HasInt8Kernel(); }
+
+void HnswBuildStorage::Encode(size_t from, size_t to) {
+  if (!unit_range_) {
+    float mn, mx;
+    if (!BatchRange(xb() + from * d, (to - from) * d, &mn, &mx)) {
+      T_LOG(WARNING) << "HNSW build: rows hold no finite value, building with float distances";
+      DropInt8();
+      return;
+    }
+    const float hi = lo_ + 255.0f / scale_;
+    if (!has_range_ || mn < lo_ || mx > hi) {
+      // Widen to cover both ranges and re-encode the rows already coded. A widening grows the span
+      // by at least half, so a range that keeps drifting re-encodes the rows a few times per
+      // tenfold growth, not once per batch.
+      float new_lo = has_range_ ? std::min(mn, lo_) : mn;
+      float new_hi = has_range_ ? std::max(mx, hi) : mx;
+      const float span = std::max(new_hi - new_lo, 1e-20f);
+      float margin = 0.05f * span;
+      if (has_range_) margin = std::max(margin, 0.5f * (1.5f * (hi - lo_) - span));
+      new_lo -= margin;
+      new_hi += margin;
+      if (!(std::isfinite(new_lo) && std::isfinite(new_hi) && new_hi > new_lo)) {
+        T_LOG(WARNING) << "HNSW build: values too large for an 8-bit range, building with float "
+                          "distances";
+        DropInt8();
+        return;
+      }
+      lo_ = new_lo;
+      scale_ = 255.0f / (new_hi - new_lo);
+      has_range_ = true;
+      from = 0;
     }
   }
+  if (!EncodeRows(from, to)) {
+    T_LOG(WARNING) << "HNSW build: a row holds a non-finite value, building with float distances";
+    DropInt8();
+  }
+}
+
+bool HnswBuildStorage::EncodeRows(size_t from, size_t to) {
+  const float* x = xb();
+  const float lo = lo_, scale = scale_;
+  int bad = 0;
+#pragma omp parallel for reduction(| : bad)
+  for (size_t r = from; r < to; r++) {
+    for (size_t i = 0; i < static_cast<size_t>(d); i++) {
+      const float v = x[r * d + i];
+      bad |= !std::isfinite(v);
+      int8_[r * d + i] = EncodeValue(v, lo, scale);
+    }
+  }
+  return bad == 0;
 }
 
 }  // namespace tenann
