@@ -31,6 +31,7 @@ set(TENANN_SRC
     factory/index_factory.cc
     factory/ann_searcher_factory.cc
     index/internal/metric_util.cc
+    index/internal/hnsw_build_storage.cc
     index/internal/index_ivfpq.cc
     index/index_ivfpq_writer.cc
     index/index_ivfpq_reader.cc

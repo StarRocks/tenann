@@ -46,6 +46,13 @@ IndexBuilder& IndexBuilder::SetFileWriter(IndexFileWriterPtr writer) {
   return *this;
 }
 
+IndexBuilder& IndexBuilder::SetMemoryAccountant(MemoryAccountantPtr accountant) {
+  T_LOG_IF(ERROR, is_opened())
+      << "all configuration actions must be called before index being opened";
+  memory_accountant_ = std::move(accountant);
+  return *this;
+}
+
 IndexBuilder& IndexBuilder::EnableCustomRowId() {
   T_LOG_IF(ERROR, is_opened()) << "all confuration actions must be called before index being opened";
   use_custom_row_id_ = true;
