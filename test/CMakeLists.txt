@@ -21,6 +21,7 @@ set(TENANN_TEST_SRC
     builder/test_faiss_index_builder.cc
     builder/test_faiss_hnsw_index_builder.cc
     builder/test_faiss_hnsw_quantized_builder.cc
+    builder/test_hnsw_build_storage.cc
     builder/test_faiss_ivf_pq_index_builder.cc
     builder/test_faiss_ivf_sq_index_builder.cc
     index/test_index.cc

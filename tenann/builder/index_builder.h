@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "tenann/builder/memory_accountant.h"
 #include "tenann/common/seq_view.h"
 #include "tenann/index/index_reader.h"
 #include "tenann/index/index_writer.h"
@@ -97,6 +98,10 @@ class IndexBuilder {
   /// implementation-defined; passing 0 disables intermediate flushing entirely.
   virtual IndexBuilder& SetFlushThresholdRows(size_t /*rows*/) { return *this; }
 
+  /// Builders that map memory themselves report it to |accountant|; without one they keep that
+  /// memory on the heap. Must be called before Open().
+  IndexBuilder& SetMemoryAccountant(MemoryAccountantPtr accountant);
+
   /** Getters */
   const IndexMeta& index_meta() const;
 
@@ -118,6 +123,7 @@ class IndexBuilder {
   /* options */
   json build_options_;
   bool use_custom_row_id_ = false;
+  MemoryAccountantPtr memory_accountant_ = nullptr;
 
   /* writer */
   IndexWriterRef index_writer_ = nullptr;
