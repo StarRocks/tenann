@@ -127,8 +127,12 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
     if (q == static_cast<int>(ScalarQuantizerType::kFlat) && l2norm_only &&
         index_hnsw->own_fields && dynamic_cast<faiss::IndexFlat*>(index_hnsw->storage) != nullptr) {
       normalize_rows_ = transform != nullptr;
+      const bool unit_range =
+          normalize_rows_ || (common_params_.metric_type == MetricType::kCosineSimilarity &&
+                              common_params_.is_vector_normed);
       auto storage =
-          std::make_unique<HnswBuildStorage>(common_params_.dim, faiss_metric, memory_accountant_);
+          std::make_unique<HnswBuildStorage>(common_params_.dim, faiss_metric, memory_accountant_,
+                                             index_writer_options_.hnsw_int8_build, unit_range);
       delete index_hnsw->storage;
       index_hnsw->storage = storage.release();
       build_storage_ = static_cast<HnswBuildStorage*>(index_hnsw->storage);

@@ -33,14 +33,19 @@ namespace tenann {
 /// Rows are staged straight into the storage, so faiss's add() does not copy them: it only extends
 /// the view over rows that are already in place. With an accountant the rows live in an anonymous
 /// mapping charged to it, which grows with mremap instead of copying; without one they are on the
-/// heap. It serializes as a plain IndexFlat.
+/// heap. While the graph is built it can serve distances from an 8-bit copy of the rows. Graph
+/// construction is bound by the latency of reading candidate vectors, and a quarter of the bytes
+/// roughly halves it; the stored vectors, the written index and search stay float. It serializes
+/// as a plain IndexFlat.
 ///
 /// The codes are a view over that block, so the faiss calls that resize codes in place
 /// (remove_ids, merge_from, add_sa_codes) throw instead of asserting, and a copy of the index
 /// (faiss::clone_index) must not outlive it. Read it back from its serialized form instead.
 class HnswBuildStorage : public faiss::IndexFlat {
  public:
-  HnswBuildStorage(faiss::idx_t d, faiss::MetricType metric, MemoryAccountantPtr accountant);
+  /// |unit_range|: rows lie in [-1, 1] (normalized), so the 8-bit range needs no pass over them.
+  HnswBuildStorage(faiss::idx_t d, faiss::MetricType metric, MemoryAccountantPtr accountant,
+                   bool int8_build, bool unit_range);
   ~HnswBuildStorage() override;
 
   T_FORBID_COPY_AND_ASSIGN(HnswBuildStorage);
@@ -50,14 +55,21 @@ class HnswBuildStorage : public faiss::IndexFlat {
   faiss::idx_t num_staged() const { return num_staged_; }
   float* staged_data() const { return xb() + ntotal * d; }
 
-  /// Returns the block's spare capacity once no rows are staged, so a finished index holds only
-  /// its rows. Later rows grow it again.
+  /// Drops the 8-bit copy, so distances are float from then on, and returns the block's spare
+  /// capacity, so a finished index holds only its rows. Later rows grow it again.
   void FinishBuild();
   size_t capacity() const { return capacity_; }
 
   /// Rows already staged are taken in place; any other input is copied in first.
   void add(faiss::idx_t n, const float* x) override;
   void reset() override;
+  faiss::DistanceComputer* get_distance_computer() const override;
+
+  /// Whether 8-bit distances served any part of the build so far. Stays set after FinishBuild().
+  bool int8_used() const { return int8_used_; }
+
+  /// Whether this CPU has an 8-bit distance kernel; without one the build stays float.
+  static bool Int8BuildSupported();
 
   size_t remove_ids(const faiss::IDSelector& sel) override;
   void merge_from(faiss::Index& otherIndex, faiss::idx_t add_id = 0) override;
@@ -67,12 +79,34 @@ class HnswBuildStorage : public faiss::IndexFlat {
   float* xb() const { return reinterpret_cast<float*>(rows_); }
   void Reserve(size_t rows);
   void SyncView();
+  // 8-bit codes for rows [from, to); widens the range (re-encoding earlier rows) when the rows'
+  // bulk falls outside it. A non-finite value turns the 8-bit build off.
+  void Encode(size_t from, size_t to);
+  // Returns false if a value in the rows is not finite.
+  bool EncodeRows(size_t from, size_t to);
+  // Frees the 8-bit copy; distances are float from then on.
+  void DropInt8() noexcept;
   void FreeRows() noexcept;
 
   MemoryAccountantPtr accountant_;
   uint8_t* rows_ = nullptr;  // float rows, capacity_ of them
+  uint8_t* int8_ = nullptr;  // 8-bit codes, int8_capacity_ of them while int8_on_
+  bool int8_on_ = false;
+  mutable bool int8_used_ = false;
   size_t capacity_ = 0;
+  size_t int8_capacity_ = 0;  // tracked apart from capacity_: the blocks grow one after the other
   faiss::idx_t num_staged_ = 0;
+  bool unit_range_ = false;
+  bool has_range_ = false;
+  float lo_ = 0;
+  float scale_ = 1;  // code = round((x - lo_) * scale_)
 };
+
+namespace hnsw_build_internal {
+/// Squared L2 over 8-bit codes with the kernel of |level| ("scalar", "avx2", "avx512"), one
+/// candidate and four at once. Returns false when this CPU lacks the level. For tests.
+bool L2U8WithLevel(const char* level, const uint8_t* q, const uint8_t* const* y, size_t d,
+                   int64_t* one, int64_t* four);
+}  // namespace hnsw_build_internal
 
 }  // namespace tenann
