@@ -25,7 +25,9 @@
 
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/IndexPQ.h"
 #include "faiss/IndexPreTransform.h"
+#include "faiss/IndexScalarQuantizer.h"
 #include "faiss/VectorTransform.h"
 #include "faiss/index_factory.h"
 #include "faiss/utils/distances.h"
@@ -114,9 +116,12 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
                         << ", check_relative_distance: "
                         << index_hnsw->hnsw.check_relative_distance;
 
-    // Flat storage: swap in the build storage. It serializes as the IndexFlat it replaces. A
-    // transform other than the L2Norm that GetHnswRepr adds keeps the generic path.
+    // Swap in the build storage. For Flat it serializes as the IndexFlat it replaces; an SQ/PQ
+    // storage is set aside, untrained, until Flush encodes the rows into it. A transform other than
+    // the L2Norm that GetHnswRepr adds keeps the generic path.
     build_storage_ = nullptr;
+    quantized_storage_.reset();
+    graph_on_codes_ = false;
     normalize_rows_ = false;
     staged_ids_.clear();
     graph_broken_ = false;
@@ -124,17 +129,30 @@ IndexRef FaissHnswIndexBuilder::InitIndex() {
         transform == nullptr ||
         (transform->chain.size() == 1 &&
          dynamic_cast<const faiss::NormalizationTransform*>(transform->chain[0]) != nullptr);
-    if (q == static_cast<int>(ScalarQuantizerType::kFlat) && l2norm_only &&
-        index_hnsw->own_fields && dynamic_cast<faiss::IndexFlat*>(index_hnsw->storage) != nullptr) {
+    const bool flat = q == static_cast<int>(ScalarQuantizerType::kFlat);
+    const faiss::Index* storage = index_hnsw->storage;
+    const bool stageable =
+        flat ? dynamic_cast<const faiss::IndexFlat*>(storage) != nullptr
+             : dynamic_cast<const faiss::IndexScalarQuantizer*>(storage) != nullptr ||
+                   dynamic_cast<const faiss::IndexPQ*>(storage) != nullptr;
+    if (stageable && l2norm_only && index_hnsw->own_fields) {
       normalize_rows_ = transform != nullptr;
+      graph_on_codes_ = dynamic_cast<const faiss::IndexScalarQuantizer*>(storage) != nullptr;
       const bool unit_range =
           normalize_rows_ || (common_params_.metric_type == MetricType::kCosineSimilarity &&
                               common_params_.is_vector_normed);
-      auto storage =
-          std::make_unique<HnswBuildStorage>(common_params_.dim, faiss_metric, memory_accountant_,
-                                             index_writer_options_.hnsw_int8_build, unit_range);
-      delete index_hnsw->storage;
-      index_hnsw->storage = storage.release();
+      auto build_storage = std::make_unique<HnswBuildStorage>(
+          common_params_.dim, faiss_metric, memory_accountant_,
+          index_writer_options_.hnsw_int8_build && !graph_on_codes_, unit_range);
+      if (flat) {
+        delete index_hnsw->storage;
+      } else {
+        quantized_storage_.reset(index_hnsw->storage);
+        // PQ: the float rows need no training; the HNSW adds to them before the quantizer is
+        // trained.
+        index_hnsw->is_trained = !graph_on_codes_;
+      }
+      index_hnsw->storage = build_storage.release();
       build_storage_ = static_cast<HnswBuildStorage*>(index_hnsw->storage);
     }
 
@@ -159,12 +177,81 @@ IndexBuilder& FaissHnswIndexBuilder::Flush() {
   try {
     // The graph build; FaissIndexBuilder::Flush adds the write to the same timer.
     T_SCOPED_TIMER(flush_total_timer_);
-    BuildStaged();
-    build_storage_->FinishBuild();
-    std::vector<idx_t>().swap(staged_ids_);
+    if (graph_on_codes_) {
+      BuildOnQuantizedStorage();
+    } else {
+      BuildStaged();
+      build_storage_->FinishBuild();
+      std::vector<idx_t>().swap(staged_ids_);
+      if (quantized_storage_ != nullptr) EncodeIntoQuantizedStorage();
+    }
   }
   CATCH_FAISS_ERROR;
   return FaissIndexBuilder::Flush();
+}
+
+void FaissHnswIndexBuilder::EncodeIntoQuantizedStorage() {
+  auto [id_map, transform, index_hnsw] = faiss_util::UnpackHnswMutable(GetFaissIndex());
+  HnswBuildStorage* rows = build_storage_;
+  const idx_t n = rows->ntotal;
+  graph_broken_ = true;
+  index_hnsw->storage = quantized_storage_.get();
+  try {
+    if (n > 0) {
+      // IndexHNSWPQ::train trains the storage and the code-to-code table that later inserts compare
+      // with; then the rows, normalized already for cosine, are encoded.
+      index_hnsw->train(n, rows->get_xb());
+      index_hnsw->storage->add(n, rows->get_xb());
+    }
+  } catch (...) {
+    // The index owns the float rows again; the quantized storage stays ours.
+    index_hnsw->storage = rows;
+    throw;
+  }
+  TakeQuantizedStorage(n > 0);
+  graph_broken_ = false;
+}
+
+void FaissHnswIndexBuilder::BuildOnQuantizedStorage() {
+  auto [id_map, transform, index_hnsw] = faiss_util::UnpackHnswMutable(GetFaissIndex());
+  HnswBuildStorage* rows = build_storage_;
+  const idx_t n = rows->num_staged();
+  T_CHECK(id_map == nullptr || static_cast<idx_t>(staged_ids_.size()) == n)
+      << "rows of an index with custom row ids must be added with their row ids";
+  float* x = rows->staged_data();
+  if (normalize_rows_) faiss::fvec_renorm_L2(common_params_.dim, n, x);
+  graph_broken_ = true;
+  index_hnsw->storage = quantized_storage_.get();
+  try {
+    if (n > 0) {
+      // As faiss builds IndexHNSWSQ: train the quantizer, then add, which encodes the rows and
+      // inserts them comparing codes.
+      index_hnsw->train(n, x);
+      index_hnsw->add(n, x);
+    }
+  } catch (...) {
+    index_hnsw->storage = rows;
+    throw;
+  }
+  if (transform != nullptr) transform->ntotal = index_hnsw->ntotal;
+  if (id_map != nullptr) {
+    id_map->id_map.insert(id_map->id_map.end(), staged_ids_.begin(), staged_ids_.end());
+    id_map->ntotal = index_hnsw->ntotal;
+  }
+  std::vector<idx_t>().swap(staged_ids_);
+  TakeQuantizedStorage(n > 0);
+  graph_broken_ = false;
+}
+
+void FaissHnswIndexBuilder::TakeQuantizedStorage(bool trained) {
+  auto [id_map, transform, index_hnsw] = faiss_util::UnpackHnswMutable(GetFaissIndex());
+  HnswBuildStorage* rows = build_storage_;
+  index_hnsw->storage = quantized_storage_.release();
+  build_storage_ = nullptr;
+  delete rows;
+  index_hnsw->is_trained = trained;
+  if (transform != nullptr) transform->is_trained = trained;
+  if (id_map != nullptr) id_map->is_trained = trained;
 }
 
 void FaissHnswIndexBuilder::AddRaw(const TypedSliceIterator<float>& input_row_iterator) {
@@ -212,7 +299,7 @@ void FaissHnswIndexBuilder::StageRow(const float* row, const idx_t* row_id) {
   float* dst = build_storage_->StageRow();
   memcpy(dst, row, common_params_.dim * sizeof(float));
   if (row_id != nullptr) staged_ids_.push_back(*row_id);
-  if (flush_threshold_rows_ > 0 &&
+  if (!graph_on_codes_ && flush_threshold_rows_ > 0 &&
       static_cast<size_t>(build_storage_->num_staged()) >= flush_threshold_rows_) {
     BuildStaged();
   }
