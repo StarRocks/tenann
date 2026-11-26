@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <omp.h>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -183,6 +184,15 @@ TEST(FaissHnswQuantizedBuilderTest, MinTrainRowsPqNbits16RemainsSupported) {
 
 namespace {
 
+// One build thread: a parallel build inserts rows in a scheduling-dependent order, and a self query
+// of a row on the graph's fringe then misses at efSearch=40 now and then. These tests check the
+// build/write/read round trip, so the graph must not depend on scheduling.
+struct SingleBuildThread {
+  SingleBuildThread() : saved(omp_get_max_threads()) { omp_set_num_threads(1); }
+  ~SingleBuildThread() { omp_set_num_threads(saved); }
+  int saved;
+};
+
 void RunBuildAndSearch(const IndexMeta& meta, const std::string& path_tag,
                        float min_self_recall) {
   auto base = RandomVectors(kNb, kDim, /*seed=*/1);
@@ -195,12 +205,15 @@ void RunBuildAndSearch(const IndexMeta& meta, const std::string& path_tag,
                          .elem_type = PrimitiveType::kFloatType};
 
   auto path = MakeIndexPath(path_tag);
-  auto builder = std::make_unique<FaissHnswIndexBuilder>(meta);
-  builder->EnableCustomRowId()
-      .Open(path)
-      .Add({base_view}, ids.data())
-      .Flush()
-      .Close();
+  {
+    SingleBuildThread one_thread;
+    auto builder = std::make_unique<FaissHnswIndexBuilder>(meta);
+    builder->EnableCustomRowId()
+        .Open(path)
+        .Add({base_view}, ids.data())
+        .Flush()
+        .Close();
+  }
 
   // Self-query: pick the first kNq base vectors as queries; the nearest
   // neighbour should be the vector itself for any reasonable quantizer.
