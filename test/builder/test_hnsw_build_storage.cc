@@ -17,8 +17,8 @@
  * under the License.
  */
 
-// HNSW Flat built through HnswBuildStorage: rows staged in place, graph built per flush batch below
-// the IDMap / L2Norm wrappers, optional 8-bit build distances.
+// HNSW built through HnswBuildStorage: rows staged in place, graph built per flush batch below
+// the IDMap / L2Norm wrappers, optional 8-bit build distances, SQ/PQ storage encoded at Flush.
 
 #include <omp.h>
 #include <unistd.h>
@@ -37,9 +37,12 @@
 #include "faiss/IndexFlat.h"
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/IndexPQ.h"
 #include "faiss/IndexPreTransform.h"
+#include "faiss/IndexScalarQuantizer.h"
 #include "faiss/impl/FaissAssert.h"
 #include "faiss/impl/IDSelector.h"
+#include "faiss/impl/io.h"
 #include "faiss/index_factory.h"
 #include "faiss/index_io.h"
 #include "faiss/utils/distances.h"
@@ -645,6 +648,181 @@ TEST_F(HnswBuildStorageTest, FailedGrowthKeepsRowsAndIdsInStep) {
   std::iota(truth.begin(), truth.end(), 0);
   EXPECT_GE(Recall(meta, path, self, dim, k, truth), 0.95f);
   std::remove(path.c_str());
+}
+
+namespace {
+
+struct QuantizerCase {
+  const char* name;
+  ScalarQuantizerType type;
+  const char* faiss_storage;  // factory suffix faiss's own build uses
+};
+
+const QuantizerCase kQuantizers[] = {
+    {"SQ8", ScalarQuantizerType::kSQ8, "SQ8"},
+    {"SQ4", ScalarQuantizerType::kSQ4, "SQ4"},
+    {"PQ8x4", ScalarQuantizerType::kPQ, "PQ8x4np"},
+};
+
+IndexMeta QuantizedMeta(uint32_t dim, MetricType metric, const QuantizerCase& q) {
+  auto meta = MakeMeta(dim, metric, /*int8_build=*/true);
+  meta.index_params()["quantizer"] = static_cast<int>(q.type);
+  if (q.type == ScalarQuantizerType::kPQ) {
+    meta.index_params()["m_pq"] = 8;
+    meta.index_params()["nbits_pq"] = 4;
+  }
+  return meta;
+}
+
+// The same index as faiss builds it, which is what the buffered path did: train on all the rows,
+// then add them, the graph built on quantized distances.
+void FaissQuantizedBuild(const std::vector<float>& data, uint32_t dim, MetricType metric,
+                         const QuantizerCase& q, const std::string& path) {
+  const size_t n = data.size() / dim;
+  const std::string desc = std::string("IDMap,") +
+                           (metric == MetricType::kCosineSimilarity ? "L2Norm," : "") + "HNSW16," +
+                           q.faiss_storage;
+  std::unique_ptr<faiss::Index> index(faiss::index_factory(dim, desc.c_str(), faiss::METRIC_L2));
+  auto [id_map, transform, hnsw] = faiss_util::UnpackHnswMutable(index.get());
+  hnsw->hnsw.efConstruction = 40;
+  hnsw->hnsw.efSearch = 64;
+  std::vector<int64_t> ids(n);
+  std::iota(ids.begin(), ids.end(), 0);
+  index->train(n, data.data());
+  index->add_with_ids(n, data.data(), ids.data());
+  faiss::write_index(index.get(), path.c_str());
+}
+
+void ExpectQuantizedIndex(const std::string& path, const QuantizerCase& q, size_t n) {
+  std::unique_ptr<faiss::Index> index(faiss::read_index(path.c_str()));
+  auto [id_map, transform, hnsw] = faiss_util::UnpackHnswMutable(index.get());
+  ASSERT_NE(id_map, nullptr);
+  if (q.type == ScalarQuantizerType::kPQ) {
+    EXPECT_NE(dynamic_cast<faiss::IndexHNSWPQ*>(hnsw), nullptr);
+    EXPECT_NE(dynamic_cast<faiss::IndexPQ*>(hnsw->storage), nullptr);
+  } else {
+    EXPECT_NE(dynamic_cast<faiss::IndexHNSWSQ*>(hnsw), nullptr);
+    EXPECT_NE(dynamic_cast<faiss::IndexScalarQuantizer*>(hnsw->storage), nullptr);
+  }
+  EXPECT_TRUE(id_map->is_trained);
+  EXPECT_TRUE(hnsw->is_trained);
+  EXPECT_TRUE(hnsw->storage->is_trained);
+  if (transform != nullptr) EXPECT_TRUE(transform->is_trained);
+  EXPECT_EQ(static_cast<size_t>(hnsw->storage->ntotal), n);
+  EXPECT_EQ(static_cast<size_t>(hnsw->ntotal), n);
+  std::vector<int64_t> want(n);
+  std::iota(want.begin(), want.end(), 0);
+  EXPECT_EQ(std::vector<int64_t>(id_map->id_map.begin(), id_map->id_map.end()), want);
+}
+
+// The index file as faiss writes it again, so files from different writers compare by content.
+std::vector<uint8_t> Serialized(const std::string& path) {
+  std::unique_ptr<faiss::Index> index(faiss::read_index(path.c_str()));
+  faiss::VectorIOWriter out;
+  faiss::write_index(index.get(), &out);
+  return out.data;
+}
+
+}  // namespace
+
+// SQ stages its rows and builds as faiss does, so with one thread the index is faiss's own, byte
+// for byte. PQ builds its graph on the staged rows and encodes them at Flush; recall is at least
+// that of the graph faiss prunes on PQ's code-to-code table. Both are the faiss HNSWSQ/HNSWPQ,
+// every wrapper trained.
+TEST_F(HnswBuildStorageTest, QuantizedIndexAsFaissBuildsIt) {
+  OmpThreads threads(1);
+  const uint32_t dim = 32, n = 6000, nq = 200, k = 10;
+  auto data = ClusteredVectors(n, dim, 31);
+  auto queries = ClusteredVectors(nq, dim, 32);
+  for (auto metric : {MetricType::kL2Distance, MetricType::kCosineSimilarity}) {
+    const auto truth = ExactTopK(data, queries, dim, k, metric == MetricType::kCosineSimilarity);
+    for (const auto& q : kQuantizers) {
+      SCOPED_TRACE(std::string(q.name) + (metric == MetricType::kL2Distance ? " l2" : " cosine"));
+      auto meta = QuantizedMeta(dim, metric, q);
+      const std::string staged = TempPath("quant_staged"), native = TempPath("quant_native");
+      Build(meta, data, dim, /*flush_rows=*/2500, staged);
+      FaissQuantizedBuild(data, dim, metric, q, native);
+      ExpectQuantizedIndex(staged, q, n);
+      if (q.type == ScalarQuantizerType::kPQ) {
+        EXPECT_GE(Recall(meta, staged, queries, dim, k, truth),
+                  Recall(meta, native, queries, dim, k, truth) - 0.02f);
+      } else {
+        EXPECT_TRUE(Serialized(staged) == Serialized(native));
+      }
+      std::remove(staged.c_str());
+      std::remove(native.c_str());
+    }
+  }
+}
+
+// Rows added after the first Flush go straight into the trained quantized storage, as they did
+// before, and a second Flush writes them all; recall stays at least that of faiss's own build.
+TEST_F(HnswBuildStorageTest, QuantizedRowsAfterFlushGoStraightIn) {
+  const uint32_t dim = 32, n = 4000, k = 10;
+  auto data = ClusteredVectors(n, dim, 33);
+  for (const auto& q : kQuantizers) {
+    SCOPED_TRACE(q.name);
+    auto meta = QuantizedMeta(dim, MetricType::kL2Distance, q);
+    const std::string path = TempPath("quant_two_flushes");
+    auto builder = IndexFactory::CreateBuilderFromMeta(meta);
+    builder->EnableCustomRowId();
+    builder->Open(path);
+    std::vector<int64_t> ids(n);
+    std::iota(ids.begin(), ids.end(), 0);
+    builder->Add({View(data, 0, n / 2, dim)}, ids.data());
+    builder->Flush();
+    builder->Add({View(data, n / 2, n / 2, dim)}, ids.data() + n / 2);
+    builder->Flush();
+    builder->Close();
+    ExpectQuantizedIndex(path, q, n);
+    const std::string native = TempPath("quant_two_flushes_native");
+    FaissQuantizedBuild(data, dim, MetricType::kL2Distance, q, native);
+    const auto truth = ExactTopK(data, data, dim, k, false);
+    const float two_flushes = Recall(meta, path, data, dim, k, truth);
+    const float native_recall = Recall(meta, native, data, dim, k, truth);
+    EXPECT_GE(two_flushes, native_recall - 0.02f);
+    std::remove(path.c_str());
+    std::remove(native.c_str());
+  }
+}
+
+// The float rows are charged while they are staged and released once they are encoded.
+TEST_F(HnswBuildStorageTest, QuantizedFloatRowsReleasedAtFlush) {
+  const uint32_t dim = 32, n = 6000;
+  auto data = ClusteredVectors(n, dim, 34);
+  for (const auto& q : kQuantizers) {
+    SCOPED_TRACE(q.name);
+    auto accountant = std::make_shared<CountingAccountant>();
+    const std::string path = TempPath("quant_accountant");
+    Build(QuantizedMeta(dim, MetricType::kL2Distance, q), data, dim, 2500, path, nullptr,
+          accountant);
+    EXPECT_GE(accountant->peak.load(), static_cast<int64_t>(n) * dim * sizeof(float));
+    EXPECT_EQ(accountant->current.load(), 0);
+    std::remove(path.c_str());
+  }
+}
+
+// A first Flush with no rows leaves the quantizer untrained, as before; it trains at the Flush
+// that has rows.
+TEST_F(HnswBuildStorageTest, QuantizedEmptyFlushTrainsLater) {
+  const uint32_t dim = 32, n = 3000;
+  auto data = ClusteredVectors(n, dim, 35);
+  for (const auto& q : kQuantizers) {
+    SCOPED_TRACE(q.name);
+    auto meta = QuantizedMeta(dim, MetricType::kL2Distance, q);
+    const std::string path = TempPath("quant_empty_flush");
+    auto builder = IndexFactory::CreateBuilderFromMeta(meta);
+    builder->EnableCustomRowId();
+    builder->Open(path);
+    builder->Flush();
+    std::vector<int64_t> ids(n);
+    std::iota(ids.begin(), ids.end(), 0);
+    builder->Add({View(data, 0, n, dim)}, ids.data());
+    builder->Flush();
+    builder->Close();
+    ExpectQuantizedIndex(path, q, n);
+    std::remove(path.c_str());
+  }
 }
 
 }  // namespace tenann
