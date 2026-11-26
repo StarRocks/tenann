@@ -551,7 +551,7 @@ TEST_F(HnswBuildStorageTest, StorageTrimmedAfterBuild) {
     SCOPED_TRACE(mapped ? "mapped" : "heap");
     auto accountant = std::make_shared<CountingAccountant>();
     HnswBuildStorage storage(dim, faiss::METRIC_L2, mapped ? accountant : nullptr,
-                             /*int8_build=*/false, /*unit_range=*/false);
+                             /*int8_build=*/false, /*normalized=*/false);
     for (size_t i = 0; i < n; i++) memcpy(storage.StageRow(), data.data() + i * dim, dim * 4);
     storage.add(n, storage.staged_data());
     EXPECT_GT(storage.capacity(), n);
@@ -580,7 +580,7 @@ TEST_F(HnswBuildStorageTest, InPlaceResizeThrows) {
   const uint32_t dim = 8;
   auto data = ClusteredVectors(100, dim, 3);
   HnswBuildStorage storage(dim, faiss::METRIC_L2, nullptr, /*int8_build=*/false,
-                           /*unit_range=*/false);
+                           /*normalized=*/false);
   storage.add(100, data.data());
   faiss::IDSelectorRange first(0, 1);
   EXPECT_THROW(storage.remove_ids(first), faiss::FaissException);
