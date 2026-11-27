@@ -28,6 +28,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <limits>
 #include <random>
 #include <string>
 #include <vector>
@@ -251,6 +252,25 @@ bool BatchRange(const float* x, size_t count, float* lo, float* hi) {
   return true;
 }
 
+// Normalized rows: every value is in [-1, 1], so their exact extremes bound the range at no more
+// than [-1, 1] and leave no tail to clip. A fixed [-1, 1] range is too coarse: a row's values sit
+// near 1/sqrt(d), on a few dozen of the 256 levels.
+bool ExactRange(const float* x, size_t count, float* lo, float* hi) {
+  float mn = std::numeric_limits<float>::infinity(), mx = -std::numeric_limits<float>::infinity();
+#pragma omp parallel for reduction(min : mn) reduction(max : mx)
+  for (size_t i = 0; i < count; i++) {
+    const float v = x[i];
+    if (std::isfinite(v)) {
+      mn = std::min(mn, v);
+      mx = std::max(mx, v);
+    }
+  }
+  if (!(mn <= mx)) return false;
+  *lo = mn;
+  *hi = mx;
+  return true;
+}
+
 // Squared L2 over 8-bit codes, scaled back to the units of the float rows.
 class Int8L2DistanceComputer : public faiss::DistanceComputer {
  public:
@@ -399,15 +419,10 @@ bool L2U8WithLevel(const char* level, const uint8_t* q, const uint8_t* const* y,
 }  // namespace hnsw_build_internal
 
 HnswBuildStorage::HnswBuildStorage(faiss::idx_t d, faiss::MetricType metric,
-                                   MemoryAccountantPtr accountant, bool int8_build, bool unit_range)
-    : faiss::IndexFlat(d, metric), accountant_(std::move(accountant)), unit_range_(unit_range) {
+                                   MemoryAccountantPtr accountant, bool int8_build, bool normalized)
+    : faiss::IndexFlat(d, metric), accountant_(std::move(accountant)), normalized_(normalized) {
   // Only squared L2 has an 8-bit kernel; inner product keeps float distances.
   int8_on_ = int8_build && metric == faiss::METRIC_L2 && HasInt8Kernel();
-  if (unit_range_) {
-    lo_ = -1.0f;
-    scale_ = 255.0f / 2.0f;
-    has_range_ = true;
-  }
 }
 
 HnswBuildStorage::~HnswBuildStorage() { FreeRows(); }
@@ -485,7 +500,7 @@ void HnswBuildStorage::reset() {
   FreeRows();
   ntotal = 0;
   num_staged_ = 0;
-  has_range_ = unit_range_;
+  has_range_ = false;
 }
 
 faiss::DistanceComputer* HnswBuildStorage::get_distance_computer() const {
@@ -535,36 +550,36 @@ void HnswBuildStorage::DropInt8() noexcept {
 bool HnswBuildStorage::Int8BuildSupported() { return HasInt8Kernel(); }
 
 void HnswBuildStorage::Encode(size_t from, size_t to) {
-  if (!unit_range_) {
-    float mn, mx;
-    if (!BatchRange(xb() + from * d, (to - from) * d, &mn, &mx)) {
-      T_LOG(WARNING) << "HNSW build: rows hold no finite value, building with float distances";
+  float mn, mx;
+  const float* x = xb() + from * d;
+  const size_t count = (to - from) * d;
+  if (!(normalized_ ? ExactRange(x, count, &mn, &mx) : BatchRange(x, count, &mn, &mx))) {
+    T_LOG(WARNING) << "HNSW build: rows hold no finite value, building with float distances";
+    DropInt8();
+    return;
+  }
+  const float hi = lo_ + 255.0f / scale_;
+  if (!has_range_ || mn < lo_ || mx > hi) {
+    // Widen to cover both ranges and re-encode the rows already coded. A widening grows the span
+    // by at least half, so a range that keeps drifting re-encodes the rows a few times per
+    // tenfold growth, not once per batch.
+    float new_lo = has_range_ ? std::min(mn, lo_) : mn;
+    float new_hi = has_range_ ? std::max(mx, hi) : mx;
+    const float span = std::max(new_hi - new_lo, 1e-20f);
+    float margin = 0.05f * span;
+    if (has_range_) margin = std::max(margin, 0.5f * (1.5f * (hi - lo_) - span));
+    new_lo -= margin;
+    new_hi += margin;
+    if (!(std::isfinite(new_lo) && std::isfinite(new_hi) && new_hi > new_lo)) {
+      T_LOG(WARNING) << "HNSW build: values too large for an 8-bit range, building with float "
+                        "distances";
       DropInt8();
       return;
     }
-    const float hi = lo_ + 255.0f / scale_;
-    if (!has_range_ || mn < lo_ || mx > hi) {
-      // Widen to cover both ranges and re-encode the rows already coded. A widening grows the span
-      // by at least half, so a range that keeps drifting re-encodes the rows a few times per
-      // tenfold growth, not once per batch.
-      float new_lo = has_range_ ? std::min(mn, lo_) : mn;
-      float new_hi = has_range_ ? std::max(mx, hi) : mx;
-      const float span = std::max(new_hi - new_lo, 1e-20f);
-      float margin = 0.05f * span;
-      if (has_range_) margin = std::max(margin, 0.5f * (1.5f * (hi - lo_) - span));
-      new_lo -= margin;
-      new_hi += margin;
-      if (!(std::isfinite(new_lo) && std::isfinite(new_hi) && new_hi > new_lo)) {
-        T_LOG(WARNING) << "HNSW build: values too large for an 8-bit range, building with float "
-                          "distances";
-        DropInt8();
-        return;
-      }
-      lo_ = new_lo;
-      scale_ = 255.0f / (new_hi - new_lo);
-      has_range_ = true;
-      from = 0;
-    }
+    lo_ = new_lo;
+    scale_ = 255.0f / (new_hi - new_lo);
+    has_range_ = true;
+    from = 0;
   }
   if (!EncodeRows(from, to)) {
     T_LOG(WARNING) << "HNSW build: a row holds a non-finite value, building with float distances";

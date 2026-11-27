@@ -43,9 +43,10 @@ namespace tenann {
 /// (faiss::clone_index) must not outlive it. Read it back from its serialized form instead.
 class HnswBuildStorage : public faiss::IndexFlat {
  public:
-  /// |unit_range|: rows lie in [-1, 1] (normalized), so the 8-bit range needs no pass over them.
+  /// |normalized|: every value lies in [-1, 1], so the 8-bit range spans the rows' exact extremes;
+  /// other rows take it from quantiles, ignoring an outlier tail.
   HnswBuildStorage(faiss::idx_t d, faiss::MetricType metric, MemoryAccountantPtr accountant,
-                   bool int8_build, bool unit_range);
+                   bool int8_build, bool normalized);
   ~HnswBuildStorage() override;
 
   T_FORBID_COPY_AND_ASSIGN(HnswBuildStorage);
@@ -96,7 +97,7 @@ class HnswBuildStorage : public faiss::IndexFlat {
   size_t capacity_ = 0;
   size_t int8_capacity_ = 0;  // tracked apart from capacity_: the blocks grow one after the other
   faiss::idx_t num_staged_ = 0;
-  bool unit_range_ = false;
+  bool normalized_ = false;
   bool has_range_ = false;
   float lo_ = 0;
   float scale_ = 1;  // code = round((x - lo_) * scale_)
