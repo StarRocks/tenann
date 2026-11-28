@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <ctime>
 #include <memory>
 
 #include "tenann/common/error.h"
@@ -33,6 +34,10 @@ extern int T_MIN_LOG_LEVEL;
 extern int T_V_LOG_LEVEL;
 
 namespace detail {
+
+// Synchronises concurrent writes to std::cerr across logging and error paths.
+void WriteLogStderr(const char* message, bool append_newline);
+
 /*!
  * \brief Class to accumulate an error message and throw it. Do not use
  * directly, instead use LOG(FATAL).
@@ -61,7 +66,7 @@ class LogFatal {
     }
     [[noreturn]] T_NO_INLINE Error Finalize() {
       FatalError error(file_, lineno_, stream_.str());
-      std::cerr << error.what();
+      WriteLogStderr(error.what(), false);
       throw error;
     }
     std::ostringstream stream_;
@@ -100,7 +105,7 @@ class LogError {
     }
     [[noreturn]] T_NO_INLINE Error Finalize() {
       Error error(file_, lineno_, stream_.str());
-      std::cerr << error.what();
+      WriteLogStderr(error.what(), false);
       throw error;
     }
     std::ostringstream stream_;
@@ -120,10 +125,20 @@ class LogMessage {
   LogMessage(const std::string& file, int lineno, int level) : level_(level) {
     if (level < T_MIN_LOG_LEVEL) return;
     std::time_t t = std::time(nullptr);
-    stream_ << "[" << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << "] " << file << ":"
-            << lineno << level_strings_[level];
+    std::tm tm_buf{};
+#ifdef _WIN32
+    localtime_s(&tm_buf, &t);
+#else
+    localtime_r(&t, &tm_buf);
+#endif
+    stream_ << "[" << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S") << "] " << file << ":" << lineno
+            << level_strings_[level];
   }
-  T_NO_INLINE ~LogMessage() { if (level_ >= T_MIN_LOG_LEVEL) std::cerr << stream_.str() << std::endl; }
+  T_NO_INLINE ~LogMessage() {
+    if (level_ >= T_MIN_LOG_LEVEL) {
+      WriteLogStderr(stream_.str().c_str(), true);
+    }
+  }
   std::ostringstream& stream() { return stream_; }
 
  private:
@@ -264,7 +279,7 @@ void SetVLogLevel(int level);
 #define T_ICHECK_NOTNULL(x)                                                 \
   ((x) == nullptr ? ::tenann::detail::LogFatal(__FILE__, __LINE__).stream() \
                         << "FatalError: Check not null: " #x << ' ',        \
-   (x) : (x))  // NOLINT(*)
+   (x)            : (x))  // NOLINT(*)
 
 #define CATCH_FAISS_ERROR             \
   catch (faiss::FaissException & e) { \
@@ -275,5 +290,5 @@ void SetVLogLevel(int level);
   catch (json::exception & e) { \
     T_LOG(ERROR) << e.what();   \
   }
-  
+
 }  // namespace tenann

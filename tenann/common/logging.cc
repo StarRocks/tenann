@@ -19,6 +19,9 @@
 
 #include "tenann/common/logging.h"
 
+#include <iostream>
+#include <mutex>
+
 namespace tenann {
 
 int T_MIN_LOG_LEVEL = T_LOG_LEVEL_INFO;
@@ -27,6 +30,15 @@ int T_V_LOG_LEVEL = VERBOSE_CRITICAL;
 std::string Backtrace() { return ""; }
 
 namespace detail {
+
+void WriteLogStderr(const char* message, bool append_newline) {
+  static std::mutex stderr_mutex;
+  std::lock_guard<std::mutex> lock(stderr_mutex);
+  std::cerr << message;
+  if (append_newline) {
+    std::cerr << std::endl;
+  }
+}
 
 const char* ::tenann::detail::LogMessage::level_strings_[] = {
     ": Debug: ",    // TNN_LOG_LEVEL_DEBUG
