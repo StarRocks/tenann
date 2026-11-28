@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -330,4 +331,104 @@ TEST(IndexIvfPqTest, block_cache_top_level_charge_excludes_list_payloads) {
   lists->lists[1].size = 2;
 
   EXPECT_EQ(index.EstimateMemoryUsage(), large_lists_estimate);
+}
+
+TEST(IndexIvfPqTest, block_cache_get_ids_returns_8byte_aligned_pointers) {
+  constexpr size_t kCodeSize = 2;
+  constexpr size_t kOneEntrySize = kCodeSize + sizeof(faiss::idx_t);
+  constexpr size_t kBlockSize = 64;
+  // Leading padding ensures list file offsets are not multiples of 8; list 1
+  // also ends 1 byte before a block_size boundary to exercise block-edge padding.
+  const std::vector<size_t> list_sizes = {3, 3, 5, 4, 0};
+  const std::vector<size_t> list_offsets = {13, 97, 129, 193, 240};
+
+  std::string payload(256, '\x5a');
+  std::vector<std::vector<uint8_t>> expected_codes(list_sizes.size());
+  std::vector<std::vector<faiss::idx_t>> expected_ids(list_sizes.size());
+
+  for (size_t i = 0; i < list_sizes.size(); ++i) {
+    const size_t n = list_sizes[i];
+    expected_codes[i].resize(n * kCodeSize);
+    expected_ids[i].resize(n);
+    for (size_t j = 0; j < expected_codes[i].size(); ++j) {
+      expected_codes[i][j] = static_cast<uint8_t>((i * 31 + j * 7 + 1) & 0xff);
+    }
+    for (size_t j = 0; j < n; ++j) {
+      expected_ids[i][j] = static_cast<faiss::idx_t>(100000 * (i + 1) + j * 13 + 5);
+    }
+    if (n > 0) {
+      const size_t codes_bytes = n * kCodeSize;
+      const size_t ids_bytes = n * sizeof(faiss::idx_t);
+      std::memcpy(payload.data() + list_offsets[i], expected_codes[i].data(), codes_bytes);
+      std::memcpy(payload.data() + list_offsets[i] + codes_bytes, expected_ids[i].data(),
+                  ids_bytes);
+    }
+  }
+
+  auto verify_lists = [&](const faiss::BlockCacheInvertedLists& lists) {
+    // Check both cache-miss (pass 0) and cache-hit (pass 1) paths.
+    for (int pass = 0; pass < 2; ++pass) {
+      for (size_t i = 0; i < list_sizes.size(); ++i) {
+        const size_t n = list_sizes[i];
+        const faiss::idx_t* ids = lists.get_ids(i);
+        if (n == 0) {
+          EXPECT_EQ(ids, nullptr);
+          continue;
+        }
+        ASSERT_NE(ids, nullptr);
+        EXPECT_EQ(reinterpret_cast<uintptr_t>(ids) % alignof(faiss::idx_t), 0u)
+            << "list " << i << " pass " << pass;
+        for (size_t j = 0; j < n; ++j) {
+          EXPECT_EQ(ids[j], expected_ids[i][j]) << "list " << i << " entry " << j;
+        }
+        const uint8_t* codes = lists.get_codes(i);
+        ASSERT_NE(codes, nullptr);
+        EXPECT_EQ(std::memcmp(codes, expected_codes[i].data(), expected_codes[i].size()), 0)
+            << "list " << i << " pass " << pass;
+      }
+    }
+  };
+
+  // Remote IndexFileReader path.
+  {
+    tenann::DefaultIndexCache cache(1024 * 1024);
+    auto reader = std::make_shared<ConcurrentIndexFileReader>(payload);
+    faiss::BlockCacheInvertedLists lists(list_sizes.size(), kCodeSize, "remote-aligned", &cache);
+    lists.file_reader = reader;
+    lists.totsize = payload.size();
+    lists.one_entry_size = kOneEntrySize;
+    for (size_t i = 0; i < list_sizes.size(); ++i) {
+      lists.lists[i].size = list_sizes[i];
+      lists.lists[i].capacity = list_sizes[i];
+      lists.lists[i].offset = list_offsets[i];
+      lists.offset_difference[i] = 0;
+      lists.cache_keys[i] = "remote-aligned-" + std::to_string(i);
+    }
+    verify_lists(lists);
+  }
+
+  // Local POSIX pread path.
+  {
+    char path[] = "/tmp/tenann-block-cache-align-XXXXXX";
+    int fd = mkstemp(path);
+    ASSERT_NE(fd, -1);
+    unlink(path);
+    ASSERT_EQ(pwrite(fd, payload.data(), payload.size(), 0), static_cast<ssize_t>(payload.size()));
+
+    tenann::DefaultIndexCache cache(1024 * 1024);
+    faiss::BlockCacheInvertedLists lists(list_sizes.size(), kCodeSize, path, &cache);
+    lists.fd = fd;
+    lists.block_size = kBlockSize;
+    lists.totsize = payload.size();
+    lists.one_entry_size = kOneEntrySize;
+    for (size_t i = 0; i < list_sizes.size(); ++i) {
+      lists.lists[i].size = list_sizes[i];
+      lists.lists[i].capacity = list_sizes[i];
+      lists.lists[i].offset = list_offsets[i];
+      const size_t aligned_offset = (list_offsets[i] / kBlockSize) * kBlockSize;
+      lists.offset_difference[i] = list_offsets[i] - aligned_offset;
+      lists.cache_keys[i] = "local-aligned-" + std::to_string(i);
+    }
+    verify_lists(lists);
+  }
 }

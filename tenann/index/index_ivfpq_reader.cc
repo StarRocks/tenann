@@ -26,8 +26,10 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 
 #include "faiss/Index.h"
@@ -100,8 +102,7 @@ static void read_ivf_header(IndexIVF* ivf, IOReader* f,
 }
 
 // used for legacy formats
-static ArrayInvertedLists* set_array_invlist(IndexIVF* ivf,
-                                             std::vector<std::vector<idx_t>>& ids) {
+static ArrayInvertedLists* set_array_invlist(IndexIVF* ivf, std::vector<std::vector<idx_t>>& ids) {
   ArrayInvertedLists* ail = new ArrayInvertedLists(ivf->nlist, ivf->code_size);
   // Copy ids since MaybeOwnedVector doesn't support swap with vector
   for (size_t i = 0; i < ids.size(); i++) {
@@ -133,9 +134,9 @@ static void read_ArrayInvertedLists_sizes(IOReader* f, std::vector<size_t>& size
   }
 }
 
-InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags,
-                                                   tenann::IndexCache* index_cache,
-                                                   tenann::IndexFileReaderPtr file_reader = nullptr) {
+InvertedLists* read_InvertedLists_with_block_cache(
+    IOReader* f, int io_flags, tenann::IndexCache* index_cache,
+    tenann::IndexFileReaderPtr file_reader = nullptr) {
   uint32_t h;
   READ1(h);
   if (h == fourcc("il00")) {
@@ -151,7 +152,8 @@ InvertedLists* read_InvertedLists_with_block_cache(IOReader* f, int io_flags,
     read_ArrayInvertedLists_sizes(f, sizes);
     auto bc = std::make_shared<BlockCacheInvertedListsIOHook>(index_cache);
     if (file_reader) {
-      return bc->read_ArrayInvertedLists(f, io_flags, nlist, code_size, sizes, std::move(file_reader));
+      return bc->read_ArrayInvertedLists(f, io_flags, nlist, code_size, sizes,
+                                         std::move(file_reader));
     } else {
       return bc->read_ArrayInvertedLists(f, io_flags, nlist, code_size, sizes);
     }
@@ -229,6 +231,17 @@ static void read_ivfpq(IndexIVFPQ* ivpq, IOReader* f, uint32_t h, int io_flags,
 
 #define INVALID_OFFSET (size_t)(-1)
 
+namespace {
+
+constexpr size_t AlignUp(size_t value, size_t alignment) {
+  return (value + alignment - 1) & ~(alignment - 1);
+}
+
+static_assert(alignof(std::max_align_t) >= alignof(idx_t),
+              "malloc must return pointers at least aligned for faiss::idx_t");
+
+}  // namespace
+
 BlockCacheInvertedLists::BlockCacheInvertedLists(size_t nlist, size_t code_size,
                                                  const char* filename,
                                                  tenann::IndexCache* index_cache)
@@ -279,19 +292,29 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   // Keep lookup, load, and insert in one per-list critical section. IndexCache
   // implementations are not required to single-flight concurrent misses.
   std::lock_guard<std::mutex> guard(invlist_locks[list_no]);
+  const size_t codes_offset = file_reader ? 0 : offset_difference[list_no];
   tenann::IndexCacheHandle* cache_handle = &cache_handles[list_no];
   auto found = index_cache->Lookup(cache_keys[list_no], cache_handle);
   if (found) {
     VLOG(VERBOSE_DEBUG) << "   hit cache, cache_key: " << cache_keys[list_no].c_str();
     auto start_ptr = static_cast<uint8_t*>(cache_handle->index_ref()->index_raw());
-    return start_ptr + offset_difference[list_no];
+    return start_ptr + codes_offset;
   }
 
   // read file and insert
 
   // Calculate the offset and size for the specific list
-  size_t offset = lists[list_no].offset;
-  size_t size = lists[list_no].size * one_entry_size;
+  const size_t offset = lists[list_no].offset;
+  const size_t list_entries = lists[list_no].size;
+  const size_t size = list_entries * one_entry_size;
+  const size_t codes_bytes = code_size * lists[list_no].capacity;
+  const bool has_ids = list_entries > 0 && one_entry_size == code_size + sizeof(idx_t) &&
+                       lists[list_no].capacity == list_entries;
+  const size_t ids_bytes = has_ids ? list_entries * sizeof(idx_t) : 0;
+  const size_t raw_ids_offset = codes_offset + codes_bytes;
+  const size_t aligned_ids_offset =
+      has_ids ? AlignUp(raw_ids_offset, alignof(idx_t)) : raw_ids_offset;
+  const size_t ids_padding = aligned_ids_offset - raw_ids_offset;
 
   ssize_t read_bytes = 0;
   size_t allocated_bytes = 0;
@@ -299,31 +322,30 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
 
   if (file_reader) {
     // ---- Remote file system path: use IndexFileReader::ReadAt ----
-    // No O_DIRECT / alignment needed for remote FS.
-    buffer.reset(malloc(size));
-    FAISS_THROW_IF_NOT_FMT(buffer != nullptr, "malloc(%zu) failed", size);
-    allocated_bytes = size;
+    // No O_DIRECT alignment is needed for remote FS, but reserve padding so
+    // the trailing idx_t array sits on an alignof(idx_t) boundary.
+    allocated_bytes = size + ids_padding;
+    buffer.reset(malloc(allocated_bytes));
+    FAISS_THROW_IF_NOT_FMT(buffer != nullptr, "malloc(%zu) failed", allocated_bytes);
 
     read_bytes = file_reader->ReadAt(offset, buffer.get(), size);
     FAISS_THROW_IF_NOT_FMT(read_bytes == static_cast<ssize_t>(size),
                            "ReadAt: read_bytes: %zd, expected: %zu", read_bytes, size);
-
-    // No alignment offset for remote reads
-    offset_difference[list_no] = 0;
   } else {
     // ---- Local file system path: original POSIX O_DIRECT logic ----
 
     // Align the offset to the block size
-    size_t aligned_offset = (offset / block_size) * block_size;
+    const size_t aligned_offset = (offset / block_size) * block_size;
 
     // Adjust the size to read to include the data from the aligned offset
-    size_t aligned_size =
-        ((offset_difference[list_no] + size + block_size - 1) / block_size) * block_size;
-    allocated_bytes = aligned_size;
+    const size_t aligned_size = ((codes_offset + size + block_size - 1) / block_size) * block_size;
+    const size_t required_bytes = has_ids ? aligned_ids_offset + ids_bytes : codes_offset + size;
+    allocated_bytes = std::max(aligned_size, required_bytes);
 
     // Allocate aligned memory
     void* aligned_buffer = nullptr;
-    int err = posix_memalign(&aligned_buffer, block_size, aligned_size);
+    const size_t alloc_alignment = std::max(block_size, alignof(idx_t));
+    int err = posix_memalign(&aligned_buffer, alloc_alignment, allocated_bytes);
     FAISS_THROW_IF_NOT_FMT(err == 0, "posix_memalign error: %d", err);
     buffer.reset(aligned_buffer);
 
@@ -337,6 +359,14 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
                            expected_read_size, strerror(errno));
   }
 
+  // Shift the trailing idx_t array onto an 8-byte boundary within the cached
+  // buffer so get_ids() always returns a properly aligned const idx_t*.
+  if (has_ids && ids_padding > 0) {
+    auto* raw_buf = static_cast<uint8_t*>(buffer.get());
+    std::memmove(raw_buf + aligned_ids_offset, raw_buf + raw_ids_offset, ids_bytes);
+    std::memset(raw_buf + raw_ids_offset, 0, ids_padding);
+  }
+
   auto index_ref = std::make_shared<tenann::Index>(
       buffer.get(), tenann::IndexType::kFaissIvfPqOneInvertedList, [](void* index) { free(index); },
       /*explicit_bytes=*/allocated_bytes);
@@ -347,7 +377,7 @@ const uint8_t* BlockCacheInvertedLists::get_ptr(size_t list_no) const {
   VLOG(VERBOSE_DEBUG) << "insert cache, cache_key: " << cache_keys[list_no].c_str();
 
   auto start_ptr = static_cast<uint8_t*>(cache_handle->index_ref()->index_raw());
-  return start_ptr + offset_difference[list_no];
+  return start_ptr + codes_offset;
 }
 
 const uint8_t* BlockCacheInvertedLists::get_codes(size_t list_no) const {
@@ -360,12 +390,16 @@ const uint8_t* BlockCacheInvertedLists::get_codes(size_t list_no) const {
 }
 
 const idx_t* BlockCacheInvertedLists::get_ids(size_t list_no) const {
-  if (lists[list_no].offset == INVALID_OFFSET) {
+  if (lists[list_no].offset == INVALID_OFFSET || lists[list_no].size == 0) {
     return nullptr;
   }
 
-  const idx_t* ret = (const idx_t*)(get_ptr(list_no) + code_size * lists[list_no].capacity);
-  return ret;
+  const uint8_t* codes_ptr = get_ptr(list_no);
+  const size_t codes_offset = file_reader ? 0 : offset_difference[list_no];
+  const size_t codes_bytes = code_size * lists[list_no].capacity;
+  const size_t aligned_ids_offset = AlignUp(codes_offset + codes_bytes, alignof(idx_t));
+  const size_t ids_rel_offset = aligned_ids_offset - codes_offset;
+  return static_cast<const idx_t*>(static_cast<const void*>(codes_ptr + ids_rel_offset));
 }
 
 BlockCacheInvertedListsIOHook::BlockCacheInvertedListsIOHook(tenann::IndexCache* index_cache)
@@ -387,8 +421,8 @@ InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
   size_t o = ails->start_offset;
 
   ails->fd = open(f->name.c_str(), O_RDONLY | O_DIRECT);
-  FAISS_THROW_IF_NOT_FMT(ails->fd != -1, "could not open file %s with O_DIRECT: %s", reader->name.c_str(),
-                         strerror(errno));
+  FAISS_THROW_IF_NOT_FMT(ails->fd != -1, "could not open file %s with O_DIRECT: %s",
+                         reader->name.c_str(), strerror(errno));
 
   struct stat buf;
   int ret = fstat(fileno(fdesc), &buf);
@@ -423,8 +457,7 @@ InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
 // Remote file system version: uses IndexFileReader instead of POSIX fd
 InvertedLists* BlockCacheInvertedListsIOHook::read_ArrayInvertedLists(
     IOReader* f, int /* io_flags */, size_t nlist, size_t code_size,
-    const std::vector<size_t>& sizes,
-    tenann::IndexFileReaderPtr file_reader) const {
+    const std::vector<size_t>& sizes, tenann::IndexFileReaderPtr file_reader) const {
   auto ails =
       std::make_unique<BlockCacheInvertedLists>(nlist, code_size, f->name.c_str(), index_cache);
   ails->read_only = true;
