@@ -52,7 +52,7 @@ FaissIndexBuilder::FaissIndexBuilder(const IndexMeta& meta) : IndexBuilder(meta)
                                         ParseCosineBackend(index_writer_options_.cosine_backend));
 }
 
-FaissIndexBuilder::~FaissIndexBuilder(){};
+FaissIndexBuilder::~FaissIndexBuilder() {};
 
 IndexBuilder& FaissIndexBuilder::Open() {
   try {
@@ -104,8 +104,10 @@ IndexBuilder& FaissIndexBuilder::Add(const std::vector<SeqView>& input_columns,
     auto input_seq_type = input_columns[0].seq_view_type;
     T_CHECK(input_seq_type == SeqViewType::kArraySeqView ||
             input_seq_type == SeqViewType::kVlArraySeqView);
-    T_CHECK(input_columns[0].seq_view.array_seq_view.elem_type == PrimitiveType::kFloatType ||
-            input_columns[0].seq_view.vl_array_seq_view.elem_type == PrimitiveType::kFloatType);
+    const PrimitiveType elem_type = (input_seq_type == SeqViewType::kArraySeqView)
+                                        ? input_columns[0].seq_view.array_seq_view.elem_type
+                                        : input_columns[0].seq_view.vl_array_seq_view.elem_type;
+    T_CHECK(elem_type == PrimitiveType::kFloatType);
 
     inputs_live_longer_than_this_ = inputs_live_longer_than_this;
 
