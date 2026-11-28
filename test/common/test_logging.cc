@@ -18,6 +18,7 @@
  */
 
 #include <atomic>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -59,6 +60,46 @@ TEST(LoggingTest, ConcurrentLogInfoAndWarning) {
   for (auto& thread : threads) {
     thread.join();
   }
+}
+
+TEST(LoggingTest, ConcurrentLogErrorThrows) {
+  constexpr int kNumThreads = 8;
+  constexpr int kIterations = 25;
+
+  std::atomic<int> ready{0};
+  std::atomic<bool> start{false};
+  std::atomic<int> caught{0};
+  std::vector<std::thread> threads;
+  threads.reserve(kNumThreads);
+
+  for (int t = 0; t < kNumThreads; ++t) {
+    threads.emplace_back([t, &ready, &start, &caught]() {
+      ready.fetch_add(1, std::memory_order_acq_rel);
+      while (!start.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      for (int i = 0; i < kIterations; ++i) {
+        try {
+          T_LOG(ERROR) << "error thread=" << t << " iter=" << i;
+          FAIL() << "T_LOG(ERROR) must throw tenann::Error";
+        } catch (const Error& err) {
+          EXPECT_NE(std::string(err.what()).find(": Error: "), std::string::npos);
+          caught.fetch_add(1, std::memory_order_relaxed);
+        }
+      }
+    });
+  }
+
+  while (ready.load(std::memory_order_acquire) < kNumThreads) {
+    std::this_thread::yield();
+  }
+  start.store(true, std::memory_order_release);
+
+  for (auto& thread : threads) {
+    thread.join();
+  }
+
+  EXPECT_EQ(caught.load(std::memory_order_relaxed), kNumThreads * kIterations);
 }
 
 }  // namespace tenann

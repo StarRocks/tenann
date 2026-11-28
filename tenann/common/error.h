@@ -22,10 +22,14 @@
 
 #pragma once
 
+#include <ctime>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
+#ifndef _WIN32
+#include <time.h>
+#endif
 
 namespace tenann {
 
@@ -55,8 +59,14 @@ class Error : std::exception {
     // TODO(tkonolige): Convert errors to Objects, so we can avoid the mess of formatting/parsing
     // error messages correctly.
 
-    s << "[" << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << file << ":"
-      << lineno << ": Error: " << message << std::endl;
+    std::tm tm_buf{};
+#ifdef _WIN32
+    localtime_s(&tm_buf, &time);
+#else
+    localtime_r(&time, &tm_buf);
+#endif
+    s << "[" << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S") << "] " << file << ":" << lineno
+      << ": Error: " << message << std::endl;
     if (backtrace.size() > 0) {
       s << backtrace << std::endl;
     }
@@ -108,8 +118,14 @@ class FatalError : std::exception {
     // TODO(tkonolige): Convert errors to Objects, so we can avoid the mess of formatting/parsing
     // error messages correctly.
 
-    s << "[" << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "] " << file << ":"
-      << lineno << ": Fatal: " << message << std::endl;
+    std::tm tm_buf{};
+#ifdef _WIN32
+    localtime_s(&tm_buf, &time);
+#else
+    localtime_r(&time, &tm_buf);
+#endif
+    s << "[" << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S") << "] " << file << ":" << lineno
+      << ": Fatal: " << message << std::endl;
     if (backtrace.size() > 0) {
       s << backtrace << std::endl;
     }

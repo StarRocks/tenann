@@ -32,8 +32,9 @@ std::string Backtrace() { return ""; }
 namespace detail {
 
 void WriteLogStderr(const char* message, bool append_newline) {
-  static std::mutex stderr_mutex;
-  std::lock_guard<std::mutex> lock(stderr_mutex);
+  // Intentionally leaked so static destructors logging during teardown never use a destroyed mutex.
+  static auto* stderr_mutex = new std::mutex();
+  std::lock_guard<std::mutex> lock(*stderr_mutex);
   std::cerr << message;
   if (append_newline) {
     std::cerr << std::endl;

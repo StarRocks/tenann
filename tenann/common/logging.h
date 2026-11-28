@@ -24,6 +24,9 @@
 
 #include <ctime>
 #include <memory>
+#ifndef _WIN32
+#include <time.h>
+#endif
 
 #include "tenann/common/error.h"
 #include "tenann/common/macros.h"
