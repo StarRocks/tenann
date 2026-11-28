@@ -117,4 +117,46 @@ TEST_F(FaissHnswIndexBuilderTest, Add) {
   std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta())->Open().Add({base_vl_view()});
 }
 
+TEST_F(FaissHnswIndexBuilderTest, AddRejectsNonFloatVlArraySeqView) {
+  // Verify that FaissIndexBuilder::Add inspects only the active union member
+  // when validating element types. Here size == 10 aliases PrimitiveType::kFloatType
+  // at ArraySeqView::elem_type, which previously masked the invalid VlArraySeqView
+  // element type and triggered union UB under sanitiser builds.
+  constexpr uint32_t kNumRows = 10;
+  std::vector<int32_t> int_data(kNumRows * d(), 0);
+  VlArraySeqView invalid_vl_view{
+      .data = reinterpret_cast<const uint8_t*>(int_data.data()),
+      .offsets = offsets().data(),
+      .size = kNumRows,
+      .elem_type = PrimitiveType::kInt32Type,
+  };
+
+  auto builder = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta());
+  builder->Open();
+  EXPECT_ANY_THROW(builder->Add({invalid_vl_view}));
+
+  // Also verify non-float ArraySeqView is rejected without reading inactive union fields.
+  ArraySeqView invalid_array_view{
+      .data = reinterpret_cast<const uint8_t*>(int_data.data()),
+      .dim = d(),
+      .size = kNumRows,
+      .elem_type = PrimitiveType::kInt32Type,
+  };
+  auto array_builder = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta());
+  array_builder->Open();
+  EXPECT_ANY_THROW(array_builder->Add({invalid_array_view}));
+
+  // Verify a valid VlArraySeqView (with size > 15) succeeds cleanly
+  // without reading the inactive ArraySeqView union member.
+  constexpr uint32_t kValidNumRows = 20;
+  VlArraySeqView valid_vl_view{
+      .data = reinterpret_cast<const uint8_t*>(base().data()),
+      .offsets = offsets().data(),
+      .size = kValidNumRows,
+      .elem_type = PrimitiveType::kFloatType,
+  };
+  auto valid_builder = std::make_unique<FaissHnswIndexBuilder>(faiss_hnsw_meta());
+  valid_builder->Open().Add({valid_vl_view});
+}
+
 }  // namespace tenann
