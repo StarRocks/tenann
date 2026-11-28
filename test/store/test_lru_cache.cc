@@ -24,24 +24,18 @@
 namespace tenann {
 class ShardedLRUCacheTest : public FaissTestBase {
  protected:
-  void SetUp() override {
-    cache_ = new tenann::ShardedLRUCache(1000);
-  }
+  void SetUp() override { cache_ = new tenann::ShardedLRUCache(1000); }
 
-  void TearDown() override {
-    delete cache_;
-  }
+  void TearDown() override { delete cache_; }
 
   tenann::ShardedLRUCache* cache_;
 };
 
 TEST_F(ShardedLRUCacheTest, InsertLookupRelease) {
   // Test inserting, looking up, and releasing a cache entry.
-  auto key = tenann::CacheKey{std::string("test_key")};
+  auto key = tenann::CacheKey{"test_key"};
   auto value = new int(42);
-  auto deleter = [](const tenann::CacheKey& key, void* value) {
-    delete static_cast<int*>(value);
-  };
+  auto deleter = [](const tenann::CacheKey& key, void* value) { delete static_cast<int*>(value); };
   auto handle = cache_->insert(key, value, sizeof(int), deleter);
   EXPECT_NE(handle, nullptr);
 
@@ -54,11 +48,9 @@ TEST_F(ShardedLRUCacheTest, InsertLookupRelease) {
 
 TEST_F(ShardedLRUCacheTest, Erase) {
   // Test inserting and erasing a cache entry.
-  auto key = tenann::CacheKey{std::string("test_key")};
+  auto key = tenann::CacheKey{"test_key"};
   auto value = new int(42);
-  auto deleter = [](const tenann::CacheKey& key, void* value) {
-    delete static_cast<int*>(value);
-  };
+  auto deleter = [](const tenann::CacheKey& key, void* value) { delete static_cast<int*>(value); };
   auto handle = cache_->insert(key, value, sizeof(int), deleter);
   EXPECT_NE(handle, nullptr);
 
@@ -76,18 +68,14 @@ TEST_F(ShardedLRUCacheTest, NewId) {
 
 TEST_F(ShardedLRUCacheTest, Prune) {
   // Test pruning the cache.
-  auto key1 = tenann::CacheKey{std::string("test_key1")};
+  auto key1 = tenann::CacheKey{"test_key1"};
   auto value1 = new int(42);
-  auto deleter1 = [](const tenann::CacheKey& key, void* value) {
-    delete static_cast<int*>(value);
-  };
+  auto deleter1 = [](const tenann::CacheKey& key, void* value) { delete static_cast<int*>(value); };
   auto handle1 = cache_->insert(key1, value1, sizeof(int), deleter1);
 
-  auto key2 = tenann::CacheKey{std::string("test_key2")};
+  auto key2 = tenann::CacheKey{"test_key2"};
   auto value2 = new int(43);
-  auto deleter2 = [](const tenann::CacheKey& key, void* value) {
-    delete static_cast<int*>(value);
-  };
+  auto deleter2 = [](const tenann::CacheKey& key, void* value) { delete static_cast<int*>(value); };
   auto handle2 = cache_->insert(key2, value2, sizeof(int), deleter2);
 
   cache_->prune();
@@ -98,11 +86,9 @@ TEST_F(ShardedLRUCacheTest, Prune) {
 
 TEST_F(ShardedLRUCacheTest, GetCacheStatus) {
   // Test getting the cache status.
-  auto key = tenann::CacheKey{std::string("test_key")};
+  auto key = tenann::CacheKey{"test_key"};
   auto value = new int(42);
-  auto deleter = [](const tenann::CacheKey& key, void* value) {
-    delete static_cast<int*>(value);
-  };
+  auto deleter = [](const tenann::CacheKey& key, void* value) { delete static_cast<int*>(value); };
   auto handle = cache_->insert(key, value, sizeof(int), deleter);
 
   json document;
@@ -115,11 +101,9 @@ TEST_F(ShardedLRUCacheTest, GetCacheStatus) {
 
 TEST_F(ShardedLRUCacheTest, SetCapacity) {
   // Test setting the cache capacity.
-  auto key = tenann::CacheKey{std::string("test_key")};
+  auto key = tenann::CacheKey{"test_key"};
   auto value = new int(42);
-  auto deleter = [](const tenann::CacheKey& key, void* value) {
-    delete static_cast<int*>(value);
-  };
+  auto deleter = [](const tenann::CacheKey& key, void* value) { delete static_cast<int*>(value); };
   auto handle = cache_->insert(key, value, sizeof(int), deleter);
 
   cache_->set_capacity(2000);
@@ -128,11 +112,9 @@ TEST_F(ShardedLRUCacheTest, SetCapacity) {
 
 TEST_F(ShardedLRUCacheTest, GetLookupCount) {
   // Test getting the lookup count.
-  auto key = tenann::CacheKey{std::string("test_key")};
+  auto key = tenann::CacheKey{"test_key"};
   auto value = new int(42);
-  auto deleter = [](const tenann::CacheKey& key, void* value) {
-    delete static_cast<int*>(value);
-  };
+  auto deleter = [](const tenann::CacheKey& key, void* value) { delete static_cast<int*>(value); };
   auto handle = cache_->insert(key, value, sizeof(int), deleter);
 
   EXPECT_EQ(cache_->get_memory_usage(), sizeof(int));
