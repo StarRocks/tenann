@@ -21,7 +21,9 @@
 
 #include <stddef.h>
 
+#include <cstdint>
 #include <queue>
+#include <vector>
 
 #include "tenann/common/error.h"
 #include "tenann/common/macros.h"
@@ -63,18 +65,18 @@ inline float CosineSimilarityThresholdToL2Distance(float threshold) {
 }
 
 namespace detail {
-/// to sort pairs of (id, distance) from nearest to fathest or the reverse
+/// to sort pairs of (id, distance) from nearest to farthest or the reverse
 struct NodeDistCloser {
   float d;
-  int id;
-  NodeDistCloser(float d, int id) : d(d), id(id) {}
+  int64_t id;
+  NodeDistCloser(float d, int64_t id) : d(d), id(id) {}
   bool operator<(const NodeDistCloser& obj1) const { return d < obj1.d; }
 };
 
 struct NodeDistFarther {
   float d;
-  int id;
-  NodeDistFarther(float d, int id) : d(d), id(id) {}
+  int64_t id;
+  NodeDistFarther(float d, int64_t id) : d(d), id(id) {}
   bool operator<(const NodeDistFarther& obj1) const { return d > obj1.d; }
 };
 
@@ -83,6 +85,14 @@ inline void ReserveTopK(std::vector<int64_t>* ids, std::vector<float>* distances
                         int64_t k) T_THROW_EXCEPTION {
   if (ids->size() != distances->size()) {
     throw Error(__FILE__, __LINE__, "ids and distances must be of the same size");
+  }
+  if (k < 0) {
+    throw Error(__FILE__, __LINE__, "k must be non-negative");
+  }
+  if (k == 0) {
+    ids->clear();
+    distances->clear();
+    return;
   }
 
   auto get_heap = []() {
@@ -96,27 +106,26 @@ inline void ReserveTopK(std::vector<int64_t>* ids, std::vector<float>* distances
   };
   auto heap = get_heap();
 
-  for (int i = 0; i < ids->size(); i++) {
+  const size_t max_size = static_cast<size_t>(k);
+  for (size_t i = 0; i < ids->size(); i++) {
     auto id = (*ids)[i];
     auto dis = (*distances)[i];
     heap.emplace(dis, id);
-    while (heap.size() > k) {
+    while (heap.size() > max_size) {
       heap.pop();
     }
   }
 
-  int i = heap.size();
-  ids->resize(i);
-  distances->resize(i);
-  i -= 1;
-  while (i >= 0) {
+  const size_t count = heap.size();
+  ids->resize(count);
+  distances->resize(count);
+  for (size_t i = count; i > 0; --i) {
     auto dis = heap.top().d;
     auto id = heap.top().id;
     heap.pop();
 
-    (*ids)[i] = id;
-    (*distances)[i] = dis;
-    i -= 1;
+    (*ids)[i - 1] = id;
+    (*distances)[i - 1] = dis;
   }
 }
 }  // namespace detail
